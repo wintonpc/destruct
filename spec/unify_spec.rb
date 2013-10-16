@@ -6,6 +6,7 @@ describe Runify do
   it 'should match primitives' do
     Runify::match(1, 2).should be_nil
     Runify::match(1, 1).should be_instance_of Env
+    Runify::match(nil, nil).should be_instance_of Env
   end
 
   it 'should match strings' do
@@ -33,11 +34,24 @@ describe Runify do
     x = Var.new
     y = Var.new
     Runify::match(x, 5)[x].should == 5
+    #Runify::match(x, nil)[x].should == nil
     Runify::match(x, [1,2,3])[x].should == [1,2,3]
     Runify::match([1,x,3], [1,2,3])[x].should == 2
     Runify::match({a: 1, b: x}, {a: 1, c: 3, b: 2})[x].should == 2
     env = Runify::match([1,[4,x,6],y], [1,[4,5,6],3])
     env[x].should == 5
     env[y].should == 3
+  end
+
+  it 'should match wildcards' do
+    Runify::match(Wildcard.new, 5)
+    Runify::match(Wildcard.new, [])
+    Runify::match(Wildcard.new, nil)
+    Runify::match(Wildcard.new, {a: 1, b: 2})
+  end
+
+  it 'should match splats' do
+    x = Splat.new
+    Runify::match(x, 5)[x].should == [5]
   end
 end

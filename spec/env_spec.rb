@@ -23,4 +23,17 @@ describe Env do
     @env[v] = 5
     expect { @env[v] = 6 }.to raise_exception
   end
+
+  it 'should allow nil to be set' do
+    v = Var.new
+    expect { @env[v] }.to raise_exception
+    @env[v] = nil
+    @env[v].should == nil
+  end
+
+  it 'should allow false to be set' do
+    v = Var.new
+    @env[v] = false
+    @env[v].should == false
+  end
 end
