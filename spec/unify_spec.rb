@@ -53,5 +53,21 @@ describe Runify do
   it 'should match splats' do
     x = Splat.new
     Runify::match(x, 5)[x].should == [5]
+    Runify::match(x, [5])[x].should == [5]
+    Runify::match([1, x], [1, 2, 3])[x].should == [2, 3]
+    Runify::match([x, 3], [1, 2, 3])[x].should == [1, 2]
+    Runify::match([1, x, 5], [1, 2, 3, 4, 5])[x].should == [2, 3, 4]
+    y = Splat.new
+    e = Runify::match([1, x, [5, y, 8], 9], [1, 2, 3, 4, [5, 6, 7, 8], 9])
+    e[x].should == [2, 3, 4]
+    e[y].should == [6, 7]
+  end
+
+  it 'should match splats on infinite enumerables' do
+    first = Var.new
+    rest = Splat.new
+    e = Runify::match([first, rest], [1,2,3].cycle.lazy)
+    e[first].should == 1
+    e[rest].take(5).to_a.should == [2,3,1,2,3]
   end
 end

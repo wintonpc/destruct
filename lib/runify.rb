@@ -66,10 +66,15 @@ class Runify
           when (parts = decompose_splatted_enumerable(pat))
             pat_before, pat_splat, pat_after = parts
             x_before = x.take(pat_before.length)
-            x_splat = x.drop(pat_before.length).take(len(x) - pat_before.length - pat_after.length)
+            if pat_after.any?
+              x_splat = x.drop(pat_before.length).take(len(x) - pat_before.length - pat_after.length)
+            else
+              x_splat =  x.drop(pat_before.length)
+            end
+
             before_and_splat_result = match_enumerable_no_splats(pat_before, x_before) && match(pat_splat, x_splat)
 
-            if before_and_splat_result && pat_after.length > 0
+            if before_and_splat_result && pat_after.any?
               # do this only if we have to, since it requires access to the end of the enumerable,
               # which doesn't work with infinite enumerables
               x_after = take_last(pat_after.length, x)
