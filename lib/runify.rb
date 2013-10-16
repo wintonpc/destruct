@@ -67,7 +67,9 @@ class Runify
             pat_before, pat_splat, pat_after = parts
             x_before = x.take(pat_before.length)
             if pat_after.any?
-              x_splat = x.drop(pat_before.length).take(len(x) - pat_before.length - pat_after.length)
+              splat_len = len(x) - pat_before.length - pat_after.length
+              return nil if splat_len < 0
+              x_splat = x.drop(pat_before.length).take(splat_len)
             else
               x_splat =  x.drop(pat_before.length)
             end

@@ -57,6 +57,11 @@ describe Runify do
     Runify::match([1, x], [1, 2, 3])[x].should == [2, 3]
     Runify::match([x, 3], [1, 2, 3])[x].should == [1, 2]
     Runify::match([1, x, 5], [1, 2, 3, 4, 5])[x].should == [2, 3, 4]
+    Runify::match([1, x, 4], [1, 4])[x].should == []
+    Runify::match([x, 5], [5])[x].should == []
+    Runify::match([5, x], [5])[x].should == []
+    Runify::match([1, 2, 3, x, 4], [1, 4]).should be_nil
+    Runify::match([1, x, 2, 3, 4], [1, 4]).should be_nil
     y = Splat.new
     e = Runify::match([1, x, [5, y, 8], 9], [1, 2, 3, 4, [5, 6, 7, 8], 9])
     e[x].should == [2, 3, 4]
