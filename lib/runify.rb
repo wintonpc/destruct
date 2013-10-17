@@ -1,54 +1,5 @@
-require 'sourcify'
-
-class Var
-  attr_reader :name
-
-  def initialize(name=nil)
-    @name = name
-  end
-end
-
-class Splat < Var
-
-end
-
-class Wildcard < Var
-  def initialize
-    super('_')
-  end
-end
-
-class Obj
-  attr_reader :fields
-
-  def initialize(fields)
-    @fields = fields
-  end
-end
-
-class Env
-
-  def env
-    @env ||= {}
-  end
-
-  def [](identifier)
-    raise 'identifier must be a Var' unless identifier.is_a? Var
-    v = env[identifier]
-    raise "Identifier '#{identifier}' is not bound." if v.nil?
-    v.is_a?(EnvNil) ? nil : v
-  end
-
-  def []=(identifier, value)
-    raise 'identifier must be a Var' unless identifier.is_a? Var
-    raise "Identifier '#{identifier}' is already set to #{value}" if env.include?(identifier)
-    env[identifier] = value.nil? ? EnvNil.new : value
-  end
-end
-
-class EnvNil
-
-end
+require 'env'
+require 'types'
 
 class Runify
   def self.match(pat, x, env = Env.new)
@@ -61,6 +12,7 @@ class Runify
 
   def match(pat, x)
     case
+      when pat.is_a?(Wildcard); @env
       when pat.is_a?(Splat)
         @env[pat] = enumerable(x) ? x : [x]
         @env

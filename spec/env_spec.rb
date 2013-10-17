@@ -1,5 +1,5 @@
 require_relative 'rspec_helper'
-require 'runify'
+require 'env'
 
 describe Env do
 
@@ -35,5 +35,10 @@ describe Env do
     v = Var.new
     @env[v] = false
     @env[v].should == false
+  end
+
+  it 'should allow getting by var name' do
+    @env[Var.new(:v)] = 42
+    @env[:v].should == 42
   end
 end
