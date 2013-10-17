@@ -6,8 +6,14 @@ def sexp(&block)
 end
 
 describe 'pmatch' do
-  it 'should match vars' do
+  it 'should match non-local vars' do
     a = 1
+    e = pmatch(a) { x }
+    e.x.should == 1
+  end
+  it 'should match local vars' do
+    a = 1
+    x = 99
     e = pmatch(a) { x }
     e.x.should == 1
   end
@@ -25,6 +31,22 @@ describe 'pmatch' do
     v = transform(sexp { x })
     v.should be_instance_of Var
     v.name.should == :x
+  end
+  it 'should transform splats' do
+    v = transform(sexp { @@x })
+    v.should be_instance_of Splat
+    v.name.should == :x
+  end
+  it 'should transform object matchers with implied names' do
+    v = transform(sexp { Object(x, y) })
+    # come back to this once predicates are implemented and use Decons::match to validate
+    v.should be_instance_of Obj
+    xvar = v.fields[:x]
+    xvar.should be_instance_of Var
+    xvar.name.should == :x
+    yvar = v.fields[:y]
+    yvar.should be_instance_of Var
+    yvar.name.should == :y
   end
   it 'should transform primitives' do
     transform(sexp { 1 }).should == 1
