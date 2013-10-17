@@ -60,6 +60,16 @@ describe Decons do
     env[y].should == 3
   end
 
+  it 'should support predicates' do
+    Decons::match(Pred.new{|x| x.odd? }, 5).should be_instance_of Env
+    Decons::match(Pred.new{|x| x.even? }, 5).should be_nil
+  end
+
+  it 'should support variable predicates' do
+    Decons::match(Var.new(:x) {|x| x.odd? }, 5)[:x].should == 5
+    Decons::match(Var.new(:x) {|x| x.even? }, 5).should be_nil
+  end
+
   it 'should match wildcards' do
     Decons::match(Decons::_, 5)
     Decons::match(Decons::_, [])

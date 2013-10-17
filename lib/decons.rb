@@ -17,10 +17,11 @@ class Decons
   def match(pat, x)
     case
       when pat.is_a?(Wildcard); @env
+      when pat.is_a?(Pred) && pat.test(x); @env
       when pat.is_a?(Splat)
         @env[pat] = enumerable(x) ? x : [x]
         @env
-      when pat.is_a?(Var)
+      when pat.is_a?(Var) && pat.test(x)
         @env[pat] = x
         @env
       when pat.is_a?(Obj)
