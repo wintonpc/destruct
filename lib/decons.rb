@@ -1,9 +1,13 @@
 require 'env'
 require 'types'
 
-class Runify
+class Decons
   def self.match(pat, x, env = Env.new)
-    Runify.new(env).match(pat, x)
+    Decons.new(env).match(pat, x)
+  end
+
+  def self._
+    Wildcard.instance
   end
 
   def initialize(env)
@@ -113,5 +117,13 @@ class Runify
 
   def no_nils(xs)
     !xs.any?{|x| x.nil?} || nil
+  end
+
+  class Wildcard < Var
+    include Singleton
+
+    def initialize
+      super('_')
+    end
   end
 end

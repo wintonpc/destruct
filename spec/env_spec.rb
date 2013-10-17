@@ -1,4 +1,4 @@
-require_relative 'rspec_helper'
+require_relative 'helpers'
 require 'env'
 
 describe Env do

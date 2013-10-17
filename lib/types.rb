@@ -1,3 +1,5 @@
+require 'singleton'
+
 class Var
   attr_reader :name
 
@@ -8,12 +10,6 @@ end
 
 class Splat < Var
 
-end
-
-class Wildcard < Var
-  def initialize
-    super('_')
-  end
 end
 
 class Obj

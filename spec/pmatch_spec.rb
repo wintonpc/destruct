@@ -1,5 +1,4 @@
-require_relative 'rspec_helper'
-require 'runify'
+require_relative 'helpers'
 require 'pmatch'
 
 def sexp(&block)

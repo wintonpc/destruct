@@ -1,14 +1,14 @@
 require 'sourcify'
-require 'runify'
+require 'decons'
 
 def pmatch(x, &pat_block)
   sp = pat_block.to_sexp.to_a.last
   pat = transform(sp)
-  Runify::match(pat, x).to_openstruct
+  Decons::match(pat, x).to_openstruct
 end
 
 def transform(sp)
-  _ = Wildcard.new
+  _ = Decons::_
   case
     when e = rmatch([:call, _, var(:name), _], sp); var(e[:name])
     when e = rmatch([:lit, var(:value)], sp); e[:value]
@@ -25,7 +25,7 @@ end
 private ########################################
 
 def rmatch(*args)
-  Runify::match(*args)
+  Decons::match(*args)
 end
 
 def var(name)
