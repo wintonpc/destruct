@@ -1,6 +1,23 @@
 require_relative 'rspec_helper'
 require 'runify'
 
+class TestObj
+  attr_reader :a, :b
+  def initialize(a, b)
+    @a = a
+    @b = b
+  end
+end
+
+class TestObjWithC
+  attr_reader :a, :b, :c
+  def initialize(a, b, c)
+    @a = a
+    @b = b
+    @c = c
+  end
+end
+
 describe Runify do
 
   it 'should match primitives' do
@@ -74,5 +91,28 @@ describe Runify do
     e = Runify::match([first, rest], [1,2,3].cycle.lazy)
     e[first].should == 1
     e[rest].take(5).to_a.should == [2,3,1,2,3]
+  end
+
+  it 'should match object fields' do
+    Runify::match(Obj.new(a: 1, b: 2), TestObj.new(1, 2)).should be_instance_of Env
+    Runify::match(Obj.new(a: 1, b: 2), TestObj.new(1, 3)).should be_nil
+    Runify::match(Obj.new(a: 1, b: 2, c: 3), TestObj.new(1, 2)).should be_nil
+    Runify::match(Obj.new(a: 1, b: 2), TestObjWithC.new(1, 2, 3)).should be_instance_of Env
+
+    x = Var.new
+    y = Var.new
+    e = Runify::match(Obj.new(a: x, b: y), TestObj.new(1, 2))
+    e[x].should == 1
+    e[y].should == 2
+  end
+
+  it 'should match object fields recursively' do
+    x = Var.new
+    y = Var.new
+    e = Runify::match(Obj.new(a: x, b: [4, y, 6]), TestObj.new(1, [4, 5, 6]))
+    e[x].should == 1
+    e[y].should == 5
+
+    Runify::match(Obj.new(a: x, b: [4, y, 6]), TestObj.new(1, [4, 5, 7])).should be_nil
   end
 end
