@@ -24,7 +24,7 @@ class Env
   end
 
   def to_openstruct
-    OpenStruct.new(Hash[@env.map{|kv| [kv.first.name, kv.last]}])
+    OpenStruct.new(Hash[env.map{|kv| [kv.first.name, kv.last]}])
   end
 
   class EnvNil; end

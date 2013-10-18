@@ -5,15 +5,17 @@ require 'decons'
 def pmatch(x, &pat_block)
   sp = pat_block.to_sexp.to_a.last
   pat = transform(sp)
-  Decons::match(pat, x).to_openstruct
+  env = Decons::match(pat, x)
+  env && env.to_openstruct
 end
 
 def transform(sp)
   _ = Decons::_
   klass_sym = Var.new(&method(:is_constant?))
   case
+    when e = rmatch([:call, _, :_, _], sp); Decons::_
     when e = rmatch([:const, klass_sym], sp)
-      make_obj(e[klass_sym], [])
+      make_obj(e[klass_sym], {})
     when e = rmatch([:call, _, klass_sym, [:arglist, [:hash, splat(:kv_sexps)]]], sp)
       kvs = transform_many(e[:kv_sexps])
       make_obj(e[klass_sym], Hash[*kvs])

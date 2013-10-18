@@ -5,6 +5,20 @@ def sexp(&block)
   block.to_sexp.to_a.last
 end
 
+class Foo
+  attr_accessor :a, :b
+  def initialize(a, b)
+    @a, @b = a, b
+  end
+end
+
+class Bar
+  attr_accessor :x, :y
+  def initialize(x, y)
+    @x, @y = x, y
+  end
+end
+
 describe 'pmatch' do
   it 'should match non-local vars' do
     a = 1
@@ -22,11 +36,36 @@ describe 'pmatch' do
     e = pmatch(a) { [1, x, 3] }
     e.x.should == 2
   end
-  #it 'should do something' do
-  #  a = [1, 2, 3]
-  #  e = pmatch(a) { [1, x, 3] }
-  #  e.x.should == 2
-  #end
+  it 'should match hashes' do
+    h = { a: 1, b: 2, c: 3}
+    e = pmatch(h) { { a: one, b: 2} }
+    e.one.should == 1
+  end
+  it 'should match object types' do
+    pmatch(5) { Numeric }.should be_true
+    pmatch(99.999) { Numeric }.should be_true
+    pmatch('hello') { Numeric }.should be_false
+  end
+  it 'should match object fields' do
+    e = pmatch(Foo.new(1, 2)) { Foo(a, b) }
+    e.a.should == 1
+    e.b.should == 2
+
+    pmatch(Foo.new(3, 4)) { Foo(a: 3, b: b) }.b.should == 4
+
+    pmatch(Foo.new(3, 4)) { Foo(a: 99, b: b) }.should be_false
+  end
+  it 'should match deeply' do
+    a = [ 100, { a: 1, b: 'hi', c: Bar.new(10, [13, 17, 23, 27, 29]) } ]
+    e = pmatch(a) { [ 100, { a: _, b: 'hi', c: Bar(x: ten, y: [_, 17, @@primes]) }, @@empty] }
+    e.ten.should == 10
+    e.primes.should == [ 23, 27, 29 ]
+    e.empty.should == []
+  end
+  it 'should transform underscore to wildcard' do
+    v = transform(sexp { _ })
+    v.should == Decons::_
+  end
   it 'should transform vars' do
     v = transform(sexp { x })
     v.should be_instance_of Var
