@@ -70,6 +70,12 @@ describe Decons do
     Decons::match(Var.new(:x) {|x| x.even? }, 5).should be_nil
   end
 
+  it 'should support object predicates' do
+    x = Obj.new {|x| x.is_a?(Numeric)}
+    Decons::match(x, 4.5).should be_instance_of Env
+    Decons::match(x, true).should be_nil
+  end
+
   it 'should match wildcards' do
     Decons::match(Decons::_, 5)
     Decons::match(Decons::_, [])

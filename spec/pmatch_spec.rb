@@ -38,15 +38,12 @@ describe 'pmatch' do
     v.name.should == :x
   end
   it 'should transform object matchers with implied names' do
-    v = transform(sexp { Object(x, y) })
-    # come back to this once predicates are implemented and use Decons::match to validate
-    v.should be_instance_of Obj
-    xvar = v.fields[:x]
-    xvar.should be_instance_of Var
-    xvar.name.should == :x
-    yvar = v.fields[:y]
-    yvar.should be_instance_of Var
-    yvar.name.should == :y
+    result = transform(sexp { Object(x, y) })
+    Decons::match(Obj.new(fields: {
+        x: Obj.new(:name => :x) {|x| x.is_a?(Var)},
+        y: Obj.new(:name => :y) {|y| y.is_a?(Var)}
+    }) {|obj| obj.is_a?(Obj)}, result).
+        should be_instance_of Env
   end
   it 'should transform primitives' do
     transform(sexp { 1 }).should == 1

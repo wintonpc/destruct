@@ -20,8 +20,13 @@ end
 class Obj
   attr_reader :fields
 
-  def initialize(fields)
+  def initialize(fields={}, &pred)
     @fields = fields
+    @pred = pred
+  end
+
+  def test(x)
+    @pred == nil ? true : @pred.call(x)
   end
 end
 

@@ -24,15 +24,7 @@ class Decons
       when pat.is_a?(Var) && pat.test(x)
         @env[pat] = x
         @env
-      when pat.is_a?(Obj)
-        no_nils(pat.fields.map {|kv|
-          name = kv.first
-          pat_value = kv.last
-          return nil unless x.respond_to?(name)
-          x_value = x.send(name)
-          match(pat_value, x_value)
-        }) && @env
-      when pat.is_a?(Obj) && no_nils(pat.fields.keys.map {|name| x.respond_to?(name) ? match(pat[name], x.send(name)) : nil }); @env
+      when pat.is_a?(Obj) && pat.test(x) && no_nils(pat.fields.keys.map {|name| x.respond_to?(name) ? match(pat.fields[name], x.send(name)) : nil }); @env
       when pat.is_a?(String) && pat == x; @env
       when hash(pat, x) && no_nils(pat.keys.map{|k| match(pat[k], x[k])}); @env
       when enumerable(pat, x)
