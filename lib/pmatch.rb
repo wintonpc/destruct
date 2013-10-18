@@ -1,4 +1,5 @@
 require 'sourcify'
+require 'active_support/inflector'
 require 'decons'
 
 def pmatch(x, &pat_block)
@@ -9,9 +10,10 @@ end
 
 def transform(sp)
   _ = Decons::_
+  klass_sym = Var.new(&method(:is_constant?))
   case
-    when e = rmatch([:call, _, :Object, [:arglist, splat(:field_names)]], sp)
-      Obj.new(Hash[e[:field_names].map(&method(:transform)).map{|f| [ f.name, var(f.name)]}])
+    when e = rmatch([:const, klass_sym], sp); transform_obj(e[klass_sym], [])
+    when e = rmatch([:call, _, klass_sym, [:arglist, splat(:field_names)]], sp); transform_obj(e[klass_sym], e[:field_names])
     when e = rmatch([:call, _, var(:name), _], sp); var(e[:name])
     when e = rmatch([:lit, var(:value)], sp); e[:value]
     when e = rmatch([:true], sp); true
@@ -26,6 +28,19 @@ def transform(sp)
 end
 
 private ########################################
+
+def transform_obj(klass_sym, field_names)
+  klass = klass_sym.to_s.constantize
+  Obj.new(Hash[field_names.map(&method(:transform)).map { |f| [f.name, var(f.name)] }]) { |x| x.is_a?(klass) }
+end
+
+def is_constant?(x)
+  x.is_a?(Symbol) && is_uppercase?(x.to_s[0])
+end
+
+def is_uppercase?(char)
+  char == char.upcase
+end
 
 def rmatch(*args)
   Decons::match(*args)

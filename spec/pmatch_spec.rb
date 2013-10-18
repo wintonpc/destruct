@@ -45,6 +45,15 @@ describe 'pmatch' do
     }) {|obj| obj.is_a?(Obj)}, result).
         should be_instance_of Env
   end
+  it 'should transform object matchers using the constant as a predicate' do
+    v = transform(sexp { Numeric() })
+    v.test(5).should be_true
+    v.test(4.5).should be_true
+    v.test(Object.new).should be_false
+  end
+  it 'should allow object matchers to omit the parentheses' do
+    transform(sexp { Numeric }).should be_instance_of Obj
+  end
   it 'should transform primitives' do
     transform(sexp { 1 }).should == 1
     transform(sexp { 2.3 }).should == 2.3
