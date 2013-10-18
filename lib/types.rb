@@ -25,6 +25,10 @@ class Obj
     @pred = pred
   end
 
+  def self.of_type(klass, fields={}, &pred)
+    Obj.new(fields) {|x| x.is_a?(klass) && (!pred || pred.call(x))}
+  end
+
   def test(x)
     @pred == nil ? true : @pred.call(x)
   end

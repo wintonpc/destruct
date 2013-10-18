@@ -12,8 +12,14 @@ def transform(sp)
   _ = Decons::_
   klass_sym = Var.new(&method(:is_constant?))
   case
-    when e = rmatch([:const, klass_sym], sp); transform_obj(e[klass_sym], [])
-    when e = rmatch([:call, _, klass_sym, [:arglist, splat(:field_names)]], sp); transform_obj(e[klass_sym], e[:field_names])
+    when e = rmatch([:const, klass_sym], sp)
+      make_obj(e[klass_sym], [])
+    when e = rmatch([:call, _, klass_sym, [:arglist, [:hash, splat(:kv_sexps)]]], sp)
+      kvs = transform_many(e[:kv_sexps])
+      make_obj(e[klass_sym], Hash[*kvs])
+    when e = rmatch([:call, _, klass_sym, [:arglist, splat(:field_name_sexps)]], sp)
+      field_names = transform_many(e[:field_name_sexps])
+      make_obj(e[klass_sym], Hash[field_names.map { |f| [f.name, var(f.name)] }])
     when e = rmatch([:call, _, var(:name), _], sp); var(e[:name])
     when e = rmatch([:lit, var(:value)], sp); e[:value]
     when e = rmatch([:true], sp); true
@@ -29,9 +35,12 @@ end
 
 private ########################################
 
-def transform_obj(klass_sym, field_names)
-  klass = klass_sym.to_s.constantize
-  Obj.new(Hash[field_names.map(&method(:transform)).map { |f| [f.name, var(f.name)] }]) { |x| x.is_a?(klass) }
+def transform_many(xs)
+  xs.map(&method(:transform))
+end
+
+def make_obj(klass_sym, field_map)
+  Obj.of_type(klass_sym.to_s.constantize, field_map)
 end
 
 def is_constant?(x)

@@ -39,11 +39,18 @@ describe 'pmatch' do
   end
   it 'should transform object matchers with implied names' do
     result = transform(sexp { Object(x, y) })
-    Decons::match(Obj.new(fields: {
-        x: Obj.new(:name => :x) {|x| x.is_a?(Var)},
-        y: Obj.new(:name => :y) {|y| y.is_a?(Var)}
-    }) {|obj| obj.is_a?(Obj)}, result).
+    Decons::match(Obj.of_type(Obj, fields: {
+        x: Obj.of_type(Var, :name => :x),
+        y: Obj.of_type(Var, :name => :y)
+    }), result).
         should be_instance_of Env
+  end
+  it 'should transform object matchers with explicit names' do
+    result = transform(sexp { Object(x: a, y: 2) })
+    Decons::match(Obj.of_type(Obj, fields: {
+        x: Obj.of_type(Var, :name => :a),
+        y: 2
+    }), result).should be_instance_of Env
   end
   it 'should transform object matchers using the constant as a predicate' do
     v = transform(sexp { Numeric() })
