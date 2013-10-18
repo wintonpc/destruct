@@ -1,5 +1,6 @@
 require_relative 'helpers'
 require 'zmatch'
+require 'ostruct'
 
 class ZTest
   include Deconstruct
@@ -27,6 +28,13 @@ describe 'zmatch' do
     a = 0
     zmatch([1,2]) { [a, b] }
     a.should == 1
+  end
+
+  it 'should set non-literal local variables' do
+    a = 0
+    zmatch([OpenStruct.new(hi: 'hello'), 2]) { [a, b] }
+    a.should be_instance_of OpenStruct
+    a.hi.should == 'hello'
   end
 
   it 'should create methods for non-initialized local variables' do

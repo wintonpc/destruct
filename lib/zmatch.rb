@@ -12,7 +12,8 @@ module Deconstruct
 
   def _deconstruct_set(name, value, binding, caller)
     if binding.eval("defined? #{name}") == 'local-variable'
-      binding.eval("#{name} = #{value}") # can set only literal values until ruby 2.1
+      $binding_temp = value
+      binding.eval("#{name} = $binding_temp")
     else
       if self.respond_to? name
         raise "Cannot have pattern variable named '#{name}'. A method already exists with that name. Choose a different name, " +
