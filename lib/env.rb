@@ -23,6 +23,10 @@ class Env
     env[identifier] = value.nil? ? EnvNil.new : value
   end
 
+  def keys
+    @env.keys
+  end
+
   def to_openstruct
     OpenStruct.new(Hash[env.map{|kv| [kv.first.name, kv.last]}])
   end

@@ -3,10 +3,14 @@ require 'active_support/inflector'
 require 'decons'
 
 def pmatch(x, &pat_block)
+  env = pmatch_no_ostruct(x, &pat_block)
+  env && env.to_openstruct
+end
+
+def pmatch_no_ostruct(x, &pat_block)
   sp = pat_block.to_sexp.to_a.last
   pat = transform(sp)
-  env = Decons::match(pat, x)
-  env && env.to_openstruct
+  Decons::match(pat, x)
 end
 
 def transform(sp)
