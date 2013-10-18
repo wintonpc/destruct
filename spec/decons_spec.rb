@@ -101,6 +101,14 @@ describe Decons do
     e[y].should == [6, 7]
   end
 
+  it 'should match filtering splats' do
+    true.should == false
+  end
+
+  it 'should match selecting splats' do
+    true.should == false
+  end
+
   it 'should match splats on infinite enumerables' do
     first = Var.new
     rest = Splat.new

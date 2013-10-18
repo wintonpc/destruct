@@ -55,6 +55,11 @@ describe 'pmatch' do
 
     pmatch(Foo.new(3, 4)) { Foo(a: 99, b: b) }.should be_false
   end
+  it 'should match splats' do
+    a = [1,2,3,4,5,6,7,8,9]
+    e = pmatch(a) { [1, @@s, 9] }
+    e.s.should == [2,3,4,5,6,7,8]
+  end
   it 'should match deeply' do
     a = [ 100, { a: 1, b: 'hi', c: Bar.new(10, [13, 17, 23, 27, 29]) } ]
     e = pmatch(a) { [ 100, { a: _, b: 'hi', c: Bar(x: ten, y: [_, 17, @@primes]) }, @@empty] }
