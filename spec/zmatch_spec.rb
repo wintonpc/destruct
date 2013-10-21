@@ -1,44 +1,44 @@
 require_relative 'helpers'
-require 'zmatch'
+require 'deconstruct'
 require 'ostruct'
 
 class ZTest
   include Deconstruct
 
   def one(n, acc)
-    zmatch([1, n]) { [a, b] }
+    dmatch([1, n]) { [a, b] }
     acc.push b
     two(99, acc)
     acc.push b
-    zmatch([1, 1000]) { [a, b] }
+    dmatch([1, 1000]) { [a, b] }
     acc.push b
   end
 
   def two(n, acc)
-    zmatch([1, n]) { [a, b] }
+    dmatch([1, n]) { [a, b] }
     acc.push b
   end
 end
 
-describe 'zmatch' do
+describe 'binding locals' do
 
   include Deconstruct
 
   it 'should set pre-initialized local variables' do
     a = 0
-    zmatch([1,2]) { [a, b] }
+    dmatch([1,2]) { [a, b] }
     a.should == 1
   end
 
   it 'should set non-literal local variables' do
     a = 0
-    zmatch([OpenStruct.new(hi: 'hello'), 2]) { [a, b] }
+    dmatch([OpenStruct.new(hi: 'hello'), 2]) { [a, b] }
     a.should be_instance_of OpenStruct
     a.hi.should == 'hello'
   end
 
   it 'should create methods for non-initialized local variables' do
-    zmatch([1,2]) { [a, b] }
+    dmatch([1,2]) { [a, b] }
     b.should == 2
   end
 
@@ -55,7 +55,7 @@ describe 'zmatch' do
   end
 
   it 'should restrict method_missing to only known values' do
-    zmatch([1,2]) { [a, b] }
+    dmatch([1,2]) { [a, b] }
     b.should == 2
     expect { self.c }.to raise_error(NoMethodError)
   end
@@ -65,10 +65,10 @@ describe 'zmatch' do
   end
 
   it 'should disallow non-local pattern variables with the same name as methods' do
-    expect { zmatch([1,2]) { [a, important_method] } }.to raise_exception
+    expect { dmatch([1,2]) { [a, important_method] } }.to raise_exception
   end
 
   it 'should return nil for non-matches' do
-    zmatch([1,2]) { [5, b] }.should be_nil
+    dmatch([1,2]) { [5, b] }.should be_nil
   end
 end

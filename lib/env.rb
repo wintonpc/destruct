@@ -25,7 +25,7 @@ class Decons
     end
 
     def keys
-      @env.keys
+      env.keys
     end
 
     def to_openstruct

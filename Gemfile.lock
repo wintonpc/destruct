@@ -31,6 +31,7 @@ GEM
     i18n (0.6.5)
     minitest (4.7.5)
     multi_json (1.8.2)
+    paramix (2.0.1)
     rspec (2.14.1)
       rspec-core (~> 2.14.0)
       rspec-expectations (~> 2.14.0)
@@ -60,6 +61,7 @@ DEPENDENCIES
   activesupport
   binding_of_caller
   fuubar
+  paramix
   rspec
   sourcify!
   unific
