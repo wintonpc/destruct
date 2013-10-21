@@ -20,6 +20,8 @@ end
 
 describe Decons do
 
+  include_context 'types'
+
   it 'should match primitives' do
     Decons::match(1, 2).should be_nil
     Decons::match(1, 1).should be_instance_of Env
@@ -51,7 +53,7 @@ describe Decons do
     x = Var.new
     y = Var.new
     Decons::match(x, 5)[x].should == 5
-    #Runify::match(x, nil)[x].should == nil
+    Decons::match(x, nil)[x].should == nil
     Decons::match(x, [1,2,3])[x].should == [1,2,3]
     Decons::match([1,x,3], [1,2,3])[x].should == 2
     Decons::match({a: 1, b: x}, {a: 1, c: 3, b: 2})[x].should == 2
