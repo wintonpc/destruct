@@ -13,28 +13,19 @@ module Deconstruct
   end
 
   def dmatch(x, &pat_block)
-    if bind_locals.nil? || bind_locals
-      e = dmatch_no_ostruct(x, &pat_block)
+    env = dmatch_no_ostruct(x, &pat_block)
+    return nil if env.nil?
+
+    if bind_locals
       b = binding.of_caller(1)
       c = caller_locations(1,1)[0].label
-      return nil if e.nil?
-      e.keys.each {|k| _deconstruct_set(k.name, e[k], b, c)}
-      e.to_openstruct
-    else
-      e = dmatch_no_ostruct(x, &pat_block)
-      e && e.to_openstruct
+      env.keys.each {|k| _deconstruct_set(k.name, env[k], b, c)}
     end
+
+    env.to_openstruct
   end
 
-  def method_missing(name, *args, &block)
-    if bind_locals
-      c = caller_locations(1,1)[0].label
-      caller_hash = @_deconstruct_env[c]
-      caller_hash && caller_hash.keys.include?(name) ? caller_hash[name] : super
-    else
-      super
-    end
-  end
+  private ########################################
 
   def transform(sp)
     _ = Decons::_
@@ -62,13 +53,6 @@ module Deconstruct
     end
   end
 
-  private ########################################
-
-  def bind_locals
-    bind = self.class.instance_variable_get(:@_deconstruct_bind_locals)
-    @bind_locals ||= bind.nil? ? true : bind
-  end
-
   def dmatch_no_ostruct(x, &pat_block)
     sp = pat_block.to_sexp.to_a.last
     pat = transform(sp)
@@ -88,6 +72,21 @@ module Deconstruct
       @_deconstruct_env[caller] ||= {}
       @_deconstruct_env[caller][name] = value
     end
+  end
+
+  def method_missing(name, *args, &block)
+    if bind_locals
+      c = caller_locations(1,1)[0].label
+      caller_hash = @_deconstruct_env[c]
+      caller_hash && caller_hash.keys.include?(name) ? caller_hash[name] : super
+    else
+      super
+    end
+  end
+
+  def bind_locals
+    bind = self.class.instance_variable_get(:@_deconstruct_bind_locals)
+    @bind_locals ||= bind.nil? ? true : bind
   end
 
   def transform_many(xs)
