@@ -15,8 +15,31 @@ class Decons
     end
   end
 
-  class Splat < Var
+  class Splat < Var; end
 
+  # experimental
+  class FilterSplat < Splat
+    attr_reader :pattern
+
+    def initialize(name=nil, pattern)
+      super(name)
+      @pattern = pattern
+      validate_pattern
+    end
+
+    def validate_pattern
+      raise 'FilterSplat pattern cannot contain variables' if @pattern.flatten.any?{|p| p.is_a?(Var)}
+    end
+  end
+
+  # experimental
+  class SelectSplat < Splat
+    attr_reader :pattern
+
+    def initialize(name=nil, pattern)
+      super(name)
+      @pattern = pattern
+    end
   end
 
   class Obj

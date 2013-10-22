@@ -1,4 +1,5 @@
 - filtering splats
 - selecting splats
 - Decons matchers should be available in dmatch
+- lambda predicates
 - regex matchers

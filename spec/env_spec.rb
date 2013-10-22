@@ -1,7 +1,9 @@
 require_relative 'helpers'
 require 'env'
 
-describe Env do
+describe Decons::Env do
+
+  include_context 'types'
 
   before :each do
     @env = Env.new
@@ -40,5 +42,34 @@ describe Env do
   it 'should allow getting by var name' do
     @env[Var.new(:v)] = 42
     @env[:v].should == 42
+  end
+
+  it 'should allow merging' do
+    c = Var.new
+    d = Var.new
+    @env[c] = 66
+    @env[d] = 88
+
+    e2 = Env.new
+    s = Var.new
+    t = Var.new
+    e2[s] = 43
+    e2[t] = 55
+    @env.merge!(e2)
+
+    @env[c].should == 66
+    @env[d].should == 88
+    @env[s].should == 43
+    @env[t].should == 55
+  end
+
+  it 'should not overwrite keys when merging' do
+    c = Var.new
+    @env[c] = 66
+
+    e2 = Env.new
+    s = c
+    e2[s] = 43
+    expect { @env.merge!(e2) }.to raise_exception
   end
 end

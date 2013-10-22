@@ -104,11 +104,37 @@ describe 'Decons#match' do
   end
 
   it 'should match filtering splats' do
-    true.should == false
+    x = FilterSplat.new([200, Decons::_])
+    a = [[100, 1], [200, 2], [100, 3], [200, 4], [100, 5], [200, 6]]
+    Decons.match([[100, 1], x, [200, 6]], a)[x].should == [[200, 2], [200, 4]]
+
+    x = FilterSplat.new([999, Decons::_])
+    Decons.match([[100, 1], x, [200, 6]], a)[x].should == []
+  end
+
+  it 'should disallow Vars in filtering splat patterns' do
+    expect { FilterSplat.new([200, Var.new]) }.to raise_exception
   end
 
   it 'should match selecting splats' do
-    true.should == false
+    x = SelectSplat.new([100, Decons::_])
+    a = [[100, 1], [200, 2], [100, 3], [200, 4], [100, 5], [200, 6]]
+    Decons.match([[100, 1], x, [200, 6]], a)[x].should == [100, 3]
+
+    x = SelectSplat.new([999, Decons::_])
+    Decons.match([[100, 1], x, [200, 6]], a).should be_nil
+  end
+
+  it 'should allow Vars in selecting splat patterns' do
+    y = Var.new
+    x = SelectSplat.new([100, y])
+    a = [[100, 1], [200, 2], [100, 3], [200, 4], [100, 5], [200, 6]]
+    e = Decons.match([[100, 1], x, [200, 6]], a)
+    e[x].should == [100, 3]
+    e[y].should == 3
+
+    x = SelectSplat.new([999, Decons::_])
+    Decons.match([[100, 1], x, [200, 6]], a).should be_nil
   end
 
   it 'should match splats on infinite enumerables' do

@@ -20,7 +20,7 @@ class Decons
 
     def []=(identifier, value)
       raise 'identifier must be a Var' unless identifier.is_a? Var
-      raise "Identifier '#{identifier}' is already set to #{value}" if env.include?(identifier)
+      raise "Identifier '#{identifier}' is already set to #{env[identifier]}" if env.include?(identifier)
       env[identifier] = value.nil? ? EnvNil.new : value
     end
 
@@ -30,6 +30,10 @@ class Decons
 
     def to_openstruct
       OpenStruct.new(Hash[env.map{|kv| [kv.first.name, kv.last]}])
+    end
+
+    def merge!(other_env)
+      other_env.keys.each{|k| self[k] = other_env[k]}
     end
 
     class EnvNil; end

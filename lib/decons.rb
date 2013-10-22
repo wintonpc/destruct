@@ -15,9 +15,23 @@ class Decons
   end
 
   def match(pat, x)
+    pat.inspect
     case
       when pat.is_a?(Wildcard); @env
       when pat.is_a?(Pred) && pat.test(x); @env
+      when pat.is_a?(FilterSplat)
+        @env[pat] = x.map{|z| [z, match(pat.pattern, z)] }.reject{|q| q.last.nil?}.map{|q| q.first}
+        @env
+      when pat.is_a?(SelectSplat)
+        x_match_and_env = x.map{|z| [z, Decons::match(pat.pattern, z)] }.reject{|q| q.last.nil?}.first
+        if x_match_and_env
+          x_match, env = x_match_and_env
+          @env.merge!(env)
+          @env[pat] = x_match
+          @env
+        else
+          nil
+        end
       when pat.is_a?(Splat)
         @env[pat] = enumerable(x) ? x : [x]
         @env
@@ -112,11 +126,7 @@ class Decons
     !xs.any?{|x| x.nil?} || nil
   end
 
-  class Wildcard < Var
+  class Wildcard
     include Singleton
-
-    def initialize
-      super('_')
-    end
   end
 end
