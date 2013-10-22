@@ -2,8 +2,8 @@ require 'env'
 require 'types'
 
 class Decons
-  def self.match(pat, x, env = Env.new)
-    Decons.new(env).match(pat, x)
+  def self.match(pat, x)
+    Decons.new(Env.new).match(pat, x)
   end
 
   def self._

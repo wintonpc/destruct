@@ -1,7 +1,6 @@
 require 'rspec'
 $LOAD_PATH.push File.join(File.dirname(__FILE__), './lib')
-require 'env'
-require 'types'
+require 'decons'
 
 shared_context 'types' do
   Obj = Decons::Obj

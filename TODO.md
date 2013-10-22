@@ -1,4 +1,4 @@
 - filtering splats
 - selecting splats
-- Decons matchers should be available in pmatch and zmatch
+- Decons matchers should be available in dmatch
 - regex matchers
