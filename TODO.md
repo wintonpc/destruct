@@ -1,7 +1,6 @@
 - todo
   - avoid mutating the caller (adding instance variables, etc.) as much as possible
   - switch to RSpec expectations
-  - refactor big decons 'case' statement
 
 - examples
   - regex
