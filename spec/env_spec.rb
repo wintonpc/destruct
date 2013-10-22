@@ -55,12 +55,13 @@ describe Decons::Env do
     t = Var.new
     e2[s] = 43
     e2[t] = 55
-    @env.merge!(e2)
+    @env.merge!(e2).should == @env
 
     @env[c].should == 66
     @env[d].should == 88
     @env[s].should == 43
     @env[t].should == 55
+
   end
 
   it 'should not overwrite keys when merging' do

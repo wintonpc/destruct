@@ -26,9 +26,8 @@ class Decons
         x_match_and_env = x.map{|z| [z, Decons::match(pat.pattern, z)] }.reject{|q| q.last.nil?}.first
         if x_match_and_env
           x_match, env = x_match_and_env
-          @env.merge!(env)
           @env[pat] = x_match
-          @env
+          @env.merge!(env)
         else
           nil
         end
@@ -40,6 +39,9 @@ class Decons
         @env
       when pat.is_a?(Obj) && pat.test(x) && no_nils(pat.fields.keys.map {|name| x.respond_to?(name) ? match(pat.fields[name], x.send(name)) : nil }); @env
       when pat.is_a?(String) && pat == x; @env
+      when pat.is_a?(Regexp)
+        m = pat.match(x)
+        m && @env.merge!(Hash[pat.named_captures.keys.map{|k| [Var.new(k.to_sym), m[k]]}])
       when hash(pat, x) && no_nils(pat.keys.map{|k| x.keys.include?(k) ? match(pat[k], x[k]) : nil}); @env
       when enumerable(pat, x)
         case

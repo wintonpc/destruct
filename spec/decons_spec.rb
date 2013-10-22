@@ -188,4 +188,10 @@ describe 'Decons#match' do
 
     Decons.match(Obj.new(a: x, b: [4, y, 6]), TestObj.new(1, [4, 5, 7])).should be_nil
   end
+
+  it 'should match regexps' do
+    e = Decons.match(/madlibs are (?<adjective>\w+) to (?<verb>\w+)/, 'madlibs are fun to do')
+    e[:adjective].should == 'fun'
+    e[:verb].should == 'do'
+  end
 end

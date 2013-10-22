@@ -34,6 +34,7 @@ class Decons
 
     def merge!(other_env)
       other_env.keys.each{|k| self[k] = other_env[k]}
+      self
     end
 
     class EnvNil; end

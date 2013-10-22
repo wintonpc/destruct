@@ -65,6 +65,15 @@ describe 'Deconstruct#dmatch' do
       e.one.should == 1
     end
 
+    it 'should match regexps' do
+      h = { a: 1, b: 'matching is the best' }
+      e = dmatch(h) { { a: 1, b: /(?<what>\w+) is the best/} }
+      e.what.should == 'matching'
+
+      h = { a: 1, b: 'ruby is the worst' }
+      dmatch(h) { { a: 1, b: /(?<what>\w+) is the best/} }.should be_nil
+    end
+
     it 'should match object types' do
       dmatch(5) { Numeric }.should be_true
       dmatch(99.999) { Numeric }.should be_true

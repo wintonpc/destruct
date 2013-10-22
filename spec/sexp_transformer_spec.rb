@@ -80,6 +80,10 @@ describe Deconstruct::SexpTransformer do
     transform(sexp { {a: 1, b: 2} }).should == {b: 2, a: 1}
   end
 
+  it 'should transform regexps' do
+    transform(sexp { /foo/ }).should == /foo/
+  end
+
   it 'should transform the empty hash' do
     transform(sexp {   # placed on separate lines to keep sourcify from barfing
       {}               # due to hash/block syntax ambiguity. unlikely to be a
