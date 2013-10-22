@@ -14,22 +14,24 @@ module Deconstruct
   end
 
   def dmatch(x, &pat_block)
-    env = dmatch_no_ostruct(x, &pat_block)
+    dmatch_internal(x, pat_block.to_sexp, binding.of_caller(1), caller_locations(1,1)[0].label)
+  end
+
+  private ########################################
+
+  def dmatch_internal(x, sexp, caller_binding, caller_location)
+    env = dmatch_no_ostruct_sexp(x, sexp)
     return nil if env.nil?
 
     if bind_locals
-      b = binding.of_caller(1)
-      c = caller_locations(1,1)[0].label
-      env.keys.each {|k| _deconstruct_set(k.name, env[k], b, c)}
+      env.keys.each {|k| _deconstruct_set(k.name, env[k], caller_binding, caller_location)}
     end
 
     env.to_openstruct
   end
 
-  private ########################################
-
-  def dmatch_no_ostruct(x, &pat_block)
-    sp = pat_block.to_sexp.to_a.last
+  def dmatch_no_ostruct_sexp(x, sexp)
+    sp = sexp.to_a.last
     pat = SexpTransformer.transform(sp)
     Decons::match(pat, x)
   end
