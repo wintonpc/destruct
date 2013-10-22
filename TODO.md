@@ -2,3 +2,10 @@
 - lambda predicates
 - regex matchers
 - avoid mutating the caller (adding instance variables, etc.) as much as possible
+- examples
+  - regex
+  - ruby array deconstruction
+  - rails routes
+  - motivation: java -> ruby translator
+    - regex example. ok, but unrealistic. works only for strings, not structures
+    - show with parse tree input (to_sexp)

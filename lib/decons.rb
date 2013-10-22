@@ -40,7 +40,7 @@ class Decons
         @env
       when pat.is_a?(Obj) && pat.test(x) && no_nils(pat.fields.keys.map {|name| x.respond_to?(name) ? match(pat.fields[name], x.send(name)) : nil }); @env
       when pat.is_a?(String) && pat == x; @env
-      when hash(pat, x) && no_nils(pat.keys.map{|k| match(pat[k], x[k])}); @env
+      when hash(pat, x) && no_nils(pat.keys.map{|k| x.keys.include?(k) ? match(pat[k], x[k]) : nil}); @env
       when enumerable(pat, x)
         case
           when (parts = decompose_splatted_enumerable(pat))

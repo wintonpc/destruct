@@ -14,7 +14,7 @@ describe 'magic' do
       thing = [1, 2, 3]
       case
         when thing =~-> { [1, x, 3] }
-          puts "it was an array, x = #{x}"
+          "it was an array, x = #{x}"
         when thing =~-> { String }
           fail
         else
@@ -28,7 +28,7 @@ describe 'magic' do
         when thing =~-> { [1, x, 3] }
           fail
         when thing =~-> { String }
-          puts 'it was string'
+          'it was string'
         else
           fail
       end

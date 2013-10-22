@@ -60,8 +60,9 @@ class Decons
   end
 
   class Pred
-    def initialize(&pred)
-      @pred = pred
+    def initialize(pred_callable=nil, &pred_block)
+      raise 'Cannot specify both a callable and a block' if pred_callable && pred_block
+      @pred = pred_callable || pred_block
     end
 
     def test(x)

@@ -43,6 +43,8 @@ describe 'Decons#match' do
   it 'should match hashes' do
     Decons.match({a: 1, b: 2}, {c: 1, d: 2}).should be_nil
     Decons.match({a: 1, b: 2}, {a: 3, b: 4}).should be_nil
+    Decons.match({a: 1, b: 2, c: Var.new}, {a: 1, b: 2}).should be_nil
+    Decons.match({a: 1, b: 2, c: Var.new}, {a: 1, b: 2, c: nil}).should be_instance_of Env
     Decons.match({a: 1, b: 2}, {a: 1, b: 2}).should be_instance_of Env
     Decons.match({a: 1, b: 2}, {b: 2, a: 1}).should be_instance_of Env
     Decons.match({a: 1, b: 2}, {a: 1, b: 2, c: 3}).should be_instance_of Env
@@ -62,9 +64,17 @@ describe 'Decons#match' do
     env[y].should == 3
   end
 
-  it 'should support predicates' do
+  it 'should support predicates with blocks' do
     Decons.match(Pred.new{|x| x.odd? }, 5).should be_instance_of Env
     Decons.match(Pred.new{|x| x.even? }, 5).should be_nil
+  end
+
+  it 'should support predicates with callables' do
+    Decons.match(Pred.new(lambda {|x| x.odd? }), 5).should be_instance_of Env
+  end
+
+  it 'should reject predicates with both a callable and a block' do
+    expect { Decons.match(Pred.new(lambda {|x| x.odd? }) {|x| x.even? }, 5) }.to raise_exception
   end
 
   it 'should support variable predicates' do
@@ -76,6 +86,17 @@ describe 'Decons#match' do
     x = Obj.new {|x| x.is_a?(Numeric)}
     Decons.match(x, 4.5).should be_instance_of Env
     Decons.match(x, true).should be_nil
+  end
+
+  it 'should have sugar for object type checking' do
+    x = Obj.of_type(Numeric)
+    Decons.match(x, true).should be_nil
+    Decons.match(x, 4.5).should be_true
+
+    x = Obj.of_type(Numeric) {|x| x.odd?}
+    Decons.match(x, true).should be_nil
+    Decons.match(x, 4).should be_nil
+    Decons.match(x, 5).should be_true
   end
 
   it 'should match wildcards' do
