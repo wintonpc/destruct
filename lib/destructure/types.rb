@@ -1,6 +1,6 @@
 require 'singleton'
 
-class Destruct
+class Dmatch
 
   class Var
     attr_reader :name

@@ -6,7 +6,7 @@ class Object
     caller_location = caller_locations(1,1)[0].label
     caller = caller_binding.eval('self')
     caller.class.send(:include, Destructure) unless caller.class.included_modules.include?(Destructure)
-    caller.send(:dmatch_internal, self, pattern_lambda.to_sexp, caller_binding, caller_location)
+    caller.send(:dbind_internal, self, pattern_lambda.to_sexp, caller_binding, caller_location)
   end
 end
 
@@ -23,7 +23,7 @@ class String
       caller_location = caller_locations(1,1)[0].label
       caller = caller_binding.eval('self')
       caller.class.send(:include, Destructure) unless caller.class.included_modules.include?(Destructure)
-      caller.send(:dmatch_internal, self, pattern_lambda.to_sexp, caller_binding, caller_location)
+      caller.send(:dbind_internal, self, pattern_lambda.to_sexp, caller_binding, caller_location)
     end
   end
 end

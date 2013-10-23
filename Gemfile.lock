@@ -52,7 +52,6 @@ GEM
       atomic
     tins (0.12.0)
     tzinfo (0.3.38)
-    unific (0.11)
 
 PLATFORMS
   ruby
@@ -64,4 +63,3 @@ DEPENDENCIES
   paramix
   rspec
   sourcify!
-  unific

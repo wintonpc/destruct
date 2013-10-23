@@ -1,7 +1,7 @@
 require 'ostruct'
 require 'types'
 
-class Destruct
+class Dmatch
   class Env
 
     def env

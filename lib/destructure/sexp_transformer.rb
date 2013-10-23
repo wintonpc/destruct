@@ -1,4 +1,4 @@
-require 'destruct'
+require 'dmatch'
 
 module Destructure
   class SexpTransformer
@@ -8,8 +8,8 @@ module Destructure
     end
 
     def transform(sp)
-      _ = Destruct::_
-      klass_sym = Destruct::Var.new(&method(:is_constant?))
+      _ = Dmatch::_
+      klass_sym = Dmatch::Var.new(&method(:is_constant?))
       case
         when e = dmatch([:call, _, :_, _], sp); _
         when e = dmatch([:const, klass_sym], sp)
@@ -40,7 +40,7 @@ module Destructure
     end
 
     def make_obj(klass_sym, field_map)
-      Destruct::Obj.of_type(klass_sym.to_s.constantize, field_map)
+      Dmatch::Obj.of_type(klass_sym.to_s.constantize, field_map)
     end
 
     def is_constant?(x)
@@ -52,15 +52,15 @@ module Destructure
     end
 
     def dmatch(*args)
-      Destruct::match(*args)
+      Dmatch::match(*args)
     end
 
     def var(name)
-      Destruct::Var.new(name)
+      Dmatch::Var.new(name)
     end
 
     def splat(name)
-      Destruct::Splat.new(name)
+      Dmatch::Splat.new(name)
     end
   end
 end

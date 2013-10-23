@@ -14,7 +14,7 @@
     - show with parse tree input (to_sexp)
 
 - wishlist
-  - Destruct matchers should be available in dmatch
+  - Destructure matchers should be available in dbind
     - giving up on this. it's possible for Obj and Var, but not for
       Pred because of nested blocks/lambdas. It's really only useful for
       Preds anyway.

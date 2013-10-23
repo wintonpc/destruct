@@ -1,9 +1,9 @@
 require 'env'
 require 'types'
 
-class Destruct
+class Dmatch
   def self.match(pat, x)
-    Destruct.new(Env.new).match(pat, x)
+    Dmatch.new(Env.new).match(pat, x)
   end
 
   def self._
@@ -58,7 +58,7 @@ class Destruct
   end
 
   def match_select_splat(pat, x)
-    x_match_and_env = x.map { |z| [z, Destruct::match(pat.pattern, z)] }.reject { |q| q.last.nil? }.first
+    x_match_and_env = x.map { |z| [z, Dmatch::match(pat.pattern, z)] }.reject { |q| q.last.nil? }.first
     if x_match_and_env
       x_match, env = x_match_and_env
       @env[pat] = x_match

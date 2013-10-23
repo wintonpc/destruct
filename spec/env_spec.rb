@@ -1,7 +1,7 @@
 require_relative 'helpers'
 require 'env'
 
-describe Destruct::Env do
+describe Dmatch::Env do
 
   include_context 'types'
 
