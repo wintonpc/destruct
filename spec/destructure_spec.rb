@@ -18,8 +18,6 @@ end
 class ZTest
   include Destructure
 
-  attr_reader :instance_var
-
   def one(n, acc)
     dbind([1, n]) { [a, b] }
     acc.push b
@@ -32,10 +30,6 @@ class ZTest
   def two(n, acc)
     dbind([1, n]) { [a, b] }
     acc.push b
-  end
-
-  def bind_to_instance_var(n)
-    dbind([1,n]) { [1, @instance_var] }
   end
 end
 
@@ -172,12 +166,11 @@ describe 'Destructure#dbind' do
       expect(dbind([1,2]) { [5, b] }).to be_nil
     end
 
-    #it 'should bind to instance variables' do
-    #  z = ZTest.new
-    #  expect(z.instance_var).to be_nil
-    #  expect(z.bind_to_instance_var(7)).to be_true
-    #  expect(z.instance_var).to eql 7
-    #end
+    it 'should bind to instance variables' do
+      expect(@instance_var).to be_nil
+      dbind([1, 7]) { [1, @instance_var] }
+      expect(@instance_var).to eql 7
+    end
 
   end
 end

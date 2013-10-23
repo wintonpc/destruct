@@ -28,7 +28,7 @@ describe Destructure::SexpTransformer do
   it 'should transform instance vars' do
     v = transform(sexp { @my_var })
     expect(v).to be_instance_of Var
-    expect(v.name).to eql :@my_var
+    expect(v.name).to eql '@my_var'
   end
 
   it 'should transform chained LHSs with method bases' do

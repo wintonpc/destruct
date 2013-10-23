@@ -37,8 +37,7 @@ module Destructure
   end
 
   def _destructure_set(name, value, binding, caller)
-    if binding.eval("defined? #{name}") == 'local-variable'
-      # we can do this with Binding#local_variable_set when Ruby 2.1 is released
+    if name.is_a?(String) || binding.eval("defined? #{name}") == 'local-variable'
       $binding_temp = value
       binding.eval("#{name} = $binding_temp")
     else

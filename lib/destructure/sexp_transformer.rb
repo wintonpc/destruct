@@ -20,7 +20,7 @@ module Destructure
         when e = dmatch([:call, var(:receiver), var(:msg), var(:arglist)], sp)
           transform_call(e[:receiver], e[:msg], e[:arglist])
         # instance variable
-        when e = dmatch([:ivar, var(:name)], sp); var(e[:name])
+        when e = dmatch([:ivar, var(:name)], sp); var(e[:name].to_s)
         when e = dmatch([:lit, var(:value)], sp); e[:value]
         when e = dmatch([:true], sp); true
         when e = dmatch([:false], sp); false
