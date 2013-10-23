@@ -1,7 +1,7 @@
 require_relative 'helpers'
 require 'env'
 
-describe Dmatch::Env do
+describe DMatch::Env do
 
   include_context 'types'
 

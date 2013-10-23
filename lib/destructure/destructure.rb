@@ -33,7 +33,7 @@ module Destructure
   def dbind_no_ostruct_sexp(x, sexp)
     sp = sexp.to_a.last
     pat = SexpTransformer.transform(sp)
-    Dmatch::match(pat, x)
+    DMatch::match(pat, x)
   end
 
   def _destructure_set(name, value, binding, caller)

@@ -14,7 +14,7 @@ describe Destructure::SexpTransformer do
 
   it 'should transform underscore to wildcard' do
     v = transform(sexp { _ })
-    expect(v).to eql Dmatch::_
+    expect(v).to eql DMatch::_
   end
 
   it 'should transform vars' do
@@ -31,7 +31,7 @@ describe Destructure::SexpTransformer do
 
   it 'should transform object matchers with implied names' do
     result = transform(sexp { Object(x, y) })
-    Dmatch::match(Obj.of_type(Obj, fields: {
+    DMatch::match(Obj.of_type(Obj, fields: {
         x: Obj.of_type(Var, :name => :x),
         y: Obj.of_type(Var, :name => :y)
     }), result).
@@ -40,7 +40,7 @@ describe Destructure::SexpTransformer do
 
   it 'should transform object matchers with explicit names' do
     result = transform(sexp { Object(x: a, y: 2) })
-    expect(Dmatch::match(Obj.of_type(Obj, fields: {
+    expect(DMatch::match(Obj.of_type(Obj, fields: {
         x: Obj.of_type(Var, :name => :a),
         y: 2
     }), result)).to be_instance_of Env

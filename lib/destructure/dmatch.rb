@@ -1,9 +1,9 @@
 require 'destructure/env'
 require 'destructure/types'
 
-class Dmatch
+class DMatch
   def self.match(pat, x)
-    Dmatch.new(Env.new).match(pat, x)
+    DMatch.new(Env.new).match(pat, x)
   end
 
   def self._
@@ -56,7 +56,7 @@ class Dmatch
   end
 
   def match_select_splat(pat, x)
-    x_match_and_env = x.map { |z| [z, Dmatch::match(pat.pattern, z)] }.reject { |q| q.last.nil? }.first
+    x_match_and_env = x.map { |z| [z, DMatch::match(pat.pattern, z)] }.reject { |q| q.last.nil? }.first
     if x_match_and_env
       x_match, env = x_match_and_env
       @env.bind(pat, x_match) && @env.merge!(env)

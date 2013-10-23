@@ -8,8 +8,8 @@ module Destructure
     end
 
     def transform(sp)
-      _ = Dmatch::_
-      klass_sym = Dmatch::Var.new(&method(:is_constant?))
+      _ = DMatch::_
+      klass_sym = DMatch::Var.new(&method(:is_constant?))
       case
         when e = dmatch([:call, _, :_, _], sp); _
         when e = dmatch([:const, klass_sym], sp)
@@ -40,7 +40,7 @@ module Destructure
     end
 
     def make_obj(klass_sym, field_map)
-      Dmatch::Obj.of_type(klass_sym.to_s.constantize, field_map)
+      DMatch::Obj.of_type(klass_sym.to_s.constantize, field_map)
     end
 
     def is_constant?(x)
@@ -52,15 +52,15 @@ module Destructure
     end
 
     def dmatch(*args)
-      Dmatch::match(*args)
+      DMatch::match(*args)
     end
 
     def var(name)
-      Dmatch::Var.new(name)
+      DMatch::Var.new(name)
     end
 
     def splat(name)
-      Dmatch::Splat.new(name)
+      DMatch::Splat.new(name)
     end
   end
 end

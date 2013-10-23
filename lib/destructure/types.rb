@@ -1,6 +1,6 @@
 require 'singleton'
 
-class Dmatch
+class DMatch
 
   class Var
     attr_reader :name

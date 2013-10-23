@@ -2,7 +2,7 @@ require 'ostruct'
 require 'destructure/dmatch'
 require 'destructure/types'
 
-class Dmatch
+class DMatch
   class Env
 
     def env
@@ -24,8 +24,8 @@ class Dmatch
       value_to_store = value.nil? ? EnvNil.new : value
       existing_key = env.keys.select{|k| k == identifier || (k.name.is_a?(Symbol) && k.name == identifier.name)}.first
       return nil if existing_key &&
-          (Dmatch.match(env[existing_key], value_to_store).nil? ||
-          Dmatch.match(value_to_store, env[existing_key]).nil?)
+          (DMatch.match(env[existing_key], value_to_store).nil? ||
+          DMatch.match(value_to_store, env[existing_key]).nil?)
       env[existing_key || identifier] = value_to_store
       self
     end
