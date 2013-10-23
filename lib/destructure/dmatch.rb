@@ -1,5 +1,5 @@
-require 'env'
-require 'types'
+require 'destructure/env'
+require 'destructure/types'
 
 class Dmatch
   def self.match(pat, x)

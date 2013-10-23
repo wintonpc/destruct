@@ -1,5 +1,5 @@
 require 'ostruct'
-require 'types'
+require 'destructure/types'
 
 class Dmatch
   class Env
@@ -11,7 +11,7 @@ class Dmatch
     def [](identifier)
       raise 'identifier must be a Var or symbol' unless (identifier.is_a? Var) || (identifier.is_a? Symbol)
       if identifier.is_a? Symbol
-        identifier = env.keys.select{|k| k.name == identifier}.first
+        identifier = env.keys.select{|k| k.name == identifier}.first || identifier
       end
       v = env[identifier]
       raise "Identifier '#{identifier}' is not bound." if v.nil?

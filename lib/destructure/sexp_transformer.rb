@@ -1,4 +1,4 @@
-require 'dmatch'
+require 'destructure/dmatch'
 
 module Destructure
   class SexpTransformer

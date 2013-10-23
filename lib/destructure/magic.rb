@@ -1,4 +1,4 @@
-require 'destructure'
+require 'destructure/destructure'
 
 class Object
   def =~(pattern_lambda)

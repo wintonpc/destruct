@@ -1,5 +1,4 @@
 - todo
-  - make it a gem
   - explore unification ('martelli-montanari')
   - error messages with paths
   - avoid mutating the caller (adding instance variables, etc.) as much as possible

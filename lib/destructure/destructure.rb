@@ -1,9 +1,9 @@
 require 'sourcify'
 require 'active_support/inflector'
-require 'dmatch'
 require 'paramix'
 require 'binding_of_caller'
-require 'sexp_transformer'
+require 'destructure/dmatch'
+require 'destructure/sexp_transformer'
 
 module Destructure
 
