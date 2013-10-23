@@ -3,7 +3,7 @@ require_relative 'helpers'
 require 'sexp_transformer'
 
 def sexp(&block)
-  block.to_sexp.to_a.last
+  block.to_sexp(strip_enclosure: true, ignore_nested: true).to_a
 end
 
 def transform(sp)
@@ -85,9 +85,7 @@ describe Destructure::SexpTransformer do
   end
 
   it 'should transform the empty hash' do
-    transform(sexp {   # placed on separate lines to keep sourcify from barfing
-      {}               # due to hash/block syntax ambiguity. unlikely to be a
-    }).should == {}    # frequent use case.
+    transform(sexp { {} }).should == Hash.new
   end
 
 end
