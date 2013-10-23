@@ -32,7 +32,7 @@ describe Destructure::SexpTransformer do
   end
 
   it 'should transform object matchers with implied names' do
-    result = transform(sexp { Object(x, y) })
+    result = transform(sexp { Object[x, y] })
     DMatch::match(Obj.of_type(Obj, fields: {
         x: Obj.of_type(Var, :name => :x),
         y: Obj.of_type(Var, :name => :y)
@@ -41,7 +41,7 @@ describe Destructure::SexpTransformer do
   end
 
   it 'should transform object matchers with explicit names' do
-    result = transform(sexp { Object(x: a, y: 2) })
+    result = transform(sexp { Object[x: a, y: 2] })
     expect(DMatch::match(Obj.of_type(Obj, fields: {
         x: Obj.of_type(Var, :name => :a),
         y: 2
@@ -49,7 +49,7 @@ describe Destructure::SexpTransformer do
   end
 
   it 'should transform object matchers using the constant as a predicate' do
-    v = transform(sexp { Numeric() })
+    v = transform(sexp { Numeric[] })
     expect(v.test(5)).to be_true
     expect(v.test(4.5)).to be_true
     expect(v.test(Object.new)).to be_false

@@ -38,8 +38,8 @@ module Destructure
       _ = DMatch::_
       klass_sym_var = DMatch::Var.new(&method(:is_constant?))
       case
-        # Class(...)
-        when e = dmatch([nil, klass_sym_var], [sexp_receiver, sexp_msg]); transform_obj_matcher(e[klass_sym_var], sexp_args)
+        # Class[...]
+        when e = dmatch([[:const, klass_sym_var], :[]], [sexp_receiver, sexp_msg]); transform_obj_matcher(e[klass_sym_var], sexp_args)
         # local variable
         when e = dmatch([nil, var(:name), [:arglist]], sexp_call); var(e[:name])
         else; nil
@@ -47,12 +47,13 @@ module Destructure
     end
 
     def transform_obj_matcher(klass_sym, sexp_args)
+      to_s
       case
-        # Class(a: 1, b: 2)
+        # Class[a: 1, b: 2]
         when e = dmatch([:arglist, [:hash, splat(:kv_sexps)]], sexp_args)
           kvs = transform_many(e[:kv_sexps])
           make_obj(klass_sym, Hash[*kvs])
-        # Class(a, b, c)
+        # Class[a, b, c]
         when e = dmatch([:arglist, splat(:field_name_sexps)], sexp_args)
           field_names = transform_many(e[:field_name_sexps])
           make_obj(klass_sym, Hash[field_names.map { |f| [f.name, var(f.name)] }])

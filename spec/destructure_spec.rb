@@ -87,13 +87,13 @@ describe 'Destructure#dbind' do
     end
 
     it 'should match object fields' do
-      e = dbind(Foo.new(1, 2)) { Foo(a, b) }
+      e = dbind(Foo.new(1, 2)) { Foo[a, b] }
       expect(e.a).to eql 1
       expect(e.b).to eql 2
 
-      expect(dbind(Foo.new(3, 4)) { Foo(a: 3, b: b) }.b).to eql 4
+      expect(dbind(Foo.new(3, 4)) { Foo[a: 3, b: b] }.b).to eql 4
 
-      expect(dbind(Foo.new(3, 4)) { Foo(a: 99, b: b) }).to be_false
+      expect(dbind(Foo.new(3, 4)) { Foo[a: 99, b: b] }).to be_false
     end
 
     it 'should match splats' do
@@ -104,7 +104,7 @@ describe 'Destructure#dbind' do
 
     it 'should match deeply' do
       a = [ 100, { a: 1, b: 'hi', c: Bar.new(10, [13, 17, 23, 27, 29]) } ]
-      e = dbind(a) { [ 100, { a: _, b: 'hi', c: Bar(x: ten, y: [_, 17, @@primes]) }, @@empty] }
+      e = dbind(a) { [ 100, { a: _, b: 'hi', c: Bar[x: ten, y: [_, 17, @@primes]] }, @@empty] }
       expect(e.ten).to eql 10
       expect(e.primes).to eql [ 23, 27, 29 ]
       expect(e.empty).to eql []
