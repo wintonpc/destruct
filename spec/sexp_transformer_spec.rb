@@ -12,6 +12,8 @@ end
 
 describe Destructure::SexpTransformer do
 
+  include_context 'types'
+
   it 'should transform underscore to wildcard' do
     v = transform(sexp { _ })
     expect(v).to eql DMatch::_
@@ -86,6 +88,22 @@ describe Destructure::SexpTransformer do
 
   it 'should transform the empty hash' do
     expect(transform(sexp { {} })).to eql Hash.new
+  end
+
+  #it 'should transform instance vars' do
+  #  v = transform(sexp { @my_var })
+  #  expect(v).to be_instance_of Var
+  #  expect(v.name).to eql '@my_var'
+  #end
+
+  it 'should transform method chains' do
+    puts sexp { @ivar }.inspect
+    puts sexp { @ivar.one }.inspect
+    puts sexp { @@cvar }.inspect
+    puts sexp { @@cvar[1] }.inspect
+    puts sexp { one }.inspect
+    puts sexp { one.two }.inspect
+    puts sexp { one.two.three }.inspect
   end
 
 end

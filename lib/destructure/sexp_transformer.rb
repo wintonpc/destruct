@@ -1,3 +1,4 @@
+require 'active_support/inflector'
 require 'destructure/dmatch'
 
 module Destructure
@@ -12,15 +13,12 @@ module Destructure
       klass_sym = DMatch::Var.new(&method(:is_constant?))
       case
         when e = dmatch([:call, _, :_, _], sp); _
+        # plain object type
         when e = dmatch([:const, klass_sym], sp)
           make_obj(e[klass_sym], {})
-        when e = dmatch([:call, _, klass_sym, [:arglist, [:hash, splat(:kv_sexps)]]], sp)
-          kvs = transform_many(e[:kv_sexps])
-          make_obj(e[klass_sym], Hash[*kvs])
-        when e = dmatch([:call, _, klass_sym, [:arglist, splat(:field_name_sexps)]], sp)
-          field_names = transform_many(e[:field_name_sexps])
-          make_obj(e[klass_sym], Hash[field_names.map { |f| [f.name, var(f.name)] }])
-        when e = dmatch([:call, _, var(:name), _], sp); var(e[:name])
+        # generic call
+        when e = dmatch([:call, var(:receiver), var(:msg), var(:arglist)], sp)
+          transform_call(e[:receiver], e[:msg], e[:arglist])
         when e = dmatch([:lit, var(:value)], sp); e[:value]
         when e = dmatch([:true], sp); true
         when e = dmatch([:false], sp); false
@@ -34,6 +32,32 @@ module Destructure
     end
 
     private ########################################
+
+    def transform_call(*sexp_call)
+      sexp_receiver, sexp_msg, sexp_args = sexp_call
+      _ = DMatch::_
+      klass_sym_var = DMatch::Var.new(&method(:is_constant?))
+      case
+        # Class(...)
+        when e = dmatch([nil, klass_sym_var], [sexp_receiver, sexp_msg]); transform_obj_matcher(e[klass_sym_var], sexp_args)
+        # local variable
+        when e = dmatch([nil, var(:name), [:arglist]], sexp_call); var(e[:name])
+        else; nil
+      end
+    end
+
+    def transform_obj_matcher(klass_sym, sexp_args)
+      case
+        # Class(a: 1, b: 2)
+        when e = dmatch([:arglist, [:hash, splat(:kv_sexps)]], sexp_args)
+          kvs = transform_many(e[:kv_sexps])
+          make_obj(klass_sym, Hash[*kvs])
+        # Class(a, b, c)
+        when e = dmatch([:arglist, splat(:field_name_sexps)], sexp_args)
+          field_names = transform_many(e[:field_name_sexps])
+          make_obj(klass_sym, Hash[field_names.map { |f| [f.name, var(f.name)] }])
+      end
+    end
 
     def transform_many(xs)
       xs.map(&method(:transform))

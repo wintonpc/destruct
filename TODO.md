@@ -1,5 +1,4 @@
 - todo
-  - explore unification ('martelli-montanari')
   - error messages with paths
   - avoid mutating the caller (adding instance variables, etc.) as much as possible
 
@@ -18,3 +17,5 @@
       Preds anyway.
   - lambda predicates
     - giving up on this temporarily due to sourcify issues
+  - explore unification ('martelli-montanari')
+    - don't think we need/want this
