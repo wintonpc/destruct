@@ -12,7 +12,7 @@ describe Dmatch::Env do
   it 'should bind identifiers to values' do
     v = Var.new
     @env[v] = 5
-    @env[v].should == 5
+    expect(@env[v]).to eql 5
   end
 
   it 'should require identifiers to be Vars' do
@@ -23,33 +23,33 @@ describe Dmatch::Env do
   it 'should allow rebinding to a matching value' do
     v = Var.new
     @env.bind(v, 5)
-    @env.bind(v, 5).should be_instance_of Env
-    @env[v].should == 5
+    expect(@env.bind(v, 5)).to be_instance_of Env
+    expect(@env[v]).to eql 5
   end
 
   it 'should not allow rebinding to a different value' do
     v = Var.new
     @env.bind(v, 5)
-    @env.bind(v, 6).should be_nil
-    @env[v].should == 5
+    expect(@env.bind(v, 6)).to be_nil
+    expect(@env[v]).to eql 5
   end
 
   it 'should allow nil to be set' do
     v = Var.new
     expect { @env[v] }.to raise_exception
     @env[v] = nil
-    @env[v].should == nil
+    expect(@env[v]).to eql nil
   end
 
   it 'should allow false to be set' do
     v = Var.new
     @env[v] = false
-    @env[v].should == false
+    expect(@env[v]).to eql false
   end
 
   it 'should allow getting by var name' do
     @env[Var.new(:v)] = 42
-    @env[:v].should == 42
+    expect(@env[:v]).to eql 42
   end
 
   it 'should allow merging' do
@@ -63,12 +63,12 @@ describe Dmatch::Env do
     t = Var.new(:t)
     e2[s] = 43
     e2[t] = 55
-    @env.merge!(e2).should == @env
+    expect(@env.merge!(e2)).to eql @env
 
-    @env[c].should == 66
-    @env[d].should == 88
-    @env[s].should == 43
-    @env[t].should == 55
+    expect(@env[c]).to eql 66
+    expect(@env[d]).to eql 88
+    expect(@env[s]).to eql 43
+    expect(@env[t]).to eql 55
 
   end
 
@@ -79,6 +79,6 @@ describe Dmatch::Env do
     e2 = Env.new
     s = c
     e2[s] = 43
-    @env.merge!(e2).should be_nil
+    expect(@env.merge!(e2)).to be_nil
   end
 end

@@ -43,72 +43,72 @@ describe 'Destructure#dbind' do
     it 'should match non-local vars' do
       a = 1
       e = dbind(a) { x }
-      e.x.should == 1
+      expect(e.x).to eql 1
     end
 
     it 'should match local vars' do
       a = 1
       x = 99
       e = dbind(a) { x }
-      e.x.should == 1
+      expect(e.x).to eql 1
     end
 
     it 'should match arrays' do
       a = [1, 2, 3]
       e = dbind(a) { [1, x, 3] }
-      e.x.should == 2
+      expect(e.x).to eql 2
     end
 
     it 'should match hashes' do
       h = { a: 1, b: 2, c: 3}
       e = dbind(h) { { a: one, b: 2} }
-      e.one.should == 1
+      expect(e.one).to eql 1
     end
 
     it 'should match regexps' do
       h = { a: 1, b: 'matching is the best' }
       e = dbind(h) { { a: 1, b: /(?<what>\w+) is the best/} }
-      e.what.should == 'matching'
+      expect(e.what).to eql 'matching'
 
       h = { a: 1, b: 'ruby is the worst' }
-      dbind(h) { { a: 1, b: /(?<what>\w+) is the best/} }.should be_nil
+      expect(dbind(h) { { a: 1, b: /(?<what>\w+) is the best/} }).to be_nil
     end
 
     it 'should match object types' do
-      dbind(5) { Numeric }.should be_true
-      dbind(99.999) { Numeric }.should be_true
-      dbind('hello') { Numeric }.should be_false
+      expect(dbind(5) { Numeric }).to be_true
+      expect(dbind(99.999) { Numeric }).to be_true
+      expect(dbind('hello') { Numeric }).to be_false
     end
 
     it 'should match object fields' do
       e = dbind(Foo.new(1, 2)) { Foo(a, b) }
-      e.a.should == 1
-      e.b.should == 2
+      expect(e.a).to eql 1
+      expect(e.b).to eql 2
 
-      dbind(Foo.new(3, 4)) { Foo(a: 3, b: b) }.b.should == 4
+      expect(dbind(Foo.new(3, 4)) { Foo(a: 3, b: b) }.b).to eql 4
 
-      dbind(Foo.new(3, 4)) { Foo(a: 99, b: b) }.should be_false
+      expect(dbind(Foo.new(3, 4)) { Foo(a: 99, b: b) }).to be_false
     end
 
     it 'should match splats' do
       a = [1,2,3,4,5,6,7,8,9]
       e = dbind(a) { [1, @@s, 9] }
-      e.s.should == [2,3,4,5,6,7,8]
+      expect(e.s).to eql [2,3,4,5,6,7,8]
     end
 
     it 'should match deeply' do
       a = [ 100, { a: 1, b: 'hi', c: Bar.new(10, [13, 17, 23, 27, 29]) } ]
       e = dbind(a) { [ 100, { a: _, b: 'hi', c: Bar(x: ten, y: [_, 17, @@primes]) }, @@empty] }
-      e.ten.should == 10
-      e.primes.should == [ 23, 27, 29 ]
-      e.empty.should == []
+      expect(e.ten).to eql 10
+      expect(e.primes).to eql [ 23, 27, 29 ]
+      expect(e.empty).to eql []
     end
 
     it 'should handle repeated vars' do
       e = dbind([1,2,1]) { [x,2,x] }
-      e.x.should == 1
+      expect(e.x).to eql 1
 
-      #dbind([1,2,3]) { [x,2,x] }.should be_nil
+      expect(dbind([1,2,3]) { [x,2,x] }).to be_nil
     end
 
   end
@@ -121,25 +121,25 @@ describe 'Destructure#dbind' do
     it 'should set pre-initialized local variables' do
       a = 0
       dbind([1,2]) { [a, b] }
-      a.should == 1
+      expect(a).to eql 1
     end
 
     it 'should set non-literal local variables' do
       a = 0
       dbind([OpenStruct.new(hi: 'hello'), 2]) { [a, b] }
-      a.should be_instance_of OpenStruct
-      a.hi.should == 'hello'
+      expect(a).to be_instance_of OpenStruct
+      expect(a.hi).to eql 'hello'
     end
 
     it 'should create methods for non-initialized local variables' do
       dbind([1,2]) { [a, b] }
-      b.should == 2
+      expect(b).to eql 2
     end
 
     it 'should ensure the fake locals maintain scope like real locals' do
       acc = []
       ZTest.new.one(3, acc)
-      acc.should == [3, 99, 3, 1000]
+      expect(acc).to eql [3, 99, 3, 1000]
     end
 
     it 'should make fake locals private' do
@@ -150,7 +150,7 @@ describe 'Destructure#dbind' do
 
     it 'should restrict method_missing to only known values' do
       dbind([1,2]) { [a, b] }
-      b.should == 2
+      expect(b).to eql 2
       expect { self.c }.to raise_error(NoMethodError)
     end
 
@@ -163,7 +163,7 @@ describe 'Destructure#dbind' do
     end
 
     it 'should return nil for non-matches' do
-      dbind([1,2]) { [5, b] }.should be_nil
+      expect(dbind([1,2]) { [5, b] }).to be_nil
     end
 
   end

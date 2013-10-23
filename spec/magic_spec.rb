@@ -6,8 +6,8 @@ describe 'magic' do
   context 'when performing magic' do
 
     it 'maintains typical =~ behavior' do
-      ('foo123' =~ /^foo/).should be_true
-      (/^foo/ =~ 'foo123').should be_true
+      expect('foo123' =~ /^foo/).to be_true
+      expect(/^foo/ =~ 'foo123').to be_true
     end
 
     it 'matches non =~ stuff' do
