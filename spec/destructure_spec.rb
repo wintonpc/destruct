@@ -15,6 +15,17 @@ class Bar
   end
 end
 
+class Baz
+  attr_accessor :list
+  def initialize(list)
+    @list = list
+  end
+
+  def get(index)
+    @list[index]
+  end
+end
+
 class ZTest
   include Destructure
 
@@ -170,6 +181,23 @@ describe 'Destructure#dbind' do
       expect(@instance_var).to be_nil
       dbind([1, 7]) { [1, @instance_var] }
       expect(@instance_var).to eql 7
+    end
+
+    it 'should bind to complicated LHSs' do
+      s = OpenStruct.new
+      dbind([1, 7]) { [1, s.heyooo] }
+      expect(s.heyooo).to eql 7
+
+      h = {}
+      dbind([1, 8]) { [1, h[:yelp]] }
+      expect(h[:yelp]).to eql 8
+
+      @one = OpenStruct.new
+      @one.two = {}
+      os2 = OpenStruct.new
+      @one.two[:zzz] = Baz.new([0, 1, 2, os2])
+      dbind([1, 9]) { [1, @one.two[:zzz].get(3).at_last] }
+      expect(os2.at_last).to eql 9
     end
 
   end

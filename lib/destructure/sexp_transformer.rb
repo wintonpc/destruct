@@ -45,8 +45,7 @@ module Destructure
         # local variable
         when e = dmatch([nil, var(:name), [:arglist]], sexp_call); var(e[:name])
         # call chain (@one.two(12).three[3].four)
-        when e = dmatch([var(:receiver), var(:msg), [:arglist]], sexp_call); var(unwind_lhs(e[:receiver], e[:msg]))
-        else; nil
+        else; var(unwind_receivers([:call, *sexp_call]).gsub(/\.$/, '').gsub(/\.\[/, '['))
       end
     end
 
@@ -63,20 +62,28 @@ module Destructure
       end
     end
 
-    def unwind_lhs(receiver, msg)
-      unwind_receivers(receiver).gsub(/\.\[/, '[') + msg.to_s
-    end
-
     def unwind_receivers(receiver)
       case
         when receiver.nil?; ''
         when e = dmatch([:ivar, var(:name)], receiver); "#{e[:name]}."
         when e = dmatch([:call, var(:receiver), :[], [:arglist, splat(:args)]], receiver)
-          unwind_receivers(e[:receiver]) + "[#{transform_many(e[:args]).map{|x| x.to_s}.join(', ')}].".gsub(/\(\)$/, '')
+          unwind_receivers(e[:receiver]) + format_hash_call(e[:args])
         when e = dmatch([:call, var(:receiver), var(:msg), [:arglist, splat(:args)]], receiver)
-          unwind_receivers(e[:receiver]) + "#{e[:msg]}(#{transform_many(e[:args]).map{|x| x.to_s}.join(', ')})".gsub(/\(\)$/, '') + '.'
+          unwind_receivers(e[:receiver]) + format_method_call(e[:msg], e[:args])
         else; raise 'oops'
       end
+    end
+
+    def format_method_call(msg, args)
+      "#{msg}(#{transform_args(args)})".gsub(/\(\)$/, '') + '.'
+    end
+
+    def format_hash_call(args)
+      "[#{transform_args(args)}].".gsub(/\(\)$/, '')
+    end
+
+    def transform_args(args)
+      transform_many(args).map { |x| x.is_a?(Symbol) ? ":#{x}" : x.to_s }.join(', ')
     end
 
     def transform_many(xs)

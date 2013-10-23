@@ -55,6 +55,12 @@ describe Destructure::SexpTransformer do
     expect(v.name).to eql '@one.two[1].three'
   end
 
+  it 'should transform hash LHSs' do
+    v = transform(sexp { one[:foo] })
+    expect(v).to be_instance_of Var
+    expect(v.name).to eql 'one[:foo]'
+  end
+
   #it 'should transform method chains' do
   #  puts sexp { $gvar }.inspect
   #  puts sexp { @ivar }.inspect
