@@ -19,11 +19,52 @@ describe Destructure::SexpTransformer do
     expect(v).to eql DMatch::_
   end
 
-  it 'should transform vars' do
+  it 'should transform local vars' do
     v = transform(sexp { x })
     expect(v).to be_instance_of Var
     expect(v.name).to eql :x
   end
+
+  it 'should transform instance vars' do
+    v = transform(sexp { @my_var })
+    expect(v).to be_instance_of Var
+    expect(v.name).to eql :@my_var
+  end
+
+  it 'should transform chained LHSs with method bases' do
+    v = transform(sexp { one.two.three })
+    expect(v).to be_instance_of Var
+    expect(v.name).to eql 'one.two.three'
+  end
+
+  it 'should transform chained LHSs with instance variable bases' do
+    v = transform(sexp { @one.two.three })
+    expect(v).to be_instance_of Var
+    expect(v.name).to eql '@one.two.three'
+  end
+
+  it 'should transform chained LHSs with arguments' do
+    v = transform(sexp { one(11).two([22, 33]).three })
+    expect(v).to be_instance_of Var
+    expect(v.name).to eql 'one(11).two([22, 33]).three'
+  end
+
+  it 'should transform chained LHSs with hashes' do
+    v = transform(sexp { @one.two[1].three })
+    expect(v).to be_instance_of Var
+    expect(v.name).to eql '@one.two[1].three'
+  end
+
+  #it 'should transform method chains' do
+  #  puts sexp { $gvar }.inspect
+  #  puts sexp { @ivar }.inspect
+  #  puts sexp { @ivar.one }.inspect
+  #  puts sexp { @@cvar }.inspect
+  #  puts sexp { @@cvar[1] }.inspect
+  #  puts sexp { one }.inspect
+  #  puts sexp { one.two }.inspect
+  #  puts sexp { one.two.three }.inspect
+  #end
 
   it 'should transform splats' do
     v = transform(sexp { @@x })
@@ -88,22 +129,6 @@ describe Destructure::SexpTransformer do
 
   it 'should transform the empty hash' do
     expect(transform(sexp { {} })).to eql Hash.new
-  end
-
-  #it 'should transform instance vars' do
-  #  v = transform(sexp { @my_var })
-  #  expect(v).to be_instance_of Var
-  #  expect(v.name).to eql '@my_var'
-  #end
-
-  it 'should transform method chains' do
-    puts sexp { @ivar }.inspect
-    puts sexp { @ivar.one }.inspect
-    puts sexp { @@cvar }.inspect
-    puts sexp { @@cvar[1] }.inspect
-    puts sexp { one }.inspect
-    puts sexp { one.two }.inspect
-    puts sexp { one.two.three }.inspect
   end
 
 end
