@@ -1,6 +1,6 @@
 require 'singleton'
 
-class Decons
+class Destruct
 
   class Var
     attr_reader :name

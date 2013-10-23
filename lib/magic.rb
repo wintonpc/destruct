@@ -1,11 +1,11 @@
-require 'deconstruct'
+require 'destructure'
 
 class Object
   def =~(pattern_lambda)
     caller_binding = binding.of_caller(1)
     caller_location = caller_locations(1,1)[0].label
     caller = caller_binding.eval('self')
-    caller.class.send(:include, Deconstruct) unless caller.class.included_modules.include?(Deconstruct)
+    caller.class.send(:include, Destructure) unless caller.class.included_modules.include?(Destructure)
     caller.send(:dmatch_internal, self, pattern_lambda.to_sexp, caller_binding, caller_location)
   end
 end
@@ -22,7 +22,7 @@ class String
       caller_binding = binding.of_caller(1)
       caller_location = caller_locations(1,1)[0].label
       caller = caller_binding.eval('self')
-      caller.class.send(:include, Deconstruct) unless caller.class.included_modules.include?(Deconstruct)
+      caller.class.send(:include, Destructure) unless caller.class.included_modules.include?(Destructure)
       caller.send(:dmatch_internal, self, pattern_lambda.to_sexp, caller_binding, caller_location)
     end
   end

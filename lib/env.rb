@@ -1,7 +1,7 @@
 require 'ostruct'
 require 'types'
 
-class Decons
+class Destruct
   class Env
 
     def env

@@ -1,5 +1,5 @@
 require_relative 'helpers'
-require 'deconstruct'
+require 'destructure'
 
 class Foo
   attr_accessor :a, :b
@@ -16,7 +16,7 @@ class Bar
 end
 
 class ZTest
-  include Deconstruct
+  include Destructure
 
   def one(n, acc)
     dmatch([1, n]) { [a, b] }
@@ -33,11 +33,11 @@ class ZTest
   end
 end
 
-describe 'Deconstruct#dmatch' do
+describe 'Destructure#dmatch' do
 
   context 'always' do
 
-    include Deconstruct[bind_locals: false]
+    include Destructure[bind_locals: false]
     include_context 'types'
 
     it 'should match non-local vars' do
@@ -109,7 +109,7 @@ describe 'Deconstruct#dmatch' do
 
   context 'when binding locals' do
 
-    include Deconstruct # binds locals by default
+    include Destructure # binds locals by default
 
     it 'should set pre-initialized local variables' do
       a = 0

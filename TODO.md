@@ -1,5 +1,4 @@
 - todo
-  - rename to 'destructure'
   - make it a gem
   - explore unification ('martelli-montanari')
   - error messages with paths
@@ -15,7 +14,7 @@
     - show with parse tree input (to_sexp)
 
 - wishlist
-  - Decons matchers should be available in dmatch
+  - Destruct matchers should be available in dmatch
     - giving up on this. it's possible for Obj and Var, but not for
       Pred because of nested blocks/lambdas. It's really only useful for
       Preds anyway.

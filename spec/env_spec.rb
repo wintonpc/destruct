@@ -1,7 +1,7 @@
 require_relative 'helpers'
 require 'env'
 
-describe Decons::Env do
+describe Destruct::Env do
 
   include_context 'types'
 

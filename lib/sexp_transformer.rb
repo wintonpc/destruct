@@ -1,6 +1,6 @@
-require 'decons'
+require 'destruct'
 
-module Deconstruct
+module Destructure
   class SexpTransformer
 
     def self.transform(sp)
@@ -8,8 +8,8 @@ module Deconstruct
     end
 
     def transform(sp)
-      _ = Decons::_
-      klass_sym = Decons::Var.new(&method(:is_constant?))
+      _ = Destruct::_
+      klass_sym = Destruct::Var.new(&method(:is_constant?))
       case
         when e = dmatch([:call, _, :_, _], sp); _
         when e = dmatch([:const, klass_sym], sp)
@@ -40,7 +40,7 @@ module Deconstruct
     end
 
     def make_obj(klass_sym, field_map)
-      Decons::Obj.of_type(klass_sym.to_s.constantize, field_map)
+      Destruct::Obj.of_type(klass_sym.to_s.constantize, field_map)
     end
 
     def is_constant?(x)
@@ -52,15 +52,15 @@ module Deconstruct
     end
 
     def dmatch(*args)
-      Decons::match(*args)
+      Destruct::match(*args)
     end
 
     def var(name)
-      Decons::Var.new(name)
+      Destruct::Var.new(name)
     end
 
     def splat(name)
-      Decons::Splat.new(name)
+      Destruct::Splat.new(name)
     end
   end
 end
