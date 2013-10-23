@@ -104,6 +104,13 @@ describe 'Destructure#dbind' do
       e.empty.should == []
     end
 
+    it 'should handle repeated vars' do
+      e = dbind([1,2,1]) { [x,2,x] }
+      e.x.should == 1
+
+      #dbind([1,2,3]) { [x,2,x] }.should be_nil
+    end
+
   end
 
 

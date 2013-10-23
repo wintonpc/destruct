@@ -48,29 +48,25 @@ class Dmatch
   end
 
   def match_var(pat, x)
-    @env[pat] = x
-    @env
+    @env.bind(pat, x)
   end
 
   def match_splat(pat, x)
-    @env[pat] = enumerable(x) ? x : [x]
-    @env
+    @env.bind(pat, enumerable(x) ? x : [x])
   end
 
   def match_select_splat(pat, x)
     x_match_and_env = x.map { |z| [z, Dmatch::match(pat.pattern, z)] }.reject { |q| q.last.nil? }.first
     if x_match_and_env
       x_match, env = x_match_and_env
-      @env[pat] = x_match
-      @env.merge!(env)
+      @env.bind(pat, x_match) && @env.merge!(env)
     else
       nil
     end
   end
 
   def match_filter_splat(pat, x)
-    @env[pat] = x.map { |z| [z, match(pat.pattern, z)] }.reject { |q| q.last.nil? }.map { |q| q.first }
-    @env
+    @env.bind(pat, x.map { |z| [z, match(pat.pattern, z)] }.reject { |q| q.last.nil? }.map { |q| q.first })
   end
 
   def match_enumerable(pat, x)

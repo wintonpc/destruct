@@ -1,4 +1,5 @@
 require 'ostruct'
+require 'destructure/dmatch'
 require 'destructure/types'
 
 class Dmatch
@@ -18,11 +19,18 @@ class Dmatch
       v.is_a?(EnvNil) ? nil : v
     end
 
-    def []=(identifier, value)
+    def bind(identifier, value)
       raise 'identifier must be a Var' unless identifier.is_a? Var
-      raise "Identifier '#{identifier}' is already set to #{env[identifier]}" if env.include?(identifier)
-      env[identifier] = value.nil? ? EnvNil.new : value
+      value_to_store = value.nil? ? EnvNil.new : value
+      existing_key = env.keys.select{|k| k == identifier || (k.name.is_a?(Symbol) && k.name == identifier.name)}.first
+      return nil if existing_key &&
+          (Dmatch.match(env[existing_key], value_to_store).nil? ||
+          Dmatch.match(value_to_store, env[existing_key]).nil?)
+      env[existing_key || identifier] = value_to_store
+      self
     end
+
+    alias []= bind
 
     def keys
       env.keys
@@ -33,8 +41,7 @@ class Dmatch
     end
 
     def merge!(other_env)
-      other_env.keys.each{|k| self[k] = other_env[k]}
-      self
+      other_env.keys.any?{|k| bind(k, other_env[k]).nil?} ? nil : self
     end
 
     class EnvNil; end

@@ -20,10 +20,18 @@ describe Dmatch::Env do
     expect { @env[:x] = 5 }.to raise_exception
   end
 
-  it 'should not allow rebinding' do
+  it 'should allow rebinding to a matching value' do
     v = Var.new
-    @env[v] = 5
-    expect { @env[v] = 6 }.to raise_exception
+    @env.bind(v, 5)
+    @env.bind(v, 5).should be_instance_of Env
+    @env[v].should == 5
+  end
+
+  it 'should not allow rebinding to a different value' do
+    v = Var.new
+    @env.bind(v, 5)
+    @env.bind(v, 6).should be_nil
+    @env[v].should == 5
   end
 
   it 'should allow nil to be set' do
@@ -45,14 +53,14 @@ describe Dmatch::Env do
   end
 
   it 'should allow merging' do
-    c = Var.new
-    d = Var.new
+    c = Var.new(:c)
+    d = Var.new(:d)
     @env[c] = 66
     @env[d] = 88
 
     e2 = Env.new
-    s = Var.new
-    t = Var.new
+    s = Var.new(:s)
+    t = Var.new(:t)
     e2[s] = 43
     e2[t] = 55
     @env.merge!(e2).should == @env
@@ -71,6 +79,6 @@ describe Dmatch::Env do
     e2 = Env.new
     s = c
     e2[s] = 43
-    expect { @env.merge!(e2) }.to raise_exception
+    @env.merge!(e2).should be_nil
   end
 end

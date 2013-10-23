@@ -194,4 +194,18 @@ describe 'Dmatch#match' do
     e[:adjective].should == 'fun'
     e[:verb].should == 'do'
   end
+
+  it 'should succeed when repeated variable bindings match' do
+    x = Var.new(:x)
+    Dmatch.match([x, 2, x], [1, 2, 1])[x].should == 1
+    Dmatch.match([x, [2, [x]]], [1, [2, [1]]])[x].should == 1
+    Dmatch.match([x, 2, x], [{a: 5, b: 6}, 2, {a: 5, b: 6}])[x].should == {a: 5, b: 6}
+  end
+
+  it 'should fail when repeated variable bindings do not match' do
+    x = Var.new(:x)
+    Dmatch.match([x, 2, x], [1, 2, 3]).should be_nil
+    Dmatch.match([x, 2, x], [{a: 5, b: 6}, 2, {a: 5}]).should be_nil
+    Dmatch.match([x, 2, x], [{a: 5}, 2, {a: 5, b: 6}]).should be_nil
+  end
 end
