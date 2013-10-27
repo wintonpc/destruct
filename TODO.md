@@ -1,14 +1,23 @@
 - todo
+  - literal pattern variables (instead of binding the variable, use it's value as part of the pattern)
+  - match and bind (e.g., [1, 2, c = String])
   - error messages with paths
   - avoid mutating the caller (adding instance variables, etc.) as much as possible
 
 - examples
   - regex
-  - ruby array deconstruction
+  - ruby array destructuring
   - rails routes
   - motivation: java -> ruby translator
     - regex example. ok, but unrealistic. works only for strings, not structures
     - show with parse tree input (to_sexp)
+
+- motivations
+  - variable parameter lists
+  - testing
+  - language translation
+    - destructure: sexp matching
+  - convert notification handling
 
 - wishlist
   - Destructure matchers should be available in dbind
