@@ -94,7 +94,7 @@ module Destructure
       DMatch::Obj.of_type(klass_sym.to_s.constantize, field_map)
     end
 
-    def is_constant?(x)
+    def is_constant?(x, env=nil)
       x.is_a?(Symbol) && is_uppercase?(x.to_s[0])
     end
 

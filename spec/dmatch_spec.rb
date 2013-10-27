@@ -70,16 +70,22 @@ describe 'Dmatch#match' do
   end
 
   it 'should support predicates with callables' do
-    expect(DMatch.match(Pred.new(lambda {|x| x.odd? }), 5)).to be_instance_of Env
+    expect(DMatch.match(Pred.new(lambda {|x, env| x.odd? }), 5)).to be_instance_of Env
   end
 
   it 'should reject predicates with both a callable and a block' do
-    expect { DMatch.match(Pred.new(lambda {|x| x.odd? }) {|x| x.even? }, 5) }.to raise_exception
+    expect { DMatch.match(Pred.new(lambda {|x, env| x.odd? }) {|x| x.even? }, 5) }.to raise_exception
   end
 
   it 'should support variable predicates' do
     expect(DMatch.match(Var.new(:x) {|x| x.odd? }, 5)[:x]).to eql 5
     expect(DMatch.match(Var.new(:x) {|x| x.even? }, 5)).to be_nil
+  end
+
+  it 'should pass the environment to the variable predicate' do
+    env = DMatch.match([1, Var.new(:x) {|x, e| DMatch.new(e).match({p: Var.new(:q)}, x) }], [1, { p: 10 }])
+    expect(env[:x]).to eql({ p: 10 })
+    expect(env[:q]).to eql 10
   end
 
   it 'should support object predicates' do

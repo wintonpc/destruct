@@ -17,12 +17,12 @@ class DMatch
   def match(pat, x)
     case
       when pat.is_a?(Wildcard); @env
-      when pat.is_a?(Pred) && pat.test(x); @env
+      when pat.is_a?(Pred) && pat.test(x, @env); @env
       when pat.is_a?(FilterSplat); match_filter_splat(pat, x)
       when pat.is_a?(SelectSplat); match_select_splat(pat, x)
       when pat.is_a?(Splat); match_splat(pat, x)
-      when pat.is_a?(Var) && pat.test(x); match_var(pat, x)
-      when pat.is_a?(Obj) && pat.test(x) && all_field_patterns_match(pat, x); @env
+      when pat.is_a?(Var) && pat.test(x, @env); match_var(pat, x)
+      when pat.is_a?(Obj) && pat.test(x, @env) && all_field_patterns_match(pat, x); @env
       when pat.is_a?(String) && pat == x; @env
       when pat.is_a?(Regexp); match_regexp(pat, x)
       when hash(pat, x) && all_keys_match(pat, x); @env

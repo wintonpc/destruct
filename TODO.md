@@ -13,8 +13,8 @@
     - show with parse tree input (to_sexp)
 
 - motivations
-  - variable parameter lists
-  - testing
+  - (x) variable parameter lists
+  - (x) testing
   - language translation
     - destructure: sexp matching
   - convert notification handling
