@@ -16,6 +16,8 @@ module Destructure
         # plain object type
         when e = dmatch([:const, klass_sym], sp)
           make_obj(e[klass_sym], {})
+        # 'or'
+        when e = dmatch([:call, var(:rest), :|, [:arglist, var(:alt)]], sp); Or.new(*[e[:rest], e[:alt]].map(&method(:transform)))
         # generic call
         when e = dmatch([:call, var(:receiver), var(:msg), var(:arglist)], sp)
           transform_call(e[:receiver], e[:msg], e[:arglist])

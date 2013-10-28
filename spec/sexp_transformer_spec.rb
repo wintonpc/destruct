@@ -172,4 +172,14 @@ describe Destructure::SexpTransformer do
     expect(v.last.test('bad', Env.new)).to be_false
   end
 
+  it 'should transform the pipe operator to a set of alternative patterns' do
+    v = transform(sexp { :foo | :bar })
+    expect(v).to be_an_instance_of Or
+    expect(v.patterns).to eql [:foo, :bar]
+
+    v = transform(sexp { :foo | :bar | :grill | :baz })
+    expect(v).to be_an_instance_of Or
+    expect(v.patterns).to eql [:foo, :bar, :grill, :baz]
+  end
+
 end

@@ -122,6 +122,13 @@ describe 'Destructure#dbind' do
       expect(dbind([1,2,3]) { [x,2,x] }).to be_nil
     end
 
+    it 'should handle alternative patterns' do
+      expect(dbind([:foo, {a: :here}]) { [:foo | :bar, { a: :here | :there}] }).to be_true
+      expect(dbind([:bar, {a: :there}]) { [:foo | :bar, { a: :here | :there}] }).to be_true
+      expect(dbind([:huh, {a: :here}]) { [:foo | :bar, { a: :here | :there}] }).to be_false
+      expect(dbind([:foo, {a: :huh}]) { [:foo | :bar, { a: :here | :there}] }).to be_false
+    end
+
   end
 
 
