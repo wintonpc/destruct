@@ -4,8 +4,12 @@ require 'destructure/dmatch'
 module Destructure
   class SexpTransformer
 
-    def self.transform(sp)
-      SexpTransformer.new.transform(sp)
+    def self.transform(sp, caller_binding)
+      SexpTransformer.new(caller_binding).transform(sp)
+    end
+
+    def initialize(caller_binding)
+      @caller_binding = caller_binding
     end
 
     def transform(sp)
@@ -16,6 +20,9 @@ module Destructure
         # plain object type
         when e = dmatch([:const, klass_sym], sp)
           make_obj(e[klass_sym], {})
+        # 'lit'
+        when e = dmatch([:call, nil, :lit, [:arglist, var(:value_expr)]], sp)
+          @caller_binding.eval(unwind_receivers_and_clean(e[:value_expr]))
         # 'or'
         when e = dmatch([:call, var(:rest), :|, [:arglist, var(:alt)]], sp); Or.new(*[e[:rest], e[:alt]].map(&method(:transform)))
         # generic call
@@ -77,6 +84,7 @@ module Destructure
     def unwind_receivers(receiver)
       case
         when receiver.nil?; ''
+        when e = dmatch([:lit, var(:value)], receiver); "#{e[:value]}."
         when e = dmatch([:ivar, var(:name)], receiver); "#{e[:name]}."
         when e = dmatch([:call, var(:receiver), :[], [:arglist, splat(:args)]], receiver)
           unwind_receivers(e[:receiver]) + format_hash_call(e[:args])

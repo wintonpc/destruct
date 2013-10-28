@@ -20,7 +20,7 @@ module Destructure
   private ########################################
 
   def dbind_internal(x, sexp, caller_binding, caller_location)
-    env = dbind_no_ostruct_sexp(x, sexp)
+    env = dbind_no_ostruct_sexp(x, sexp, caller_binding)
     return nil if env.nil?
 
     if bind_locals
@@ -30,9 +30,9 @@ module Destructure
     env.to_openstruct
   end
 
-  def dbind_no_ostruct_sexp(x, sexp)
+  def dbind_no_ostruct_sexp(x, sexp, caller_binding)
     sp = sexp.to_a.last
-    pat = SexpTransformer.transform(sp)
+    pat = SexpTransformer.transform(sp, caller_binding)
     DMatch::match(pat, x)
   end
 

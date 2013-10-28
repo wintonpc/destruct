@@ -6,8 +6,8 @@ def sexp(&block)
   block.to_sexp(strip_enclosure: true, ignore_nested: true).to_a
 end
 
-def transform(sp)
-  Destructure::SexpTransformer.new.transform(sp)
+def transform(sp, caller_binding=nil)
+  Destructure::SexpTransformer.new(caller_binding || binding).transform(sp)
 end
 
 describe Destructure::SexpTransformer do
@@ -180,6 +180,16 @@ describe Destructure::SexpTransformer do
     v = transform(sexp { :foo | :bar | :grill | :baz })
     expect(v).to be_an_instance_of Or
     expect(v.patterns).to eql [:foo, :bar, :grill, :baz]
+  end
+
+  it 'should transform literal variable values' do
+    foo = 7
+    @my_var = 9
+
+    expect(transform(sexp { lit(5) }, binding)).to eql 5
+    expect(transform(sexp { lit(foo) }, binding)).to eql 7
+    expect(transform(sexp { lit(@my_var) }, binding)).to eql 9
+
   end
 
 end

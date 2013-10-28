@@ -141,6 +141,14 @@ describe 'Destructure#dbind' do
       expect(e.verb).to eql 'start'
     end
 
+    it 'should handle literal variable values' do
+      @my_var = 101
+      foo = 7
+      expect(dbind(5) { lit(5) }).to be_true
+      expect(dbind(101) { lit(@my_var) }).to be_true
+      expect(dbind(7) { lit(foo) }).to be_true
+    end
+
   end
 
 
@@ -217,6 +225,16 @@ describe 'Destructure#dbind' do
       @one.two[:zzz] = Baz.new([0, 1, 2, os2])
       dbind([1, 9]) { [1, @one.two[:zzz].get(3).at_last] }
       expect(os2.at_last).to eql 9
+    end
+
+    it 'should accept complicated literals' do
+      @one = OpenStruct.new
+      @one.two = {}
+      os2 = OpenStruct.new
+      @one.two[:zzz] = Baz.new([0, 1, 2, os2])
+      @one.two[:zzz].get(3).at_last = 9
+      expect(dbind([1, 9]) { [1, lit(@one.two[:zzz].get(3).at_last)] }).to be_true
+      expect(dbind([1, 99999]) { [1, lit(@one.two[:zzz].get(3).at_last)] }).to be_false
     end
 
   end
