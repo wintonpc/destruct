@@ -34,5 +34,17 @@ describe 'magic' do
       end
     end
 
+    it 'matches symbols' do
+      thing = :hello
+      case
+        when thing =~-> { [1, x, 3] }
+          fail
+        when thing =~-> { :hello }
+          'it was symbol'
+        else
+          fail
+      end
+    end
+
   end
 end

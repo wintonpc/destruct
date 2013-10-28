@@ -64,6 +64,10 @@ describe 'Destructure#dbind' do
       expect(e.x).to eql 1
     end
 
+    it 'should match symbols' do
+      expect(dbind(:foo) { :foo }).to be_true
+    end
+
     it 'should match arrays' do
       a = [1, 2, 3]
       e = dbind(a) { [1, x, 3] }

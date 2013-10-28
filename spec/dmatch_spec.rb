@@ -26,6 +26,7 @@ describe 'Dmatch#match' do
     expect(DMatch.match(1, 2)).to be_nil
     expect(DMatch.match(1, 1)).to be_instance_of Env
     expect(DMatch.match(nil, nil)).to be_instance_of Env
+    expect(DMatch.match(:foo, :foo)).to be_instance_of Env
   end
 
   it 'should match strings' do
