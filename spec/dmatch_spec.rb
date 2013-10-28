@@ -214,4 +214,11 @@ describe 'Dmatch#match' do
     expect(DMatch.match([x, 2, x], [{a: 5, b: 6}, 2, {a: 5}])).to be_nil
     expect(DMatch.match([x, 2, x], [{a: 5}, 2, {a: 5, b: 6}])).to be_nil
   end
+
+  it 'should support alternative patterns' do
+    pattern = Or.new([1,2], :good)
+    expect(DMatch.match(pattern, [1,2])).to be_true
+    expect(DMatch.match(pattern, :good)).to be_true
+    expect(DMatch.match(pattern, :bad)).to be_nil
+  end
 end

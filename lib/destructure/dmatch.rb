@@ -25,6 +25,7 @@ class DMatch
       when pat.is_a?(Obj) && pat.test(x, @env) && all_field_patterns_match(pat, x); @env
       when pat.is_a?(String) && pat == x; @env
       when pat.is_a?(Regexp); match_regexp(pat, x)
+      when pat.is_a?(Or); match_or(pat, x)
       when hash(pat, x) && all_keys_match(pat, x); @env
       when enumerable(pat, x); match_enumerable(pat, x)
       when pat == x; @env
@@ -49,6 +50,10 @@ class DMatch
 
   def match_var(pat, x)
     @env.bind(pat, x)
+  end
+
+  def match_or(pat, x)
+    pat.patterns.lazy.map{|p| match(p, x)}.reject{|e| e.nil?}.first
   end
 
   def match_splat(pat, x)

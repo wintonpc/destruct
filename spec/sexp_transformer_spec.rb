@@ -148,4 +148,28 @@ describe Destructure::SexpTransformer do
     expect(transform(sexp { {} })).to eql Hash.new
   end
 
+  it 'should transform lets with local LHSs' do
+    v = transform(sexp { ['hello', you = /.*!/ ] })
+    expect(v.last).to be_instance_of Var
+    expect(v.last.name).to eql :you
+    expect(v.last.test('World!', Env.new)).to be_true
+    expect(v.last.test('bad', Env.new)).to be_false
+  end
+
+  it 'should transform lets with ivar LHSs' do
+    v = transform(sexp { ['hello', @thing = /.*!/ ] })
+    expect(v.last).to be_instance_of Var
+    expect(v.last.name).to eql :@thing
+    expect(v.last.test('World!', Env.new)).to be_true
+    expect(v.last.test('bad', Env.new)).to be_false
+  end
+
+  it 'should transform lets with complicated LHSs' do
+    v = transform(sexp { ['hello', @one.two[1].three = /.*!/ ] })
+    expect(v.last).to be_instance_of Var
+    expect(v.last.name).to eql '@one.two[1].three'
+    expect(v.last.test('World!', Env.new)).to be_true
+    expect(v.last.test('bad', Env.new)).to be_false
+  end
+
 end

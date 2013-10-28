@@ -75,4 +75,10 @@ class DMatch
     end
   end
 
+  class Or
+    attr_reader :patterns
+    def initialize(*patterns)
+      @patterns = patterns
+    end
+  end
 end

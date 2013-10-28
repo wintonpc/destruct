@@ -10,5 +10,6 @@ shared_context 'types' do
   FilterSplat = DMatch::FilterSplat unless defined? FilterSplat
   SelectSplat = DMatch::SelectSplat unless defined? SelectSplat
   Pred = DMatch::Pred unless defined? Pred
+  Or = DMatch::Or unless defined? Or
 end
 

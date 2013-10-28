@@ -21,6 +21,12 @@ module Destructure
           transform_call(e[:receiver], e[:msg], e[:arglist])
         # instance variable
         when e = dmatch([:ivar, var(:name)], sp); var(e[:name].to_s)
+        # let
+        when e = dmatch([DMatch::Or.new(:lasgn, :iasgn), var(:lhs), var(:rhs)], sp)
+          let_var(e[:lhs], transform(e[:rhs]))
+        when e = dmatch([:attrasgn, var(:obj), var(:attr), [:arglist, var(:rhs)]], sp)
+          var_name = unwind_receivers_and_clean([:call, e[:obj], e[:attr].to_s.sub(/=$/,'').to_sym, [:arglist]])
+          let_var(var_name, transform(e[:rhs]))
         when e = dmatch([:lit, var(:value)], sp); e[:value]
         when e = dmatch([:true], sp); true
         when e = dmatch([:false], sp); false
@@ -45,7 +51,7 @@ module Destructure
         # local variable
         when e = dmatch([nil, var(:name), [:arglist]], sexp_call); var(e[:name])
         # call chain (@one.two(12).three[3].four)
-        else; var(unwind_receivers([:call, *sexp_call]).gsub(/\.$/, '').gsub(/\.\[/, '['))
+        else; var(unwind_receivers_and_clean([:call, *sexp_call]))
       end
     end
 
@@ -60,6 +66,10 @@ module Destructure
           field_names = transform_many(e[:field_name_sexps])
           make_obj(klass_sym, Hash[field_names.map { |f| [f.name, var(f.name)] }])
       end
+    end
+
+    def unwind_receivers_and_clean(receiver)
+      unwind_receivers(receiver).gsub(/\.$/, '').gsub(/\.\[/, '[')
     end
 
     def unwind_receivers(receiver)
@@ -108,6 +118,10 @@ module Destructure
 
     def var(name)
       DMatch::Var.new(name)
+    end
+
+    def let_var(name, pattern)
+      DMatch::Var.new(name) { |x, env| DMatch.new(env).match(pattern, x) }
     end
 
     def splat(name)

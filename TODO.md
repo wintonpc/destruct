@@ -1,6 +1,7 @@
 - todo
-  - literal pattern variables (instead of binding the variable, use it's value as part of the pattern)
   - match and bind (e.g., [1, 2, c = String])
+  - alternative patterns ("or")
+  - literal pattern variables (instead of binding the variable, use it's value as part of the pattern)
   - error messages with paths
   - avoid mutating the caller (adding instance variables, etc.) as much as possible
 
