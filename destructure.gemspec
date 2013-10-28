@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name        = 'destructure'
-  s.version     = '0.0.3'
+  s.version     = '0.0.4'
   s.date        = '2013-10-23'
   s.summary     = 'Destructuring bind / pattern matcher for Ruby'
   s.description = s.summary

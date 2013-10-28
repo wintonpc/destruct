@@ -24,7 +24,7 @@ module Destructure
         when e = dmatch([:call, nil, :lit, [:arglist, var(:value_expr)]], sp)
           @caller_binding.eval(unwind_receivers_and_clean(e[:value_expr]))
         # 'or'
-        when e = dmatch([:call, var(:rest), :|, [:arglist, var(:alt)]], sp); Or.new(*[e[:rest], e[:alt]].map(&method(:transform)))
+        when e = dmatch([:call, var(:rest), :|, [:arglist, var(:alt)]], sp); DMatch::Or.new(*[e[:rest], e[:alt]].map(&method(:transform)))
         # generic call
         when e = dmatch([:call, var(:receiver), var(:msg), var(:arglist)], sp)
           transform_call(e[:receiver], e[:msg], e[:arglist])
