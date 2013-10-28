@@ -129,6 +129,18 @@ describe 'Destructure#dbind' do
       expect(dbind([:foo, {a: :huh}]) { [:foo | :bar, { a: :here | :there}] }).to be_false
     end
 
+    it 'should handle let syntax' do
+      e = dbind(['hello', 'starting']) { [ greeting = String, participle = /(?<verb>.*)ing$/ ] }
+      expect(e.greeting).to eql 'hello'
+      expect(e.participle).to eql 'starting'
+      expect(e.verb).to eql 'start'
+
+      e = dbind(['hello', 'has started']) { [ greeting = String, participle = /(?<verb>.*)ing$/ | /has (?<verb>.*)ed$/ ] }
+      expect(e.greeting).to eql 'hello'
+      expect(e.participle).to eql 'has started'
+      expect(e.verb).to eql 'start'
+    end
+
   end
 
 
