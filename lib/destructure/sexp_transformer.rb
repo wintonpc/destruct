@@ -21,7 +21,7 @@ module Destructure
         when e = dmatch([:const, klass_sym], sp)
           make_obj(e[klass_sym], {})
         # 'lit'
-        when e = dmatch([:call, nil, :lit, [:arglist, var(:value_expr)]], sp)
+        when e = dmatch([:not, var(:value_expr)], sp)
           @caller_binding.eval(unwind_receivers_and_clean(e[:value_expr]))
         # 'or'
         when e = dmatch([:call, var(:rest), :|, [:arglist, var(:alt)]], sp); DMatch::Or.new(*[e[:rest], e[:alt]].map(&method(:transform)))

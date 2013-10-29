@@ -13,7 +13,7 @@
 - motivations
   - (x) variable parameter lists
   - (x) testing
-  - language translation
+  - (x) static analysis
     - destructure: sexp matching
   - convert notification handling
 

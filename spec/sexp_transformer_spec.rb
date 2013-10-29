@@ -186,9 +186,9 @@ describe Destructure::SexpTransformer do
     foo = 7
     @my_var = 9
 
-    expect(transform(sexp { lit(5) }, binding)).to eql 5
-    expect(transform(sexp { lit(foo) }, binding)).to eql 7
-    expect(transform(sexp { lit(@my_var) }, binding)).to eql 9
+    expect(transform(sexp { !5 }, binding)).to eql 5
+    expect(transform(sexp { !foo }, binding)).to eql 7
+    expect(transform(sexp { !@my_var }, binding)).to eql 9
 
   end
 
