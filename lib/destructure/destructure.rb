@@ -14,7 +14,7 @@ module Destructure
   end
 
   def dbind(x, &pat_block)
-    dbind_internal(x, pat_block.to_sexp, binding.of_caller(1), caller_locations(1,1)[0].label)
+    dbind_internal(x, pat_block.to_sexp(strip_enclosure: true, ignore_nested: true), binding.of_caller(1), caller_locations(1,1)[0].label)
   end
 
   private ########################################
@@ -31,7 +31,7 @@ module Destructure
   end
 
   def dbind_no_ostruct_sexp(x, sexp, caller_binding)
-    sp = sexp.to_a.last
+    sp = sexp
     pat = SexpTransformer.transform(sp, caller_binding)
     DMatch::match(pat, x)
   end
