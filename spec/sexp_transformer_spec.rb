@@ -61,17 +61,6 @@ describe Destructure::SexpTransformer do
     expect(v.name).to eql 'one[:foo]'
   end
 
-  #it 'should transform method chains' do
-  #  puts sexp { $gvar }.inspect
-  #  puts sexp { @ivar }.inspect
-  #  puts sexp { @ivar.one }.inspect
-  #  puts sexp { @@cvar }.inspect
-  #  puts sexp { @@cvar[1] }.inspect
-  #  puts sexp { one }.inspect
-  #  puts sexp { one.two }.inspect
-  #  puts sexp { one.two.three }.inspect
-  #end
-
   it 'should transform splats' do
     v = transform(sexp { @@x })
     expect(v).to be_instance_of Splat
@@ -87,15 +76,11 @@ describe Destructure::SexpTransformer do
         should be_instance_of Env
   end
 
-  it 'should transform object matchers with implied names' do
-    result = transform(sexp { Object[x, y] })
+  it 'should transform Hash matchers with implied names' do
+    result = transform(sexp { Hash[x, y] })
 
-    expect(result).to be_instance_of Obj
-    expect(result.fields.size).to eql 2
-    expect(result.fields[:x]).to be_instance_of Var
-    expect(result.fields[:x].name).to eql :x
-    expect(result.fields[:y]).to be_instance_of Var
-    expect(result.fields[:y].name).to eql :y
+    expect(DMatch::match({ x: Obj.of_type(Var, :name => :x),
+                           y: Obj.of_type(Var, :name => :y) }, result)).to be_instance_of Env
   end
 
   it 'should transform object matchers with explicit names' do
@@ -104,6 +89,15 @@ describe Destructure::SexpTransformer do
         x: Obj.of_type(Var, :name => :a),
         y: 2
     }), result)).to be_instance_of Env
+  end
+
+  it 'should transform Hash matchers with explicit names' do
+    # this case is already covered completely by the normal
+    # curly-brace hash matcher, but is included for completeness
+    result = transform(sexp { Hash[x: a, y: 2] })  # equivalent to { x: a, y: 2 }
+    expect(DMatch::match({ x: Obj.of_type(Var, :name => :a),
+                           y: 2
+                         }, result)).to be_instance_of Env
   end
 
   it 'should transform object matchers using the constant as a predicate' do

@@ -10,13 +10,6 @@
     - regex example. ok, but unrealistic. works only for strings, not structures
     - show with parse tree input (to_sexp)
 
-- motivations
-  - (x) variable parameter lists
-  - (x) testing
-  - (x) static analysis
-    - destructure: sexp matching
-  - convert notification handling
-
 - wishlist
   - Destructure matchers should be available in dbind
     - giving up on this. it's possible for Obj and Var, but not for
