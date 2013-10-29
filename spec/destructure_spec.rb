@@ -80,6 +80,14 @@ describe 'Destructure#dbind' do
       expect(e.one).to eql 1
     end
 
+    it 'should match hashes with implicit binding' do
+      h = { a: 1, b: 2, c: 3}
+      e = dbind(h) { Hash[a, b, c] }
+      expect(e.a).to eql 1
+      expect(e.b).to eql 2
+      expect(e.c).to eql 3
+    end
+
     it 'should match regexps' do
       h = { a: 1, b: 'matching is the best' }
       e = dbind(h) { { a: 1, b: /(?<what>\w+) is the best/} }
