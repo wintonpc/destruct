@@ -10,7 +10,10 @@ module Destructure
   include Paramix::Parametric
 
   parameterized do |params|
-    @_destructure_bind_locals = params[:bind_locals]
+    define_method(:bind_locals) do
+      bind = params[:bind_locals]
+      @bind_locals ||= bind.nil? ? true : bind
+    end
   end
 
   def dbind(x, &pat_block)
@@ -18,6 +21,10 @@ module Destructure
   end
 
   private ########################################
+
+  def bind_locals
+    true
+  end
 
   def dbind_internal(x, sexp, caller_binding, caller_location)
     env = dbind_no_ostruct_sexp(x, sexp, caller_binding)
@@ -41,7 +48,7 @@ module Destructure
       $binding_temp = value
       binding.eval("#{name} = $binding_temp")
     else
-      if self.respond_to? name
+      if binding.eval('self').respond_to?(name, true)
         raise "Cannot have pattern variable named '#{name}'. A method already exists with that name. Choose a different name, " +
                   "or pre-initialize a local variable that shadows the method."
       end
@@ -60,11 +67,6 @@ module Destructure
     else
       super
     end
-  end
-
-  def bind_locals
-    bind = self.class.instance_variable_get(:@_destructure_bind_locals)
-    @bind_locals ||= bind.nil? ? true : bind
   end
 
 end

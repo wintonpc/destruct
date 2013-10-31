@@ -161,6 +161,10 @@ describe 'Destructure#dbind' do
       expect(dbind(7) { !foo }).to be_true
     end
 
+    it 'should not warn about method conflicts' do
+      dbind([1,2,3]) { [1,2,p] }  # Kernel#p
+    end
+
   end
 
 
@@ -247,6 +251,10 @@ describe 'Destructure#dbind' do
       @one.two[:zzz].get(3).at_last = 9
       expect(dbind([1, 9]) { [1, !@one.two[:zzz].get(3).at_last] }).to be_true
       expect(dbind([1, 99999]) { [1, !@one.two[:zzz].get(3).at_last] }).to be_false
+    end
+
+    it 'should warn about method conflicts' do
+      expect { dbind([1,2,3]) { [1,2,p] } }.to raise_exception  # Kernel#p
     end
 
   end
