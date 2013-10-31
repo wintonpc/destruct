@@ -258,4 +258,18 @@ describe 'Destructure#dbind' do
     end
 
   end
+
+
+  context 'when specifying matcher' do
+    include Destructure[:bind_locals => false, :matcher_name => :matches, :env_name => :m]
+
+    it 'should work' do
+      case [1,2,3]
+        when matches { [4,5,x] }
+          fail
+        when matches { [1,2,x] }
+          expect(m.x).to eql 3
+      end
+    end
+  end
 end

@@ -10,9 +10,24 @@ module Destructure
   include Paramix::Parametric
 
   parameterized do |params|
-    define_method(:bind_locals) do
+
+    private :bind_locals do
       bind = params[:bind_locals]
       @bind_locals ||= bind.nil? ? true : bind
+    end
+
+    matcher_name, env_name = params[:matcher_name], params[:env_name]
+
+    if matcher_name && env_name
+      private env_name do
+        @_my_destructure_env
+      end
+
+      private params[:matcher_name] do |&pattern|
+        proc { |x| @_my_destructure_env = dbind(x, &pattern) }
+      end
+    elsif matcher_name || env_name
+      raise ':matcher_name and :env_name must be provided together'
     end
   end
 

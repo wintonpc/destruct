@@ -1,6 +1,4 @@
 - todo
-  - fix: missing_method doesn't allow fake locals with the same names as method on a base class, e.g., Kernel#p
-  - case/when lambda matcher
   - error messages with paths
   - avoid mutating the caller (adding instance variables, etc.) as much as possible
 
