@@ -1,8 +1,8 @@
 # destructure
 
-Destructuring bind is an operation typically found in various forms in functional programming languages.
+Destructuring assignment is an operation typically found in functional programming languages.
 Such languages include Lisp, Haskell, Erlang, and Prolog.
-Think of destructuring bind as regular expressions for data structures.
+Think of destructuring assignment as regular expressions for data structures.
 
 Consider the following regexp example:
 
