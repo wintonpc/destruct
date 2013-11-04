@@ -62,7 +62,7 @@ describe Destructure::SexpTransformer do
   end
 
   it 'should transform splats' do
-    v = transform(sexp { @@x })
+    v = transform(sexp { ~x })
     expect(v).to be_instance_of Splat
     expect(v.name).to eql :x
   end
@@ -164,6 +164,18 @@ describe Destructure::SexpTransformer do
     expect(v.last.name).to eql '@one.two[1].three'
     expect(v.last.test('World!', Env.new)).to be_true
     expect(v.last.test('bad', Env.new)).to be_false
+  end
+
+  it 'should transform splats with complicated LHSs' do
+    v = transform(sexp { [1, ~@one.two[1].three] })
+    expect(v.last).to be_instance_of Splat
+    expect(v.last.name).to eql '@one.two[1].three'
+  end
+
+  it 'should transform complicated value references' do
+    @one = OpenStruct.new({two: [:something, OpenStruct.new(three: 42)]})
+    v = transform(sexp { [1, !@one.two[1].three] })
+    expect(v).to eql [1, 42]
   end
 
   it 'should transform the pipe operator to a set of alternative patterns' do

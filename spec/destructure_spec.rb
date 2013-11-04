@@ -115,13 +115,13 @@ describe 'Destructure#dbind' do
 
     it 'should match splats' do
       a = [1,2,3,4,5,6,7,8,9]
-      e = dbind(a) { [1, @@s, 9] }
+      e = dbind(a) { [1, ~s, 9] }
       expect(e.s).to eql [2,3,4,5,6,7,8]
     end
 
     it 'should match deeply' do
       a = [ 100, { a: 1, b: 'hi', c: Bar.new(10, [13, 17, 23, 27, 29]) } ]
-      e = dbind(a) { [ 100, { a: _, b: 'hi', c: Bar[x: ten, y: [_, 17, @@primes]] }, @@empty] }
+      e = dbind(a) { [ 100, { a: _, b: 'hi', c: Bar[x: ten, y: [_, 17, ~primes]] }, ~empty] }
       expect(e.ten).to eql 10
       expect(e.primes).to eql [ 23, 27, 29 ]
       expect(e.empty).to eql []

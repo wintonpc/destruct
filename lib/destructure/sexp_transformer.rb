@@ -16,14 +16,17 @@ module Destructure
       _ = DMatch::_
       klass_sym = DMatch::Var.new(&method(:is_constant?))
       case
+        # '_' (wildcard)
         when e = dmatch([:call, _, :_, _], sp); _
-        # plain object type
+        # object matcher without parameters
         when e = dmatch([:const, klass_sym], sp)
           make_obj(e[klass_sym], {})
-        # 'lit'
-        when e = dmatch([:not, var(:value_expr)], sp)
-          @caller_binding.eval(unwind_receivers_and_clean(e[:value_expr]))
-        # 'or'
+        # '~' (splat)
+        when e = dmatch([:call, var(:identifier_sexp), :~, [:arglist]], sp); splat(unwind_receivers_and_clean(e[:identifier_sexp]))
+        # '!' (variable value)
+        when e = dmatch([:not, var(:value_sexp)], sp)
+          @caller_binding.eval(unwind_receivers_and_clean(e[:value_sexp]).to_s)
+        # '|' (alternative patterns)
         when e = dmatch([:call, var(:rest), :|, [:arglist, var(:alt)]], sp); DMatch::Or.new(*[e[:rest], e[:alt]].map(&method(:transform)))
         # generic call
         when e = dmatch([:call, var(:receiver), var(:msg), var(:arglist)], sp)
@@ -31,11 +34,14 @@ module Destructure
         # instance variable
         when e = dmatch([:ivar, var(:name)], sp); var(e[:name].to_s)
         # let
+        # ... with local or instance vars
         when e = dmatch([DMatch::Or.new(:lasgn, :iasgn), var(:lhs), var(:rhs)], sp)
           let_var(e[:lhs], transform(e[:rhs]))
+        # ... with attributes or something more complicated
         when e = dmatch([:attrasgn, var(:obj), var(:attr), [:arglist, var(:rhs)]], sp)
           var_name = unwind_receivers_and_clean([:call, e[:obj], e[:attr].to_s.sub(/=$/,'').to_sym, [:arglist]])
           let_var(var_name, transform(e[:rhs]))
+        # literal values
         when e = dmatch([:lit, var(:value)], sp); e[:value]
         when e = dmatch([:true], sp); true
         when e = dmatch([:false], sp); false
@@ -43,7 +49,6 @@ module Destructure
         when e = dmatch([:str, var(:s)], sp); e[:s]
         when e = dmatch([:array, splat(:items)], sp); e[:items].map(&method(:transform))
         when e = dmatch([:hash, splat(:kvs)], sp); Hash[*e[:kvs].map(&method(:transform))]
-        when e = dmatch([:cvar, var(:name)], sp); splat(e[:name].to_s.sub(/^@@/, '').to_sym)
         else; raise "Unexpected sexp: #{sp.inspect}"
       end
     end
@@ -82,10 +87,16 @@ module Destructure
     end
 
     def unwind_receivers_and_clean(receiver)
-      unwind_receivers(receiver).gsub(/\.$/, '').gsub(/\.\[/, '[')
+      unwound = unwind_receivers(receiver).gsub(/\.$/, '').gsub(/\.\[/, '[')
+      identifier?(unwound) ? unwound.to_sym : unwound
+    end
+
+    def identifier?(x)
+      x =~ /^[_a-zA-Z][_0-9a-zA-Z]*$/
     end
 
     def unwind_receivers(receiver)
+      to_s
       case
         when receiver.nil?; ''
         when e = dmatch([:lit, var(:value)], receiver); "#{e[:value]}."
