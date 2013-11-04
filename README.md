@@ -1,7 +1,8 @@
 # destructure
 
-Destructuring bind is an operation typically found in functional programming languages.
-Think of it as regular expressions for data structures.
+Destructuring bind is an operation typically found in various forms in functional programming languages.
+Such languages include Lisp, Haskell, Erlang, and Prolog.
+Think of destructuring bind as regular expressions for data structures.
 
 Consider the following regexp example:
 
@@ -16,7 +17,7 @@ The `=~` operator performs two tasks simultaneously
 1. tells us whether `v` matches the regexp pattern
 2. binds names to substrings of `v` (if the match succeeded)
 
-With `destructure`, you can pattern match data structures in ruby.
+With `destructure`, you can pattern match data structures in Ruby.
 
 regexp:
 
@@ -53,8 +54,8 @@ destructure:
     puts a                                         # => 99
     puts b                                         # => 9
 
-### bind to the hash key names, for simplicity
-    v =~-> { Hash[q, r, t, u] }
+### bind to the hash key names, for brevity
+    v =~-> { Hash[q, r, t, u] }                    # equivalent to: v =~-> { { q: q, r: r, t: t, u: u } }
     puts q.inspect                                 # => 5
     puts r.inspect                                 # => 9
     puts t.inspect                                 # => 42
@@ -76,12 +77,12 @@ destructure:
     puts a                                         # => gibble
     puts b                                         # => 8
 
-### bind to the attribute names, for simplicity
+### bind to the attribute names, for brevity
     v =~-> { Object[flange, sprocket] }
     puts flange                                    # => gibble
     puts sprocket                                  # => 8
 
-### lock down the acceptable type
+### constrain the acceptable type
     match_result = v =~-> { OpenStruct[flange, sprocket] }
     puts match_result.inspect                      # => nil
 
@@ -89,7 +90,7 @@ destructure:
     match_result = v =~-> { Object[flange, sprocket, whizz] }
     puts match_result.inspect                      # => nil
 
-### it subsumes built-in functionality:
+### it subsumes native Ruby functionality:
 
 ### regexes
     v = [1, 2, 'hello, bob']
