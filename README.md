@@ -1,7 +1,7 @@
 # destructure
 
-Destructuring assignment is an operation typically found in functional programming languages.
-Such languages include Lisp, Haskell, Erlang, and Prolog.
+Destructuring assignment is an operation typically found in functional programming languages,
+including Lisp, Haskell, Erlang, and Prolog.
 Think of destructuring assignment as regular expressions for data structures.
 
 Consider the following regexp example:
