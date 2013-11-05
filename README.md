@@ -152,3 +152,34 @@ destructure:
 
     v = [:not_a_string, 'starting']
     puts (v =~-> { [ greeting = String, participle = /(?<verb>.*)ing$/ ] }).inspect # => nil
+
+# Implementation
+
+The =~-> "operator" is really the =~ operator overridden to take a Proc, while retaining the
+usual Regexp matching functionality. By rearranging the spaces, you can see that the "->" part
+of the "operator" comes from stabby lambda syntax:
+
+    v =~ ->{ pattern }
+
+If the argument is a Proc, `=~` uses the sourcify gem to obtain the body of the Proc as a parse tree.
+The parse tree pattern and transformed into a plain ruby object pattern, which is then processed with
+a lower level matcher, described later.
+
+### Local variables
+
+Part of the magic of `=~->` is that it seemingly binds local variables during pattern matching,
+even locals that haven't appeared or been assigned in the code.
+
+It does this by using the binding_of_caller gem to obtain the Binding of the `=~->` caller, and upon
+matching successfully, attempts to set the appropriate local variables in the caller's binding.
+Due to limitations of Ruby, it cannot set a local variable that has not already been assigned in
+the caller's local scope. To work around this, `=~->` uses `method_missing` to implement private
+attributes that mimic local variables. These attributes are parameterized on their caller, so as
+to behave like local variables. That is, it prevents a fake local `x` in method `foo` from leaking
+into another method `bar` that also accesses `x`.
+
+# Interfaces
+
+`destructure` provides a few interfaces besides `=~->`
+
+When
