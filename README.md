@@ -162,7 +162,7 @@ of the "operator" comes from stabby lambda syntax:
     v =~ ->{ pattern }
 
 If the argument is a `Proc`, `=~` uses the sourcify gem to obtain the body of the Proc as a parse tree.
-The parse tree pattern and transformed into a plain ruby object pattern, which is then processed with
+The parse tree pattern is transformed into a plain ruby object pattern, which is then processed with
 a lower level matcher, described later.
 
 ### Local variables
@@ -178,8 +178,69 @@ attributes that mimic local variables. These attributes are parameterized on the
 to behave like local variables. That is, it prevents a fake local `x` in method `foo` from leaking
 into another method `bar` that also accesses `x`.
 
-# Interfaces
+# Interface variants
 
-`destructure` provides a few interfaces besides `=~->`
+Use destructure by including the Destructure module. It provides the method `dbind`.
 
-When
+    require 'destructure'
+
+    class MyClass
+      include Destructure
+
+      def foo(thing)
+        if dbind(thing) { [1,2,x] }
+          puts x
+        end
+      end
+    end
+
+`=~->` is an alias for the `dbind` method. It is provided in 'destructure/magic' and
+automatically includes the Destructure module in the calling class.
+
+    require 'destructure/magic'
+
+    class MyClass
+      def foo(thing)
+        if thing =~-> { [1,2,x] }
+          puts x
+        end
+      end
+    end
+
+The `Destructure` module takes a few optional parameters. For example,
+
+    class MyClass
+      include Destructure[:bind_locals => false, :matcher_name => :matches, :env_name => :m]
+
+      def foo
+        case [1,2,3]
+          when matches { [4,5,x] }
+            fail
+          when matches { [1,2,x] }
+            expect(m.x).to eql 3
+          else
+            fail
+        end
+      end
+    end
+
+* `bind_locals` defaults to `true` and determines whether or not to bind to local variables, including fake locals.
+* `matcher_name` specifies the matcher name for the alternative `case/when`-specific syntax demonstrated above.
+* `env_name` specifies the name of a method you want to access the environment through.
+
+The purpose of `matcher_name` and `env_name` is to allow you to choose short names that don't conflict
+with other methods in your class.
+
+If you set `bind_locals` to `false` and do not specify `env_name`, the only way to access the pattern variable
+environment is to save the return value of `=~->` (or `dbind`).
+
+    class MyClass
+      def run(v)
+        case
+          when e = v =~-> { [4,5,x] }
+            puts e.x
+          when e = v =~-> { [1,2,x] }
+            puts e.x
+        end
+      end
+    end

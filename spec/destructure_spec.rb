@@ -269,6 +269,42 @@ describe 'Destructure#dbind' do
           fail
         when matches { [1,2,x] }
           expect(m.x).to eql 3
+        else
+          fail
+      end
+    end
+  end
+
+  it 'should accept just a matcher name' do
+    c = Class.new do
+      include Destructure[:matcher_name => :asdf]
+
+      def run
+        case [1,2,3]
+          when asdf { [4,5,x] }
+            fail
+          when asdf { [1,2,x] }
+            expect(x).to eql 3
+          else
+            fail
+        end
+      end
+    end
+  end
+
+  it 'should accept just an env name' do
+    c = Class.new do
+      include Destructure[:env_name => :eee]
+
+      def run
+        case
+          when dbind([1,2,3]) { [4,5,x] }
+            fail
+          when dbind([1,2,3]) { [4,5,x] }
+            expect(eee.x).to eql 3
+          else
+            fail
+        end
       end
     end
   end

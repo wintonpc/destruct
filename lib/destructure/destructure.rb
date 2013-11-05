@@ -16,18 +16,19 @@ module Destructure
       @bind_locals ||= bind.nil? ? true : bind
     end
 
-    matcher_name, env_name = params[:matcher_name], params[:env_name]
-
-    if matcher_name && env_name
-      private env_name do
+    if params[:env_name]
+      private params[:env_name] do
         @_my_destructure_env
       end
-
-      private params[:matcher_name] do |&pattern|
-        proc { |x| @_my_destructure_env = dbind(x, &pattern) }
+      private :set_custom_env do |value|
+        @_my_destructure_env = value
       end
-    elsif matcher_name || env_name
-      raise ':matcher_name and :env_name must be provided together'
+    end
+
+    if params[:matcher_name]
+      private params[:matcher_name] do |&pattern|
+        proc { |x| dbind(x, &pattern) }
+      end
     end
   end
 
@@ -49,7 +50,9 @@ module Destructure
       env.keys.each {|k| _destructure_set(k.name, env[k], caller_binding, caller_location)}
     end
 
-    env.to_openstruct
+    ostruct_env = env.to_openstruct
+    set_custom_env(ostruct_env) if self.respond_to?(:set_custom_env, true)
+    ostruct_env
   end
 
   def dbind_no_ostruct_sexp(x, sexp, caller_binding)
