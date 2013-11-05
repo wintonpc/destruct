@@ -155,13 +155,13 @@ destructure:
 
 # Implementation
 
-The =~-> "operator" is really the =~ operator overridden to take a Proc, while retaining the
-usual Regexp matching functionality. By rearranging the spaces, you can see that the "->" part
+The `=~->` "operator" is really the `=~` operator overridden to take a `Proc`, while retaining the
+usual `Regexp` matching functionality. By rearranging the spaces, you can see that the "->" part
 of the "operator" comes from stabby lambda syntax:
 
     v =~ ->{ pattern }
 
-If the argument is a Proc, `=~` uses the sourcify gem to obtain the body of the Proc as a parse tree.
+If the argument is a `Proc`, `=~` uses the sourcify gem to obtain the body of the Proc as a parse tree.
 The parse tree pattern and transformed into a plain ruby object pattern, which is then processed with
 a lower level matcher, described later.
 
