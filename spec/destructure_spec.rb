@@ -44,6 +44,12 @@ class ZTest
   end
 end
 
+module Outer
+  module Inner
+    Thing = Struct.new(:a)
+  end
+end
+
 describe 'Destructure#dbind' do
 
   context 'always' do
@@ -103,6 +109,11 @@ describe 'Destructure#dbind' do
       expect(dbind('hello') { Numeric }).to be_falsey
     end
 
+    it 'should match namespace-qualified object types' do
+      v = Outer::Inner::Thing.new(42)
+      expect(dbind(v) { Outer::Inner::Thing }).to be_truthy
+    end
+
     it 'should match object fields' do
       e = dbind(Foo.new(1, 2)) { Foo[a, b] }
       expect(e.a).to eql 1
@@ -111,6 +122,14 @@ describe 'Destructure#dbind' do
       expect(dbind(Foo.new(3, 4)) { Foo[a: 3, b: b] }.b).to eql 4
 
       expect(dbind(Foo.new(3, 4)) { Foo[a: 99, b: b] }).to be_falsey
+    end
+
+    it 'should match namespace-qualified object fields' do
+      e = dbind(Outer::Inner::Thing.new(42)) { Outer::Inner::Thing[a] }
+      expect(e.a).to eql 42
+
+      e = dbind(Outer::Inner::Thing.new(55)) { Outer::Inner::Thing[a: 55] }
+      expect(e).to be_truthy
     end
 
     it 'should match splats' do
@@ -265,12 +284,12 @@ describe 'Destructure#dbind' do
 
     it 'should work' do
       case [1,2,3]
-        when matches { [4,5,x] }
-          fail
-        when matches { [1,2,x] }
-          expect(m.x).to eql 3
-        else
-          fail
+      when matches { [4,5,x] }
+        fail
+      when matches { [1,2,x] }
+        expect(m.x).to eql 3
+      else
+        fail
       end
     end
   end
@@ -281,12 +300,12 @@ describe 'Destructure#dbind' do
 
       def run
         case [1,2,3]
-          when asdf { [4,5,x] }
-            fail
-          when asdf { [1,2,x] }
-            expect(x).to eql 3
-          else
-            fail
+        when asdf { [4,5,x] }
+          fail
+        when asdf { [1,2,x] }
+          expect(x).to eql 3
+        else
+          fail
         end
       end
     end
@@ -298,12 +317,12 @@ describe 'Destructure#dbind' do
 
       def run
         case
-          when dbind([1,2,3]) { [4,5,x] }
-            fail
-          when dbind([1,2,3]) { [4,5,x] }
-            expect(eee.x).to eql 3
-          else
-            fail
+        when dbind([1,2,3]) { [4,5,x] }
+          fail
+        when dbind([1,2,3]) { [4,5,x] }
+          expect(eee.x).to eql 3
+        else
+          fail
         end
       end
     end
