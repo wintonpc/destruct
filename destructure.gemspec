@@ -10,6 +10,8 @@ Gem::Specification.new do |s|
   s.homepage    = 'http://rubygems.org/gems/destructure'
   s.license     = 'MIT'
 
+  s.add_development_dependency 'rspec', '~> 3.0'
+
   s.add_dependency('sourcify', ['~> 0.6.0.rc4'])
   s.add_dependency('activesupport', ['~> 4.0.0'])
   s.add_dependency('binding_of_caller', ['~> 0.7.2'])

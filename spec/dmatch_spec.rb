@@ -75,7 +75,7 @@ describe 'Dmatch#match' do
   end
 
   it 'should reject predicates with both a callable and a block' do
-    expect { DMatch.match(Pred.new(lambda {|x, env| x.odd? }) {|x| x.even? }, 5) }.to raise_exception
+    expect { DMatch.match(Pred.new(lambda {|x, env| x.odd? }) {|x| x.even? }, 5) }.to raise_error RuntimeError
   end
 
   it 'should support variable predicates' do
@@ -98,12 +98,12 @@ describe 'Dmatch#match' do
   it 'should have sugar for object type checking' do
     x = Obj.of_type(Numeric)
     expect(DMatch.match(x, true)).to be_nil
-    expect(DMatch.match(x, 4.5)).to be_true
+    expect(DMatch.match(x, 4.5)).to be_truthy
 
     x = Obj.of_type(Numeric) {|x| x.odd?}
     expect(DMatch.match(x, true)).to be_nil
     expect(DMatch.match(x, 4)).to be_nil
-    expect(DMatch.match(x, 5)).to be_true
+    expect(DMatch.match(x, 5)).to be_truthy
   end
 
   it 'should match wildcards' do
@@ -141,7 +141,7 @@ describe 'Dmatch#match' do
   end
 
   it 'should disallow Vars in filtering splat patterns' do
-    expect { FilterSplat.new([200, Var.new]) }.to raise_exception
+    expect { FilterSplat.new([200, Var.new]) }.to raise_error RuntimeError
   end
 
   it 'should match selecting splats' do
@@ -218,8 +218,8 @@ describe 'Dmatch#match' do
 
   it 'should support alternative patterns' do
     pattern = Or.new([1,2], :good)
-    expect(DMatch.match(pattern, [1,2])).to be_true
-    expect(DMatch.match(pattern, :good)).to be_true
+    expect(DMatch.match(pattern, [1,2])).to be_truthy
+    expect(DMatch.match(pattern, :good)).to be_truthy
     expect(DMatch.match(pattern, :bad)).to be_nil
   end
 end

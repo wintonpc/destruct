@@ -65,7 +65,7 @@ describe 'Destructure#dbind' do
     end
 
     it 'should match symbols' do
-      expect(dbind(:foo) { :foo }).to be_true
+      expect(dbind(:foo) { :foo }).to be_truthy
     end
 
     it 'should match arrays' do
@@ -98,9 +98,9 @@ describe 'Destructure#dbind' do
     end
 
     it 'should match object types' do
-      expect(dbind(5) { Numeric }).to be_true
-      expect(dbind(99.999) { Numeric }).to be_true
-      expect(dbind('hello') { Numeric }).to be_false
+      expect(dbind(5) { Numeric }).to be_truthy
+      expect(dbind(99.999) { Numeric }).to be_truthy
+      expect(dbind('hello') { Numeric }).to be_falsey
     end
 
     it 'should match object fields' do
@@ -110,7 +110,7 @@ describe 'Destructure#dbind' do
 
       expect(dbind(Foo.new(3, 4)) { Foo[a: 3, b: b] }.b).to eql 4
 
-      expect(dbind(Foo.new(3, 4)) { Foo[a: 99, b: b] }).to be_false
+      expect(dbind(Foo.new(3, 4)) { Foo[a: 99, b: b] }).to be_falsey
     end
 
     it 'should match splats' do
@@ -135,10 +135,10 @@ describe 'Destructure#dbind' do
     end
 
     it 'should handle alternative patterns' do
-      expect(dbind([:foo, {a: :here}]) { [:foo | :bar, { a: :here | :there}] }).to be_true
-      expect(dbind([:bar, {a: :there}]) { [:foo | :bar, { a: :here | :there}] }).to be_true
-      expect(dbind([:huh, {a: :here}]) { [:foo | :bar, { a: :here | :there}] }).to be_false
-      expect(dbind([:foo, {a: :huh}]) { [:foo | :bar, { a: :here | :there}] }).to be_false
+      expect(dbind([:foo, {a: :here}]) { [:foo | :bar, { a: :here | :there}] }).to be_truthy
+      expect(dbind([:bar, {a: :there}]) { [:foo | :bar, { a: :here | :there}] }).to be_truthy
+      expect(dbind([:huh, {a: :here}]) { [:foo | :bar, { a: :here | :there}] }).to be_falsey
+      expect(dbind([:foo, {a: :huh}]) { [:foo | :bar, { a: :here | :there}] }).to be_falsey
     end
 
     it 'should handle let syntax' do
@@ -156,9 +156,9 @@ describe 'Destructure#dbind' do
     it 'should handle literal variable values' do
       @my_var = 101
       foo = 7
-      expect(dbind(5) { !5 }).to be_true
-      expect(dbind(101) { !@my_var }).to be_true
-      expect(dbind(7) { !foo }).to be_true
+      expect(dbind(5) { !5 }).to be_truthy
+      expect(dbind(101) { !@my_var }).to be_truthy
+      expect(dbind(7) { !foo }).to be_truthy
     end
 
     it 'should not warn about method conflicts' do
@@ -199,13 +199,13 @@ describe 'Destructure#dbind' do
     it 'should make fake locals private' do
       f = ZTest.new
       f.one(3, [])
-      expect { f.b }.to raise_error(NoMethodError)
+      expect { f.b }.to raise_error NoMethodError
     end
 
     it 'should restrict method_missing to only known values' do
       dbind([1,2]) { [a, b] }
       expect(b).to eql 2
-      expect { self.c }.to raise_error(NoMethodError)
+      expect { self.c }.to raise_error NoMethodError
     end
 
     def important_method
@@ -213,7 +213,7 @@ describe 'Destructure#dbind' do
     end
 
     it 'should disallow non-local pattern variables with the same name as methods' do
-      expect { dbind([1,2]) { [a, important_method] } }.to raise_exception
+      expect { dbind([1,2]) { [a, important_method] } }.to raise_error RuntimeError
     end
 
     it 'should return nil for non-matches' do
@@ -249,12 +249,12 @@ describe 'Destructure#dbind' do
       os2 = OpenStruct.new
       @one.two[:zzz] = Baz.new([0, 1, 2, os2])
       @one.two[:zzz].get(3).at_last = 9
-      expect(dbind([1, 9]) { [1, !@one.two[:zzz].get(3).at_last] }).to be_true
-      expect(dbind([1, 99999]) { [1, !@one.two[:zzz].get(3).at_last] }).to be_false
+      expect(dbind([1, 9]) { [1, !@one.two[:zzz].get(3).at_last] }).to be_truthy
+      expect(dbind([1, 99999]) { [1, !@one.two[:zzz].get(3).at_last] }).to be_falsey
     end
 
     it 'should warn about method conflicts' do
-      expect { dbind([1,2,3]) { [1,2,p] } }.to raise_exception  # Kernel#p
+      expect { dbind([1,2,3]) { [1,2,p] } }.to raise_error RuntimeError # Kernel#p
     end
 
   end

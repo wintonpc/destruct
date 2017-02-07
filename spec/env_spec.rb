@@ -16,8 +16,8 @@ describe DMatch::Env do
   end
 
   it 'should require identifiers to be Vars' do
-    expect { @env[:x] }.to raise_exception
-    expect { @env[:x] = 5 }.to raise_exception
+    expect { @env[:x] }.to raise_error RuntimeError
+    expect { @env[:x] = 5 }.to raise_error RuntimeError
   end
 
   it 'should allow rebinding to a matching value' do
@@ -36,7 +36,7 @@ describe DMatch::Env do
 
   it 'should allow nil to be set' do
     v = Var.new
-    expect { @env[v] }.to raise_exception
+    expect { @env[v] }.to raise_error RuntimeError
     @env[v] = nil
     expect(@env[v]).to eql nil
   end

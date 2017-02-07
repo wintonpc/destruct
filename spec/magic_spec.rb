@@ -6,14 +6,14 @@ describe 'magic' do
   context 'when performing magic' do
 
     it 'maintains typical =~ behavior' do
-      expect('string' =~ /ing$/).to be_true
-      expect('string' =~ /ggg$/).to be_false
-      expect(:string =~ /ing$/).to be_true
-      expect(:string =~ /ggg$/).to be_false
-      expect(/ing$/ =~ 'string').to be_true
-      expect(/ggg$/ =~ 'string').to be_false
-      expect(/ing$/ =~ :string).to be_true
-      expect(/ggg$/ =~ :string).to be_false
+      expect('string' =~ /ing$/).to be_truthy
+      expect('string' =~ /ggg$/).to be_falsey
+      expect(:string =~ /ing$/).to be_truthy
+      expect(:string =~ /ggg$/).to be_falsey
+      expect(/ing$/ =~ 'string').to be_truthy
+      expect(/ggg$/ =~ 'string').to be_falsey
+      expect(/ing$/ =~ :string).to be_truthy
+      expect(/ggg$/ =~ :string).to be_falsey
     end
 
     it 'matches non =~ stuff' do
@@ -67,9 +67,9 @@ describe 'magic' do
       expect([] =~-> { [] }).to be_instance_of OpenStruct
       expect(Hash.new =~-> { {} }).to be_instance_of OpenStruct
       expect('string' =~-> { /ing$/ }).to be_instance_of OpenStruct
-      expect('string' =~-> { /ggg$/ }).to be_false
-      expect(:string =~-> { /ing$/ }).to be_true
-      expect(:string =~-> { /ggg$/ }).to be_false
+      expect('string' =~-> { /ggg$/ }).to be_falsey
+      expect(:string =~-> { /ing$/ }).to be_truthy
+      expect(:string =~-> { /ggg$/ }).to be_falsey
       # (Regexp on LHS is not supported)
     end
 

@@ -69,11 +69,11 @@ describe Destructure::SexpTransformer do
 
   it 'should transform object matchers with implied names' do
     result = transform(sexp { Object[x, y] })
-    DMatch::match(Obj.of_type(Obj, fields: {
+    v = DMatch::match(Obj.of_type(Obj, fields: {
         x: Obj.of_type(Var, :name => :x),
         y: Obj.of_type(Var, :name => :y)
-    }), result).
-        should be_instance_of Env
+    }), result)
+    expect(v).to be_an Env
   end
 
   it 'should transform Hash matchers with implied names' do
@@ -102,9 +102,9 @@ describe Destructure::SexpTransformer do
 
   it 'should transform object matchers using the constant as a predicate' do
     v = transform(sexp { Numeric[] })
-    expect(v.test(5)).to be_true
-    expect(v.test(4.5)).to be_true
-    expect(v.test(Object.new)).to be_false
+    expect(v.test(5)).to be_truthy
+    expect(v.test(4.5)).to be_truthy
+    expect(v.test(Object.new)).to be_falsey
   end
 
   it 'should allow object matchers to omit the parentheses' do
@@ -146,24 +146,24 @@ describe Destructure::SexpTransformer do
     v = transform(sexp { ['hello', you = /.*!/ ] })
     expect(v.last).to be_instance_of Var
     expect(v.last.name).to eql :you
-    expect(v.last.test('World!', Env.new)).to be_true
-    expect(v.last.test('bad', Env.new)).to be_false
+    expect(v.last.test('World!', Env.new)).to be_truthy
+    expect(v.last.test('bad', Env.new)).to be_falsey
   end
 
   it 'should transform lets with ivar LHSs' do
     v = transform(sexp { ['hello', @thing = /.*!/ ] })
     expect(v.last).to be_instance_of Var
     expect(v.last.name).to eql :@thing
-    expect(v.last.test('World!', Env.new)).to be_true
-    expect(v.last.test('bad', Env.new)).to be_false
+    expect(v.last.test('World!', Env.new)).to be_truthy
+    expect(v.last.test('bad', Env.new)).to be_falsey
   end
 
   it 'should transform lets with complicated LHSs' do
     v = transform(sexp { ['hello', @one.two[1].three = /.*!/ ] })
     expect(v.last).to be_instance_of Var
     expect(v.last.name).to eql '@one.two[1].three'
-    expect(v.last.test('World!', Env.new)).to be_true
-    expect(v.last.test('bad', Env.new)).to be_false
+    expect(v.last.test('World!', Env.new)).to be_truthy
+    expect(v.last.test('bad', Env.new)).to be_falsey
   end
 
   it 'should transform splats with complicated LHSs' do
