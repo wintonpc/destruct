@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name        = 'destructure'
-  s.version     = '0.0.12'
+  s.version     = '0.1.0'
   s.date        = '2013-11-04'
   s.summary     = 'Destructuring assignment in Ruby'
   s.description = s.summary
