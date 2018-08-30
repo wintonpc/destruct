@@ -16,20 +16,20 @@ class DMatch
 
   def match(pat, x)
     case
-      when pat.is_a?(Wildcard); @env
-      when pat.is_a?(Pred) && pat.test(x, @env); @env
-      when pat.is_a?(FilterSplat); match_filter_splat(pat, x)
-      when pat.is_a?(SelectSplat); match_select_splat(pat, x)
-      when pat.is_a?(Splat); match_splat(pat, x)
-      when pat.is_a?(Var) && pat.test(x, @env); match_var(pat, x)
-      when pat.is_a?(Obj) && pat.test(x, @env) && all_field_patterns_match(pat, x); @env
-      when pat.is_a?(String) && pat == x; @env
-      when pat.is_a?(Regexp); match_regexp(pat, x)
-      when pat.is_a?(Or); match_or(pat, x)
-      when hash(pat, x) && all_keys_match(pat, x); @env
-      when enumerable(pat, x); match_enumerable(pat, x)
-      when pat == x; @env
-      else; nil
+    when pat.is_a?(Wildcard); @env
+    when pat.is_a?(Pred) && pat.test(x, @env); @env
+    when pat.is_a?(FilterSplat); match_filter_splat(pat, x)
+    when pat.is_a?(SelectSplat); match_select_splat(pat, x)
+    when pat.is_a?(Splat); match_splat(pat, x)
+    when pat.is_a?(Var) && pat.test(x, @env); match_var(pat, x)
+    when pat.is_a?(Obj) && pat.test(x, @env) && all_field_patterns_match(pat, x); @env
+    when pat.is_a?(String) && pat == x; @env
+    when pat.is_a?(Regexp); match_regexp(pat, x)
+    when pat.is_a?(Or); match_or(pat, x)
+    when hash(pat, x) && all_keys_match(pat, x); @env
+    when enumerable(pat, x); match_enumerable(pat, x)
+    when pat == x; @env
+    else; nil
     end
   end
 
@@ -40,7 +40,7 @@ class DMatch
   end
 
   def match_regexp(pat, x)
-    m = pat.match(x)
+    m = pat.match(x.to_s)
     m && @env.merge!(Hash[pat.named_captures.keys.map { |k| [Var.new(k.to_sym), m[k]] }])
   end
 
@@ -61,7 +61,7 @@ class DMatch
   end
 
   def match_select_splat(pat, x)
-    x_match_and_env = x.map { |z| [z, DMatch::match(pat.pattern, z)] }.reject { |q| q.last.nil? }.first
+    x_match_and_env = x.map { |z| [z, DMatch.match(pat.pattern, z)] }.reject { |q| q.last.nil? }.first
     if x_match_and_env
       x_match, env = x_match_and_env
       @env.bind(pat, x_match) && @env.merge!(env)
@@ -76,30 +76,30 @@ class DMatch
 
   def match_enumerable(pat, x)
     case
-      when (parts = decompose_splatted_enumerable(pat))
-        pat_before, pat_splat, pat_after = parts
-        x_before = x.take(pat_before.length)
-        if pat_after.any?
-          splat_len = len(x) - pat_before.length - pat_after.length
-          return nil if splat_len < 0
-          x_splat = x.drop(pat_before.length).take(splat_len)
-        else
-          x_splat = x.drop(pat_before.length)
-        end
+    when (parts = decompose_splatted_enumerable(pat))
+      pat_before, pat_splat, pat_after = parts
+      x_before = x.take(pat_before.length)
+      if pat_after.any?
+        splat_len = len(x) - pat_before.length - pat_after.length
+        return nil if splat_len < 0
+        x_splat = x.drop(pat_before.length).take(splat_len)
+      else
+        x_splat = x.drop(pat_before.length)
+      end
 
-        before_and_splat_result = match_enumerable_no_splats(pat_before, x_before) && match(pat_splat, x_splat)
+      before_and_splat_result = match_enumerable_no_splats(pat_before, x_before) && match(pat_splat, x_splat)
 
-        if before_and_splat_result && pat_after.any?
-          # do this only if we have to, since it requires access to the end of the enumerable,
-          # which doesn't work with infinite enumerables
-          x_after = take_last(pat_after.length, x)
-          match_enumerable_no_splats(pat_after, x_after)
-        else
-          before_and_splat_result
-        end
-      when len(pat) == len(x)
-        match_enumerable_no_splats(pat, x)
-      else; nil
+      if before_and_splat_result && pat_after.any?
+        # do this only if we have to, since it requires access to the end of the enumerable,
+        # which doesn't work with infinite enumerables
+        x_after = take_last(pat_after.length, x)
+        match_enumerable_no_splats(pat_after, x_after)
+      else
+        before_and_splat_result
+      end
+    when len(pat) == len(x)
+      match_enumerable_no_splats(pat, x)
+    else; nil
     end
   end
 
@@ -109,16 +109,16 @@ class DMatch
     after = []
     pat.each do |p|
       case
-        when p.is_a?(Splat)
-          if splat.nil?
-            splat = p
-          else
-            raise "cannot have more than one splat in a single array: #{pat.inspect}"
-          end
-        when splat.nil?
-          before.push(p)
+      when p.is_a?(Splat)
+        if splat.nil?
+          splat = p
         else
-          after.push(p)
+          raise "cannot have more than one splat in a single array: #{pat.inspect}"
+        end
+      when splat.nil?
+        before.push(p)
+      else
+        after.push(p)
       end
     end
 

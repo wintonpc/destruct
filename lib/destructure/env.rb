@@ -4,7 +4,6 @@ require 'destructure/types'
 
 class DMatch
   class Env
-
     def env
       @env ||= {}
     end
@@ -36,8 +35,8 @@ class DMatch
       env.keys
     end
 
-    def to_openstruct
-      OpenStruct.new(Hash[env.map{|kv| [kv.first.name, kv.last]}])
+    def each_kv
+      env.each_pair { |k, v| yield(k.name, v) }
     end
 
     def merge!(other_env)

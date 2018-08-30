@@ -1,90 +1,46 @@
-require 'sourcify'
-require 'active_support/inflector'
-require 'paramix'
-require 'binding_of_caller'
-require 'destructure/dmatch'
-require 'destructure/sexp_transformer'
+require_relative './sexp_transformer'
+require 'ostruct'
 
-module Destructure
+class Destructure
+  def destructure(obj, &block)
+    context = Context.new(obj, eval('self', block.binding))
+    context.instance_exec(&block)
+  end
 
-  include Paramix::Parametric
-
-  parameterized do |params|
-
-    private :bind_locals do
-      bind = params[:bind_locals]
-      @bind_locals ||= bind.nil? ? true : bind
+  class Context
+    def initialize(obj, outer_self)
+      @obj = obj
+      @outer_self = outer_self
     end
 
-    if params[:env_name]
-      private params[:env_name] do
-        @_my_destructure_env
-      end
-      private :set_custom_env do |value|
-        @_my_destructure_env = value
-      end
+    def match(&pat)
+      env = DMatch.match(DMatch::SexpTransformer.transform(pat), @obj)
+      set_env(env) if env
+      !!env
     end
 
-    if params[:matcher_name]
-      private params[:matcher_name] do |&pattern|
-        proc { |x| dbind(x, &pattern) }
+    def set_env(matched_env)
+      matched_env.each_kv do |k, v|
+        self.class.send(:define_method, k) { v }
       end
     end
-  end
 
-  def dbind(x, &pat_block)
-    dbind_internal(x, pat_block.to_sexp(strip_enclosure: true, ignore_nested: true), binding.of_caller(1), caller_locations(1,1)[0].label)
-  end
-
-  private ########################################
-
-  def bind_locals
-    true
-  end
-
-  def dbind_internal(x, sexp, caller_binding, caller_location)
-    env = dbind_no_ostruct_sexp(x, sexp, caller_binding)
-    return nil if env.nil?
-
-    if bind_locals
-      env.keys.each {|k| _destructure_set(k.name, env[k], caller_binding, caller_location)}
-    end
-
-    ostruct_env = env.to_openstruct
-    set_custom_env(ostruct_env) if self.respond_to?(:set_custom_env, true)
-    ostruct_env
-  end
-
-  def dbind_no_ostruct_sexp(x, sexp, caller_binding)
-    sp = sexp
-    pat = SexpTransformer.transform(sp, caller_binding)
-    DMatch::match(pat, x)
-  end
-
-  def _destructure_set(name, value, binding, caller)
-    if name.is_a?(String) || binding.eval("defined? #{name}") == 'local-variable'
-      $binding_temp = value
-      binding.eval("#{name} = $binding_temp")
-    else
-      if binding.eval('self').respond_to?(name, true)
-        raise "Cannot have pattern variable named '#{name}'. A method already exists with that name. Choose a different name, " +
-                  "or pre-initialize a local variable that shadows the method."
+    def method_missing(method, *args, &block)
+      if @outer_self
+        @outer_self.send(method, *args, &block)
+      else
+        super
       end
-      @_destructure_env ||= {}
-      @_destructure_env[caller] ||= {}
-      @_destructure_env[caller][name] = value
     end
   end
-
-  def method_missing(name, *args, &block)
-    if bind_locals
-      c = caller_locations(1,1)[0].label
-      @_destructure_env ||= {}
-      caller_hash = @_destructure_env[c]
-      caller_hash && caller_hash.keys.include?(name) ? caller_hash[name] : super
-    else
-      super
-    end
-  end
-
 end
+
+class Object
+  private
+
+  def destructure(obj, &block)
+    Destructure.new.destructure(obj, &block)
+  end
+end
+
+

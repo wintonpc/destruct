@@ -1,18 +1,15 @@
 require 'singleton'
 
 module Predicated
-
   def test(x, env=nil)
     @pred == nil ? true : @pred.call(x, env)
   end
 
   private
   attr_accessor :pred
-
 end
 
 class DMatch
-
   class Var
     include Predicated
 
@@ -77,6 +74,7 @@ class DMatch
 
   class Or
     attr_reader :patterns
+
     def initialize(*patterns)
       @patterns = flatten(patterns)
     end

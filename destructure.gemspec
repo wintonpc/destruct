@@ -1,7 +1,7 @@
 Gem::Specification.new do |s|
   s.name        = 'destructure'
-  s.version     = '0.1.0'
-  s.date        = '2013-11-04'
+  s.version     = '0.2.0'
+  s.date        = '2018-09-01'
   s.summary     = 'Destructuring assignment in Ruby'
   s.description = s.summary
   s.authors     = ['Peter Winton']
@@ -10,10 +10,10 @@ Gem::Specification.new do |s|
   s.homepage    = 'http://rubygems.org/gems/destructure'
   s.license     = 'MIT'
 
-  s.add_development_dependency 'rspec', '~> 3.0'
 
-  s.add_dependency('sourcify', ['~> 0.6.0.rc4'])
   s.add_dependency('activesupport', ['~> 4.0.0'])
-  s.add_dependency('binding_of_caller', ['~> 0.7.2'])
-  s.add_dependency('paramix', ['~> 2.0.1'])
+  s.add_dependency('parser', ['~> 2.5'])
+  s.add_dependency('unparser')
+
+  s.add_development_dependency 'rspec', '~> 3.0'
 end
