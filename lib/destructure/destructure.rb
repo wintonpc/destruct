@@ -25,16 +25,16 @@ class Destructure
     end
 
     def set_env(matched_env)
-      matched_env.each_kv do |k, v|
-        self.class.send(:define_method, k) { v }
-      end
+      @matched_env = matched_env
     end
 
     def method_missing(method, *args, &block)
-      if @outer_self
-        @outer_self.send(method, *args, &block)
-      else
-        super
+      @matched_env.fetch(method) do
+        if @outer_self
+          @outer_self.send(method, *args, &block)
+        else
+          super
+        end
       end
     end
   end

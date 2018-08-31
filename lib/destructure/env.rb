@@ -4,18 +4,34 @@ require 'destructure/types'
 
 class DMatch
   class Env
-    def env
-      @env ||= {}
+    attr_reader :env
+
+    def initialize
+      @env = {}
+      @keys_by_name = {}
     end
 
     def [](identifier)
-      raise 'identifier must be a Var or symbol' unless (identifier.is_a? Var) || (identifier.is_a? Symbol)
-      if identifier.is_a? Symbol
-        identifier = env.keys.select{|k| k.name == identifier}.first || identifier
-      end
-      v = env[identifier]
+      v = look_up(identifier)
       raise "Identifier '#{identifier}' is not bound." if v.nil?
       v.is_a?(EnvNil) ? nil : v
+    end
+
+    def fetch(identifier)
+      v = look_up(identifier)
+      if v.nil?
+        yield
+      else
+        v.is_a?(EnvNil) ? nil : v
+      end
+    end
+
+    private def look_up(identifier)
+      raise 'identifier must be a Var or symbol' unless (identifier.is_a? Var) || (identifier.is_a? Symbol)
+      if identifier.is_a? Symbol
+        identifier = @keys_by_name[identifier]
+      end
+      v = env[identifier]
     end
 
     def bind(identifier, value)
@@ -25,7 +41,9 @@ class DMatch
       return nil if existing_key &&
           (DMatch.match(env[existing_key], value_to_store).nil? ||
           DMatch.match(value_to_store, env[existing_key]).nil?)
-      env[existing_key || identifier] = value_to_store
+      k = existing_key || identifier
+      env[k] = value_to_store
+      @keys_by_name[k.name] = k
       self
     end
 

@@ -207,9 +207,8 @@ class DMatch
     end
 
     it 'performs decently' do
-      p = proc { x }
       100_000.times.each do |i|
-        pat = SexpTransformer.transform(p)
+        pat = SexpTransformer.transform(proc { x })
         e = DMatch.match(pat, i)
         expect(e[:x]).to eql i
       end

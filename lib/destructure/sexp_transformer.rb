@@ -6,8 +6,9 @@ class DMatch
   class SexpTransformer
     class << self
       def transform(p)
-        patterns_by_proc.fetch(p) do
-          patterns_by_proc[p] = SexpTransformer.new(p.binding).transform(ProcSexps.get(p))
+        p_src = p.source_location
+        patterns_by_proc.fetch(p_src) do
+          patterns_by_proc[p_src] = SexpTransformer.new(p.binding).transform(ProcSexps.get(p))
         end
       end
 

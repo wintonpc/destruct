@@ -149,7 +149,41 @@ class DMatch
   end
 
   def match_enumerable_no_splats(pat, x)
-    all_match(pat.zip(x).map{|a| match(*a)}) ? @env : nil
+    if x.is_a?(Hash)
+      match_hash_no_splats(pat, x)
+    elsif x.is_a?(Array)
+      match_array_no_splats(pat, x)
+    else
+      all_match(pat.zip(x).map{|a| match(*a)}) ? @env : nil
+    end
+  end
+
+  def match_array_no_splats(pat, x)
+    i = 0
+    len = max(pat.size, x.size)
+    while i < len
+      r = match(pat[i], x[i])
+      return nil unless r
+      i += 1
+    end
+    @env
+  end
+
+  def match_hash_no_splats(pat, x)
+    i = 0
+    len = max(pat.size, x.size)
+    while i < len
+      r = match(pat.keys[i], x.keys[i])
+      return nil unless r
+      r = match(pat.values[i], x.values[i])
+      return nil unless r
+      i += 1
+    end
+    @env
+  end
+
+  def max (a, b)
+    a > b ? a : b
   end
 
   def enumerable(*xs)
