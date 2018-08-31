@@ -116,6 +116,8 @@ class DMatch
     end
   end
 
+  SplattedEnumerable = Struct.new(:before, :splat, :after)
+
   def decompose_splatted_enumerable(pat)
     before = []
     splat = nil
@@ -148,7 +150,7 @@ class DMatch
   end
 
   def len(x)
-    x.respond_to?(:length) ? x.length : x.count
+    x.respond_to?(:size) ? x.size : x.count
   end
 
   def match_enumerable_no_splats(pat, x)
