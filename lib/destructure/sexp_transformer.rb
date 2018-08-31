@@ -1,6 +1,6 @@
 require 'active_support/inflector'
 require 'destructure/dmatch'
-require 'unparser'
+require_relative './sexp_transformer0'
 
 class DMatch
   class SexpTransformer
@@ -16,73 +16,75 @@ class DMatch
       end
     end
 
+    attr_reader :caller_binding
+
     def initialize(caller_binding)
       @caller_binding = caller_binding
     end
 
     def transform(sp)
-      _ = DMatch::_
-      klass_sym = Var.new(&method(:is_constant?))
-      case
+      destructure(sp, SexpTransformer0) do
+        case
 
-        # '_' (wildcard)
-      when e = dmatch([:send, _, :_], sp)
-        _
+          # wildcard
+        when match { [:send, _, :_] }
+          DMatch::_
 
-        # object matcher without parameters
-      when e = dmatch([:const, nil, klass_sym], sp)
-        make_obj(e[klass_sym], {})
+          # object matcher without parameters
+        when match { [:const, nil, klass = /^[A-Z].*/]}
+          make_obj(klass, {})
 
-        # namespace-qualified object matcher without parameters
-      when e = dmatch([:colon2, splat(:args)], sp)
-        make_obj(read_fq_const(sp), {})
+          # namespace-qualified object matcher without parameters
+        when match { [:colon2, ~_] }
+          make_obj(read_fq_const(sp), {})
 
-        # '~' (splat)
-      when e = dmatch([:send, var(:identifier_sexp), :~], sp)
-        splat(unwind_receivers_and_clean(e[:identifier_sexp]))
+          # '~' (splat)
+        when match { [:send, identifier_sexp, :~] }
+          splat(unwind_receivers_and_clean(identifier_sexp))
 
-        # '!' (variable value)
-      when e = dmatch([:send, var(:value_sexp), :!], sp)
-        @caller_binding.eval(unwind_receivers_and_clean(e[:value_sexp]).to_s)
+          # '!' (variable value)
+        when match { [:send, value_sexp, :!] }
+          caller_binding.eval(unwind_receivers_and_clean(value_sexp).to_s)
 
-        # '|' (alternative patterns)
-      when e = dmatch([:send, var(:rest), :|, var(:alt)], sp)
-        Or.new(*[e[:rest], e[:alt]].map(&method(:transform)))
+          # '|' (alternative patterns)
+        when match { [:send, rest, :|, alt] }
+          Or.new(*[rest, alt].map { |x| transform(x) })
 
-        # let
-        # ... with local or instance vars
-      when e = dmatch([Or.new(:lvasgn, :ivasgn), var(:lhs), var(:rhs)], sp)
-        let_var(e[:lhs], transform(e[:rhs]))
+          # let with local or instance vars
+        when match { [:lvasgn | :ivasgn, lhs, rhs] }
+          let_var(lhs, transform(rhs))
 
-        # ... with attributes or something more complicated
-      when e = dmatch([:send, var(:obj), /(?<attr>[^=]+)=/, var(:rhs)], sp)
-        var_name = unwind_receivers_and_clean([:send, e[:obj], e[:attr].sub(/=$/,'').to_sym])
-        let_var(var_name, transform(e[:rhs]))
+          # let with attributes or something more complicated
+        when match { [:send, obj, /(?<attr>.+)=/, rhs] }
+          var_name = unwind_receivers_and_clean([:send, obj, attr.to_sym])
+          let_var(var_name, transform(rhs))
 
-        # generic call
-      when e = dmatch([:send, var(:receiver), var(:msg), splat(:arglist)], sp)
-        transform_call(e[:receiver], e[:msg], e[:arglist])
+          # generic call
+        when match { [:send, receiver, msg, ~arglist] }
+          transform_call(receiver, msg, arglist)
 
-        # instance variable
-      when e = dmatch([:ivar, var(:name)], sp)
-        var(e[:name].to_s)
+          # instance variable
+        when match { [:ivar, name] }
+          var(name.to_s)
 
-        # local variable
-      when e = dmatch([:lvar, var(:name)], sp)
-        var(e[:name])
+          # local variable
+        when match { [:lvar, name] }
+          var(name)
 
-        # literal values
-      when e = dmatch([a_literal, var(:value)], sp); e[:value]
-      when e = dmatch([:true], sp); true
-      when e = dmatch([:false], sp); false
-      when e = dmatch([:nil], sp); nil
-      when e = dmatch([:regexp, [:str, var(:str)], [:regopt, splat(:opts)]], sp)
-        Regexp.new(e[:str], map_regexp_opts(e[:opts]))
-      when e = dmatch([:array, splat(:items)], sp)
-        e[:items].map(&method(:transform))
-      when e = dmatch([:hash, splat(:pairs)], sp)
-        transform_pairs(e[:pairs])
-      else; raise "Unexpected sexp: #{sp.inspect}"
+          # literal values
+        when match { [:int | :float | :str | :sym, value] } then value
+        when match { [:true] } then true
+        when match { [:false] } then false
+        when match { [:nil] } then nil
+        when match { [:regexp, [:str, str], [:regopt, ~opts]] }
+          Regexp.new(str, map_regexp_opts(opts))
+        when match { [:array, ~items] }
+          items.map { |x| transform(x) }
+        when match { [:hash, ~pairs] }
+          transform_pairs(pairs)
+        else
+          raise "Unexpected sexp: #{sp.inspect}"
+        end
       end
     end
 

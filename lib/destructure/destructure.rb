@@ -2,19 +2,24 @@ require_relative './sexp_transformer'
 require 'ostruct'
 
 class Destructure
-  def destructure(obj, &block)
-    context = Context.new(obj, eval('self', block.binding))
+  def destructure(obj, transformer, &block)
+    context = Context.new(obj, transformer, eval('self', block.binding))
     context.instance_exec(&block)
   end
 
   class Context
-    def initialize(obj, outer_self)
+    def initialize(obj, transformer, outer_self)
       @obj = obj
+      @transformer = transformer
       @outer_self = outer_self
     end
 
-    def match(&pat)
-      env = DMatch.match(DMatch::SexpTransformer.transform(pat), @obj)
+    def match(pat=nil, &pat_proc)
+      if pat && pat_proc
+        raise "Cannot specify both a pattern and a pattern proc"
+      end
+      pat ||= @transformer.transform(pat_proc)
+      env = DMatch.match(pat, @obj)
       set_env(env) if env
       !!env
     end
@@ -38,8 +43,8 @@ end
 class Object
   private
 
-  def destructure(obj, &block)
-    Destructure.new.destructure(obj, &block)
+  def destructure(obj, transformer=DMatch::SexpTransformer, &block)
+    Destructure.new.destructure(obj, transformer, &block)
   end
 end
 
