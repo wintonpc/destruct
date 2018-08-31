@@ -72,8 +72,8 @@ class DMatch
     it 'should transform object matchers with implied names' do
       result = transform(sexp { Object[x, y] })
       v = DMatch.match(Obj.of_type(Obj, fields: {
-          x: Obj.of_type(Var, :name => :x),
-          y: Obj.of_type(Var, :name => :y)
+          x: Obj.of_type(Var, name: :x),
+          y: Obj.of_type(Var, name: :y)
       }), result)
       expect(v).to be_an Env
     end
@@ -81,14 +81,14 @@ class DMatch
     it 'should transform Hash matchers with implied names' do
       result = transform(sexp { Hash[x, y] })
 
-      expect(DMatch.match({ x: Obj.of_type(Var, :name => :x),
-                             y: Obj.of_type(Var, :name => :y) }, result)).to be_instance_of Env
+      expect(DMatch.match({ x: Obj.of_type(Var, name: :x),
+                             y: Obj.of_type(Var, name: :y) }, result)).to be_instance_of Env
     end
 
     it 'should transform object matchers with explicit names' do
       result = transform(sexp { Object[x: a, y: 2] })
       expect(DMatch.match(Obj.of_type(Obj, fields: {
-          x: Obj.of_type(Var, :name => :a),
+          x: Obj.of_type(Var, name: :a),
           y: 2
       }), result)).to be_instance_of Env
     end
@@ -97,7 +97,7 @@ class DMatch
       # this case is already covered completely by the normal
       # curly-brace hash matcher, but is included for completeness
       result = transform(sexp { Hash[x: a, y: 2] })  # equivalent to { x: a, y: 2 }
-      expect(DMatch.match({ x: Obj.of_type(Var, :name => :a),
+      expect(DMatch.match({ x: Obj.of_type(Var, name: :a),
                              y: 2
                            }, result)).to be_instance_of Env
     end
