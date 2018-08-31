@@ -3,19 +3,19 @@ require 'destructure/types'
 
 class DMatch
   def self.match(pat, x)
-    DMatch.new(Env.new).match(pat, x)
+    DMatch.new.match(pat, x)
   end
 
   def self.last_match_attempt(pat, x)
-    DMatch.new(Env.new).last_match_attempt(pat, x)
+    DMatch.new.last_match_attempt(pat, x)
   end
 
   def self._
     Wildcard.instance
   end
 
-  def initialize(env)
-    @env = env
+  def initialize(env=nil)
+    @env = env || Env.new
   end
 
   def match(pat, x)
