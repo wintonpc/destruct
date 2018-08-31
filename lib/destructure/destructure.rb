@@ -3,7 +3,8 @@ require 'ostruct'
 
 class Destructure
   def destructure(obj, transformer, &block)
-    context = Context.new(obj, transformer, eval('self', block.binding))
+    the_binding = eval('self', block.binding)
+    context = Context.new(obj, transformer, the_binding)
     context.instance_exec(&block)
   end
 
@@ -12,6 +13,7 @@ class Destructure
       @obj = obj
       @transformer = transformer
       @outer_self = outer_self
+      @matched_env = nil
     end
 
     def match(pat=nil, &pat_proc)

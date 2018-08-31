@@ -19,7 +19,7 @@ class DMatch
   end
 
   def match(pat, x)
-    @last_match_attempt = [pat, x]
+    @last_match_attempt = [pat, x] if @track_last_match_attempt
     case
     when pat.is_a?(Wildcard); @env
     when pat.is_a?(Pred) && pat.test(x, @env); @env
@@ -31,14 +31,15 @@ class DMatch
     when pat.is_a?(String) && pat == x; @env
     when pat.is_a?(Regexp); match_regexp(pat, x)
     when pat.is_a?(Or); match_or(pat, x)
-    when hash(pat, x) && all_keys_match(pat, x); @env
-    when enumerable(pat, x); match_enumerable(pat, x)
+    when pat.is_a?(Hash) && x.is_a?(Hash) && all_keys_match(pat, x); @env
+    when pat.is_a?(Enumerable) && x.is_a?(Enumerable); match_enumerable(pat, x)
     when pat == x; @env
     else; nil
     end
   end
 
   def last_match_attempt(pat, x)
+    @track_last_match_attempt = true
     match(pat, x)
     @last_match_attempt
   end
@@ -46,7 +47,7 @@ class DMatch
   private ###########################################################
 
   def all_keys_match(pat, x)
-    all_match(pat.keys.map { |k| x.keys.include?(k) && match(pat[k], x[k]) })
+    pat.keys.all? { |k| x.keys.include?(k) && match(pat[k], x[k]) }
   end
 
   def match_regexp(pat, x)
@@ -67,7 +68,7 @@ class DMatch
   end
 
   def match_splat(pat, x)
-    @env.bind(pat, enumerable(x) ? x : [x])
+    @env.bind(pat, x.is_a?(Enumerable) ? x : [x])
   end
 
   def match_select_splat(pat, x)
@@ -184,14 +185,6 @@ class DMatch
 
   def max (a, b)
     a > b ? a : b
-  end
-
-  def enumerable(*xs)
-    xs.all?{|x| x.is_a?(Enumerable)}
-  end
-
-  def hash(*xs)
-    xs.all?{|x| x.is_a?(Hash)}
   end
 
   def all_match(xs)
