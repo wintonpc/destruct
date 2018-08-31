@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'destructure/env'
 require 'destructure/types'
 

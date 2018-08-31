@@ -1,10 +1,13 @@
+# frozen_string_literal: true
+
 require_relative './sexp_transformer'
 require 'ostruct'
 
 class Destructure
   def destructure(obj, transformer, &block)
-    the_binding = eval('self', block.binding)
-    context = Context.new(obj, transformer, the_binding)
+    the_binding = block.binding
+    the_self = eval('self', the_binding)
+    context = Context.new(obj, transformer, the_self)
     context.instance_exec(&block)
   end
 
