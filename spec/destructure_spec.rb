@@ -18,6 +18,11 @@ describe 'destructure' do
     expect(result).to eql ({x: 2})
   end
 
+  it 'can compose patterns' do
+    a_literal = DMatch::SexpTransformer.transform(proc { :int | :float | :str })
+    a_literal
+  end
+
   it 'is transparent' do
     # Verify the destructure block can call methods (including keywords)
     # and access local variables.

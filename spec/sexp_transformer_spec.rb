@@ -199,6 +199,12 @@ class DMatch
       expect(transform(sexp { !@my_var })).to eql 9
     end
 
+    it 'should compose patterns' do
+      a_literal = transform(sexp { :int | :float | :str })
+      result = transform(sexp { [!a_literal, val] })
+      expect(DMatch.match([Obj.of_type(Or), Obj.of_type(Var)], result)).to be_instance_of Env
+    end
+
     it 'performs decently' do
       p = proc { x }
       100_000.times.each do |i|
