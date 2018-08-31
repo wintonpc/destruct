@@ -17,7 +17,11 @@ class DMatch
 
     def initialize(name=nil, &pred)
       @name = name
-      self.pred = pred
+      @pred = pred
+    end
+
+    def pretty_inspect
+      "var #{name}"
     end
   end
 
@@ -55,11 +59,24 @@ class DMatch
 
     def initialize(fields={}, &pred)
       @fields = fields
-      self.pred = pred
+      @pred = pred
     end
 
     def self.of_type(klass, fields={}, &pred)
-      Obj.new(fields) {|x| x.is_a?(klass) && (!pred || pred.call(x))}
+      result = Obj.new(fields) {|x| x.is_a?(klass) && (!pred || pred.call(x))}
+      result.instance_variable_set(:@type, klass)
+      result
+    end
+
+    def pretty_inspect
+      s = @type ? @type.to_s : "Object"
+      unless @fields.empty?
+        s += " with fields #{@fields.inspect}"
+      end
+      if @pred
+        s += " matching predicate #{@pred}"
+      end
+      s
     end
   end
 
@@ -68,7 +85,7 @@ class DMatch
 
     def initialize(pred_callable=nil, &pred_block)
       raise 'Cannot specify both a callable and a block' if pred_callable && pred_block
-      self.pred = pred_callable || pred_block
+      @pred = pred_callable || pred_block
     end
   end
 

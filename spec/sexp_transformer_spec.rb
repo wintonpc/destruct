@@ -1,4 +1,5 @@
 require 'destructure'
+require_relative './../lib/destructure/rspec_matcher'
 
 class DMatch
   describe SexpTransformer do
@@ -202,7 +203,7 @@ class DMatch
     it 'should compose patterns' do
       a_literal = transform(sexp { :int | :float | :str })
       result = transform(sexp { [!a_literal, val] })
-      expect(DMatch.match([Obj.of_type(Or), Obj.of_type(Var)], result)).to be_instance_of Env
+      expect(result).to dmatch [Obj.of_type(Or), Obj.of_type(Var, name: :val)]
     end
 
     it 'performs decently' do

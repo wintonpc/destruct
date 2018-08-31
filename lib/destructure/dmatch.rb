@@ -6,6 +6,10 @@ class DMatch
     DMatch.new(Env.new).match(pat, x)
   end
 
+  def self.last_match_attempt(pat, x)
+    DMatch.new(Env.new).last_match_attempt(pat, x)
+  end
+
   def self._
     Wildcard.instance
   end
@@ -15,6 +19,7 @@ class DMatch
   end
 
   def match(pat, x)
+    @last_match_attempt = [pat, x]
     case
     when pat.is_a?(Wildcard); @env
     when pat.is_a?(Pred) && pat.test(x, @env); @env
@@ -31,6 +36,11 @@ class DMatch
     when pat == x; @env
     else; nil
     end
+  end
+
+  def last_match_attempt(pat, x)
+    match(pat, x)
+    @last_match_attempt
   end
 
   private ###########################################################
