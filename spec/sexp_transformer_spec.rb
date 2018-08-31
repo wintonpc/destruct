@@ -206,15 +206,6 @@ class DMatch
       expect(result).to dmatch [Obj.of_type(Or), Obj.of_type(Var, name: :val)]
     end
 
-    it 'performs decently' do
-      100_000.times.each do |i|
-        pat = SexpTransformer.transform(proc { x })
-        e = DMatch.match(pat, i)
-        expect(e[:x]).to eql i
-      end
-      # should take a fraction of a second
-    end
-
     def sexp(&block)
       block
     end
