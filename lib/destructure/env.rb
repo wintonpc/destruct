@@ -4,17 +4,14 @@ require 'destructure/types'
 
 class DMatch
   class Env
-    attr_reader :env
-
     def initialize
-      @env = {}
-      @keys_by_name = {}
+      @env = [] # [Var, Object] pairs
     end
 
     def [](identifier)
       v = look_up(identifier)
       raise "Identifier '#{identifier}' is not bound." if v.nil?
-      v.is_a?(EnvNil) ? nil : v
+      massage_value_out(v)
     end
 
     def fetch(identifier)
@@ -22,45 +19,57 @@ class DMatch
       if v.nil?
         yield
       else
-        v.is_a?(EnvNil) ? nil : v
+        massage_value_out(v)
       end
     end
 
     private def look_up(identifier)
-      raise 'identifier must be a Var or symbol' unless (identifier.is_a? Var) || (identifier.is_a? Symbol)
-      if identifier.is_a? Symbol
-        identifier = @keys_by_name[identifier]
+      raise 'identifier must be a Var or symbol' unless identifier.is_a?(Var) || identifier.is_a?(Symbol)
+      @env.each do |k, v|
+        return v if k == identifier || k.name == identifier
       end
-      v = env[identifier]
+      nil
+    end
+
+    private def massage_value_in(v)
+      v.nil? ? NIL : v
+    end
+
+    private def massage_value_out(v)
+      v == NIL ? nil : v
     end
 
     def bind(identifier, value)
-      raise 'identifier must be a Var' unless identifier.is_a? Var
-      value_to_store = value.nil? ? EnvNil.new : value
-      existing_key = env.keys.select{|k| k == identifier || (k.name.is_a?(Symbol) && k.name == identifier.name)}.first
-      return nil if existing_key &&
-          (DMatch.match(env[existing_key], value_to_store).nil? ||
-          DMatch.match(value_to_store, env[existing_key]).nil?)
-      k = existing_key || identifier
-      env[k] = value_to_store
-      @keys_by_name[k.name] = k
+      raise 'identifier must be a Var' unless identifier.is_a?(Var)
+      value = massage_value_in(value)
+      @env.each do |k, existing_value|
+        if k == identifier
+          if DMatch.match(existing_value, value).nil? || DMatch.match(value, existing_value).nil?
+            return nil # unification failure
+          else
+            return self # unification success
+          end
+        end
+      end
+
+      # key doesn't exist. add it.
+      @env << [identifier, value]
       self
     end
 
     alias []= bind
 
-    def keys
-      env.keys
-    end
-
-    def each_kv
-      env.each_pair { |k, v| yield(k.name, v) }
+    def each_key
+      @env.each { |k, _v| yield k }
     end
 
     def merge!(other_env)
-      other_env.keys.any?{|k| bind(k, other_env[k]).nil?} ? nil : self
+      other_env.each_key do |k|
+        return nil if bind(k, other_env[k]).nil?
+      end
+      self
     end
 
-    class EnvNil; end
+    NIL = Object.new
   end
 end
