@@ -4,13 +4,19 @@ require_relative './sexp_transformer'
 require 'ostruct'
 
 class Destructure
+  class NoMatchError < StandardError
+    def initialize(msg)
+      super(msg)
+    end
+  end
+
   class << self
     def destructure(obj, mode, transformer, &block)
       with_context do |context|
         context.reset(obj, transformer, block.binding)
         result = context.instance_exec(&block)
         if mode == :or_raise && context.matched_env.nil?
-          raise "Failed to match #{obj}"
+          raise NoMatchError.new("Failed to match #{obj}")
         else
           result
         end

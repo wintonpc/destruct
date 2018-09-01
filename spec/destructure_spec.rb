@@ -19,7 +19,7 @@ describe 'destructure' do
   end
 
   it 'can raise on failure, if asked' do
-    expect { destructure(5, :or_raise) { match { 6 } } }.to raise_error /Failed to match 5/
+    expect { destructure(5, :or_raise) { match { 6 } } }.to raise_error Destructure::NoMatchError, /Failed to match 5/
   end
 
   it 'can compose patterns' do
