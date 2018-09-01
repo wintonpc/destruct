@@ -37,6 +37,19 @@ describe 'destructure' do
     expect(result).to eql ({packaged: 2, extra: 'icing'})
   end
 
+  it 'allows matched values to change across calls' do
+    log = []
+    local = 0
+    p = proc { !local }
+
+    destructure(0) { log << match(&p) }
+    destructure(1) { log << match(&p) }
+    local = 1
+    destructure(0) { log << match(&p) }
+    destructure(1) { log << match(&p) }
+    expect(log).to eql [true, false, false, true]
+  end
+
   def package(v, extra: nil)
     {packaged: v, extra: extra}
   end
