@@ -4,11 +4,17 @@ require 'active_support/inflector'
 require 'destructure/dmatch'
 require_relative './sexp_transformer0'
 
+class Proc
+  def cached_source_location
+    @cached_source_location ||= source_location # don't allocate a new array every time
+  end
+end
+
 class DMatch
   class SexpTransformer
     class << self
       def transform(p)
-        p_src = p.source_location
+        p_src = p.cached_source_location
         patterns_by_proc.fetch(p_src) do
           patterns_by_proc[p_src] = Pattern.from(SexpTransformer.new(p.binding).transform(ProcSexps.get(p)))
         end
