@@ -18,6 +18,10 @@ describe 'destructure' do
     expect(result).to eql ({x: 2})
   end
 
+  it 'can raise on failure, if asked' do
+    expect { destructure(5, :or_raise) { match { 6 } } }.to raise_error /Failed to match 5/
+  end
+
   it 'can compose patterns' do
     a_literal = DMatch::SexpTransformer.transform(proc { :int | :float | :str })
     a_literal
@@ -74,7 +78,7 @@ describe 'destructure' do
 
   it 'matches nested constants' do
     obj = DMatch::SexpTransformer.new(nil)
-    destructure(obj, :or_raise) { match { DMatch::SexpTransformer0 } }
+    destructure(obj, :or_raise) { match { DMatch::SexpTransformer } }
   end
 
   def package(v, extra: nil)

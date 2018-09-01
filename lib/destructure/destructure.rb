@@ -8,7 +8,12 @@ class Destructure
     def destructure(obj, mode, transformer, &block)
       with_context do |context|
         context.reset(obj, transformer, block.binding)
-        context.instance_exec(&block)
+        result = context.instance_exec(&block)
+        if mode == :or_raise && context.matched_env.nil?
+          raise "Failed to match #{obj}"
+        else
+          result
+        end
       end
     end
 
@@ -35,6 +40,8 @@ class Destructure
   end
 
   class Context
+    attr_reader :matched_env
+
     def reset(obj, transformer, outer_binding)
       @obj = obj
       @transformer = transformer
