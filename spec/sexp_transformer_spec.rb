@@ -171,8 +171,8 @@ class DMatch
 
     it 'should transform splats with complicated LHSs' do
       v = transform(sexp { [1, ~@one.two[1].three] })
-      expect(v.last).to be_instance_of Splat
-      expect(v.last.name).to eql '@one.two[1].three'
+      expect(v).to be_instance_of SplattedEnumerable
+      expect(v.splat.name).to eql '@one.two[1].three'
     end
 
     it 'should transform complicated value references' do
@@ -211,7 +211,7 @@ class DMatch
     end
 
     def transform(p)
-      SexpTransformer.transform(p)
+      SexpTransformer.transform(p).pat
     end
   end
 end

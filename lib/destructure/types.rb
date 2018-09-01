@@ -105,6 +105,8 @@ class DMatch
     end
   end
 
+  SplattedEnumerable = Struct.new(:before, :splat, :after)
+
   class Pattern
     def self.from(p)
       p.is_a?(Pattern) ? p : Pattern.new(p)
@@ -124,7 +126,7 @@ class DMatch
 
     def cook(x)
       if x.is_a?(Array)
-        x.map { |v| cook(v) }
+        cook_array(x)
       elsif x.is_a?(Hash)
         x.each_with_object({}) do |(k, v), h|
           h[k] = cook(v)
@@ -134,7 +136,7 @@ class DMatch
       end
     end
 
-    def decompose_splatted_enumerable(pat)
+    def cook_array(pat)
       before = []
       splat = nil
       after = []
@@ -153,7 +155,11 @@ class DMatch
         end
       end
 
-      splat && [before, splat, after]
+      if splat
+        SplattedEnumerable.new(cook(before), splat, cook(after))
+      else
+        pat.map { |x| cook(x) }
+      end
     end
   end
 end

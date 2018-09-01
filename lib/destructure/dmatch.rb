@@ -88,9 +88,10 @@ class DMatch
   end
 
   def match_enumerable(pat, x)
-    case
-    when (parts = decompose_splatted_enumerable(pat))
-      pat_before, pat_splat, pat_after = parts
+    if pat.is_a?(SplattedEnumerable)
+      pat_before = pat.before
+      pat_splat = pat.splat
+      pat_after = pat.after
       x_before = x.take(pat_before.length)
       if pat_after.any?
         splat_len = len(x) - pat_before.length - pat_after.length
@@ -110,34 +111,11 @@ class DMatch
       else
         before_and_splat_result
       end
-    when len(pat) == len(x)
+    elsif len(pat) == len(x)
       match_enumerable_no_splats(pat, x)
-    else; nil
+    else
+      nil
     end
-  end
-
-  SplattedEnumerable = Struct.new(:before, :splat, :after)
-
-  def decompose_splatted_enumerable(pat)
-    before = []
-    splat = nil
-    after = []
-    pat.each do |p|
-      case
-      when p.is_a?(Splat)
-        if splat.nil?
-          splat = p
-        else
-          raise "cannot have more than one splat in a single array: #{pat.inspect}"
-        end
-      when splat.nil?
-        before.push(p)
-      else
-        after.push(p)
-      end
-    end
-
-    splat && [before, splat, after]
   end
 
   def take_last(n, xs)
