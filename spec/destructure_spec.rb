@@ -37,7 +37,33 @@ describe 'destructure' do
     expect(result).to eql ({packaged: 2, extra: 'icing'})
   end
 
-  it 'allows referenced values to change between calls' do
+  it 'should handle unquoted values' do
+    foo = 7
+    @my_var = 9
+
+    expect(destructure(5) do
+      match { !5 }
+    end).to eql true
+
+    expect(destructure(7) do
+      match { !foo }
+    end).to eql true
+
+    expect(destructure(9) do
+      match { !@my_var }
+    end).to eql true
+  end
+
+  it 'should handle unquoted patterns' do
+    a_literal = DMatch::SexpTransformer.transform(proc { :int | :float | :str })
+    expect(destructure([:float, 3.14]) do
+      if match { [!a_literal, val] }
+        val
+      end
+    end).to eql 3.14
+  end
+
+  it 'allows unquoted values to change between calls' do
     log = []
     local = 0
     p = proc { !local }
@@ -49,21 +75,6 @@ describe 'destructure' do
     destructure(1) { log << match(&p) }
     expect(log).to eql [true, false, false, true]
   end
-
-  it 'should handle binding references' do
-    foo = 7
-    @my_var = 9
-
-    expect(transform(sexp { !5 })).to eql 5
-    expect(transform(sexp { !foo })).to eql 7
-    expect(transform(sexp { !@my_var })).to eql 9
-  end
-
-  # it 'should compose patterns' do
-  #   a_literal = transform(sexp { :int | :float | :str })
-  #   result = transform(sexp { [!a_literal, val] })
-  #   expect(result).to dmatch [Obj.of_type(Or), Obj.of_type(Var, name: :val)]
-  # end
 
   def package(v, extra: nil)
     {packaged: v, extra: extra}

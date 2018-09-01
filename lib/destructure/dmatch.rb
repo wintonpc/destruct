@@ -24,7 +24,7 @@ class DMatch
   def match(pat, x)
     @last_match_attempt = [pat, x] if @track_last_match_attempt
     if pat.is_a?(Ref)
-      pat = @binding.eval(pat.expr)
+      pat = Pattern.get_cooked(@binding.eval(pat.expr))
     end
     case
     when pat.is_a?(Wildcard); @env
