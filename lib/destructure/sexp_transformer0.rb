@@ -5,8 +5,17 @@ require 'destructure/dmatch'
 
 class DMatch
   class SexpTransformer0
-    def self.transform(p)
-      SexpTransformer0.new(p.binding).transform(ProcSexps.get(p))
+    class << self
+      def transform(p)
+        p_src = p.source_location
+        patterns_by_proc.fetch(p_src) do
+          patterns_by_proc[p_src] = SexpTransformer0.new(p.binding).transform(ProcSexps.get(p))
+        end
+      end
+
+      def patterns_by_proc
+        @patterns_by_proc ||= {}
+      end
     end
 
     def initialize(caller_binding)
