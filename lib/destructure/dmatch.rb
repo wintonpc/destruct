@@ -22,6 +22,9 @@ class DMatch
 
   def match(pat, x)
     @last_match_attempt = [pat, x] if @track_last_match_attempt
+    if pat.is_a?(Ref)
+      @binding.eval(pat.expr)
+    end
     case
     when pat.is_a?(Wildcard); @env
     when pat.is_a?(Pred) && pat.test(x, @env); @env

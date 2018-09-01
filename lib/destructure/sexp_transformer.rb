@@ -53,7 +53,7 @@ class DMatch
 
           # '!' (variable value)
         when match { [:send, value_sexp, :!] }
-          caller_binding.eval(unwind_receivers_and_clean(value_sexp).to_s)
+          Ref.new(unwind_receivers_and_clean(value_sexp).to_s)
 
           # '|' (alternative patterns)
         when match { [:send, rest, :|, alt] }

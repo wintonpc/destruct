@@ -27,6 +27,14 @@ class DMatch
     end
   end
 
+  class Ref
+    attr_reader :expr
+
+    def initialize(expr)
+      @expr = expr
+    end
+  end
+
   class Splat < Var; end
 
   # experimental
