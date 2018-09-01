@@ -135,12 +135,13 @@ class DMatch
 
     def read_fq_const(sp, parts=[])
       klass_sym = Var.new(&method(:is_constant?))
-      case
-      when e = dmatch([:const, nil, klass_sym], sp)
-        parts = [e[klass_sym]] + parts
-        Object.const_get("#{parts.join('::')}")
-      when e = dmatch([:colon2, var(:prefix), var(:last)], sp)
-        read_fq_const(e[:prefix], [e[:last]] + parts)
+      destructure(sp) do
+        if match { [:const, nil, klass = !klass_sym] }
+          parts = [klass] + parts
+          Object.const_get("#{parts.join('::')}")
+        elsif match { [:colon2, prefix, last] }
+          read_fq_const(prefix, [last] + parts)
+        end
       end
     end
 
