@@ -173,17 +173,15 @@ class DMatch
     end
 
     def make_field_map(sexp_args)
-      case
-        # Class[a: 1, b: 2]
-      when e = dmatch([[:hash, splat(:pairs)]], sexp_args)
-        transform_pairs(e[:pairs])
-
-        # Class[a, b, c]
-      when e = dmatch([splat(:field_name_sexps)], sexp_args)
-        field_names = transform_many(e[:field_name_sexps])
-        Hash[field_names.map { |f| [f.name, var(f.name)] }]
-      else
-        raise InvalidPattern.new(sexp_args)
+      destructure(sexp_args) do
+        if match { [[:hash, ~pairs]] }
+          transform_pairs(pairs)
+        elsif match { [~field_name_sexps] }
+          field_names = transform_many(field_name_sexps)
+          Hash[field_names.map { |f| [f.name, var(f.name)] }]
+        else
+          raise InvalidPattern.new(sexp_args)
+        end
       end
     end
 
