@@ -105,6 +105,8 @@ class DMatch
       destructure(parent_sexp) do
         if match { nil }
           child_str
+        elsif match { [:cbase] }
+          "::#{child_str}"
         elsif match { [:const, parent, klass = /^[A-Z].*/] }
           "#{flatten_nested_constants(parent, klass)}::#{child_str}"
         else

@@ -79,6 +79,7 @@ describe 'destructure' do
   it 'matches nested constants' do
     obj = DMatch::SexpTransformer.new(nil)
     destructure(obj, :or_raise) { match { DMatch::SexpTransformer } }
+    destructure(obj, :or_raise) { match { ::DMatch::SexpTransformer } }
   end
 
   def package(v, extra: nil)
