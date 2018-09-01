@@ -6,7 +6,7 @@ describe 'Performance' do
     a = [1, 2, 3, 4]
     match_once(a)
     report = MemoryProfiler.report do
-      100.times do
+      1.times do
         match_once(a)
       end
     end

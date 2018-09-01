@@ -4,15 +4,35 @@ require_relative './sexp_transformer'
 require 'ostruct'
 
 class Destructure
-  def destructure(obj, transformer, &block)
-    the_binding = block.binding
-    the_self = eval('self', the_binding)
-    context = Context.new(obj, transformer, the_self)
-    context.instance_exec(&block)
+  class << self
+    def destructure(obj, transformer, &block)
+      the_binding = block.binding
+      the_self = eval('self', the_binding)
+      with_context do |context|
+        context.reset(obj, transformer, the_self)
+        context.instance_exec(&block)
+      end
+    end
+
+    private
+
+    def with_context
+      contexts = Thread.current[:destructure_contexts] ||= begin
+        cs = Array.new(100) { Context.new }
+        cs.each(&:singleton_class)
+        cs
+      end
+      context = contexts.pop
+      begin
+        yield context
+      ensure
+        contexts.push(context)
+      end
+    end
   end
 
   class Context
-    def initialize(obj, transformer, outer_self)
+    def reset(obj, transformer, outer_self)
       @obj = obj
       @transformer = transformer
       @outer_self = outer_self
@@ -49,7 +69,7 @@ class Object
   private
 
   def destructure(obj, transformer=DMatch::SexpTransformer, &block)
-    Destructure.new.destructure(obj, transformer, &block)
+    Destructure.destructure(obj, transformer, &block)
   end
 end
 
