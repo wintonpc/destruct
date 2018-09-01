@@ -117,8 +117,11 @@ class DMatch
 
     def transform_pairs(pairs)
       pairs.map do |p|
-        ep = dmatch([:pair, var(:k), var(:v)], p)
-        [transform(ep[:k]), transform(ep[:v])]
+        destructure(p) do
+          if match { [:pair, k, v] }
+            [transform(k), transform(v)]
+          end
+        end
       end.to_h
     end
 
