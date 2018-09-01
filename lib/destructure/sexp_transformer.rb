@@ -94,7 +94,7 @@ class DMatch
         when match { [:hash, ~pairs] }
           transform_pairs(pairs)
         else
-          raise "Unexpected sexp: #{sp.inspect}"
+          raise InvalidPattern.new(sp)
         end
       end
     end
@@ -164,7 +164,8 @@ class DMatch
       when e = dmatch([splat(:field_name_sexps)], sexp_args)
         field_names = transform_many(e[:field_name_sexps])
         Hash[field_names.map { |f| [f.name, var(f.name)] }]
-      else; raise 'oops'
+      else
+        raise InvalidPattern.new(sexp_args)
       end
     end
 
@@ -187,7 +188,8 @@ class DMatch
         unwind_receivers(e[:receiver]) + format_hash_call(e[:args])
       when e = dmatch([:send, var(:receiver), var(:msg), splat(:args)], receiver)
         unwind_receivers(e[:receiver]) + format_method_call(e[:msg], e[:args])
-      else; raise 'oops'
+      else
+        raise InvalidPattern.new(receiver)
       end
     end
 
@@ -237,6 +239,15 @@ class DMatch
 
     def splat(name)
       Splat.new(name)
+    end
+  end
+
+  class InvalidPattern < StandardError
+    attr_reader :pattern
+
+    def initialize(bad_pattern, unparsed=nil)
+      super(unparsed ? "Code: #{unparsed}\nAST:  #{bad_pattern.inspect}" : bad_pattern.inspect)
+      @pattern = bad_pattern
     end
   end
 end

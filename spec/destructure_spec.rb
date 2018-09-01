@@ -41,17 +41,9 @@ describe 'destructure' do
     foo = 7
     @my_var = 9
 
-    expect(destructure(5) do
-      match { !5 }
-    end).to eql true
-
-    expect(destructure(7) do
-      match { !foo }
-    end).to eql true
-
-    expect(destructure(9) do
-      match { !@my_var }
-    end).to eql true
+    expect(destructure(5) { match { !5 } }).to eql true
+    expect(destructure(7) { match { !foo } }).to eql true
+    expect(destructure(9) { match { !@my_var } }).to eql true
   end
 
   it 'should handle unquoted patterns' do
@@ -76,9 +68,9 @@ describe 'destructure' do
     expect(log).to eql [true, false, false, true]
   end
 
-  # it 'allows multiple procs per line' do
-  #   expect(destructure(5) { match { !5 } }).to eql true
-  # end
+  it 'allows multiple procs per line' do
+    expect(destructure(5) { match { !5 } }).to eql true
+  end
 
   def package(v, extra: nil)
     {packaged: v, extra: extra}
