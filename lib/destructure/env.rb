@@ -6,9 +6,17 @@ require 'destructure/types'
 
 class DMatch
   class Env
-    def initialize
-      @env_keys = [] # Vars
-      @env_values = [] # Objects
+    # Store the env as parallel arrays instead of an array of pairs to avoid the cost of allocating an array
+    # for each pair.
+    #
+    # Statistically, most matches fail. Don't allocate the env arrays until we actually have something to store.
+
+    private def env_keys
+      @env_keys ||= [] # Vars
+    end
+
+    private def env_values
+      @env_values ||= [] # Objects
     end
 
     def [](identifier)
@@ -35,7 +43,7 @@ class DMatch
     end
 
     private def env_each
-      zip_each(@env_keys, @env_values) { |k, v| yield(k, v) }
+      zip_each(env_keys, env_values) { |k, v| yield(k, v) } if @env_keys
     end
 
     private def zip_each(as, bs)
@@ -69,15 +77,15 @@ class DMatch
       end
 
       # key doesn't exist. add it.
-      @env_keys << identifier
-      @env_values << value
+      env_keys << identifier
+      env_values << value
       self
     end
 
     alias []= bind
 
     def each_key
-      @env_keys.each { |k| yield k }
+      @env_keys.each { |k| yield k } if @env_keys
     end
 
     def merge!(other_env)

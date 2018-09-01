@@ -7,7 +7,7 @@ class Destructure
   class << self
     def destructure(obj, transformer, &block)
       the_binding = block.binding
-      the_self = eval('self', the_binding)
+      the_self = the_binding.receiver
       with_context do |context|
         context.reset(obj, transformer, the_self)
         context.instance_exec(&block)
