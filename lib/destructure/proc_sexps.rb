@@ -21,32 +21,31 @@ class DMatch
     end
 
     def get(p, &try_to_use)
-      # return it if we have it
-      retval = @sexps_by_proc[p]
-      return retval if retval
+      sexp = @sexps_by_proc[p]
+      return sexp if sexp
 
-      # go find it
       file_path, line = *p.source_location
       ast = get_ast(file_path)
       candidate_nodes = find_proc(ast, line)
-      to_s
-      retval =
-          if try_to_use
-            mapped_candidates = candidate_nodes.map do |n|
-              begin
-                try_to_use.(node_to_sexp(n, p.binding))
-              rescue InvalidPattern => e
-                e
-              end
-            end
-            selected = mapped_candidates.reject { |x| x.is_a?(InvalidPattern) }.first
-            selected or raise InvalidPattern.new(mapped_candidates.last.pattern, Unparser.unparse(candidate_nodes.last))
-          else
-            node_to_sexp(candidate_nodes.first, p.binding)
-          end
 
-      # cache it
-      @sexps_by_proc[p] = retval
+      if !try_to_use
+        @sexps_by_proc[p] = node_to_sexp(candidate_nodes.first, p.binding)
+      else
+        tried_candidates = candidate_nodes.map do |n|
+          begin
+            try_to_use.(node_to_sexp(n, p.binding))
+          rescue InvalidPattern => e
+            e
+          end
+        end
+        first_good_idx = tried_candidates.find_index { |x| !x.is_a?(InvalidPattern) }
+        if first_good_idx
+          @sexps_by_proc[p] = node_to_sexp(candidate_nodes[first_good_idx], p.binding)
+          tried_candidates[first_good_idx]
+        else
+          raise InvalidPattern.new(tried_candidates.last.pattern, Unparser.unparse(candidate_nodes.last))
+        end
+      end
     end
 
     private
