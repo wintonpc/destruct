@@ -2,7 +2,7 @@ require 'memory_profiler'
 require 'destructure'
 
 describe 'Performance' do
-  it 'is efficient' do
+  it 'is memory-efficient' do
     a = [1, 2, 3, 4]
     match_once(a)
     report = MemoryProfiler.report do
@@ -14,9 +14,9 @@ describe 'Performance' do
     report.pretty_print
   end
 
-  it 'is fast' do
+  it 'is time-efficient' do
     a = [1, 2, 3, 4]
-    50_000.times.each { |i| match_once(a) } # should take a fraction of a second
+    50_000.times.each { match_once(a) } # should take a fraction of a second
   end
 
   def match_once(a)

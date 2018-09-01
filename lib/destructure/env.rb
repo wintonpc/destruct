@@ -7,7 +7,8 @@ require 'destructure/types'
 class DMatch
   class Env
     def initialize
-      @env = [] # [Var, Object] pairs
+      @env_keys = [] # Vars
+      @env_values = [] # Objects
     end
 
     def [](identifier)
@@ -27,10 +28,23 @@ class DMatch
 
     private def look_up(identifier)
       raise 'identifier must be a Var or symbol' unless identifier.is_a?(Var) || identifier.is_a?(Symbol)
-      @env.each do |k, v|
+      env_each do |k, v|
         return v if k == identifier || k.name == identifier
       end
       nil
+    end
+
+    private def env_each
+      zip_each(@env_keys, @env_values) { |k, v| yield(k, v) }
+    end
+
+    private def zip_each(as, bs)
+      i = 0
+      len = as.size
+      while i < len
+        yield(as[i], bs[i])
+        i += 1
+      end
     end
 
     private def massage_value_in(v)
@@ -44,7 +58,7 @@ class DMatch
     def bind(identifier, value)
       raise 'identifier must be a Var' unless identifier.is_a?(Var)
       value = massage_value_in(value)
-      @env.each do |k, existing_value|
+      env_each do |k, existing_value|
         if k == identifier
           if DMatch.match(existing_value, value).nil? || DMatch.match(value, existing_value).nil?
             return nil # unification failure
@@ -55,14 +69,15 @@ class DMatch
       end
 
       # key doesn't exist. add it.
-      @env << [identifier, value]
+      @env_keys << identifier
+      @env_values << value
       self
     end
 
     alias []= bind
 
     def each_key
-      @env.each { |k, _v| yield k }
+      @env_keys.each { |k| yield k }
     end
 
     def merge!(other_env)
