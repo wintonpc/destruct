@@ -26,33 +26,27 @@ class DMatch
       return retval if retval
 
       # go find it
-      proc_num = 0
-      last_invalid_pattern_error = nil
-      last_node = nil
-      begin
-        file_path, line = *p.source_location
-        ast = get_ast(file_path)
-        node = find_proc(ast, line, proc_num)
-        if node
-          last_node = node
-          sexp = node_to_sexp(node, p.binding)
-          retval = try_to_use ? try_to_use.(sexp) : sexp # If this throws InvalidPattern...
-        end
-      rescue InvalidPattern => e
-        # ... there might be multiple procs/blocks on the same line, e.g.,
-        # destructure(...) { ... match { pattern } ...}
-        # Look for the next one. If try_to_use doesn't raise, then we'll keep it.
-        last_invalid_pattern_error = e
-        proc_num += 1
-        retry
-      end
+      file_path, line = *p.source_location
+      ast = get_ast(file_path)
+      candidate_nodes = find_proc(ast, line)
+      to_s
+      retval =
+          if try_to_use
+            mapped_candidates = candidate_nodes.map do |n|
+              begin
+                try_to_use.(node_to_sexp(n, p.binding))
+              rescue InvalidPattern => e
+                e
+              end
+            end
+            selected = mapped_candidates.reject { |x| x.is_a?(InvalidPattern) }.first
+            selected or raise InvalidPattern.new(mapped_candidates.last.pattern, Unparser.unparse(candidate_nodes.last))
+          else
+            node_to_sexp(candidate_nodes.first, p.binding)
+          end
 
-      if retval
-        # cache it
-        @sexps_by_proc[p] = retval
-      else
-        raise InvalidPattern.new(last_invalid_pattern_error.pattern, Unparser.unparse(last_node))
-      end
+      # cache it
+      @sexps_by_proc[p] = retval
     end
 
     private
@@ -63,16 +57,13 @@ class DMatch
       end
     end
 
-    def find_proc(node, line, proc_num=0)
-      return nil unless node.is_a?(Parser::AST::Node)
+    def find_proc(node, line)
+      return [] unless node.is_a?(Parser::AST::Node)
+      result = []
       is_match = node.type == :block && node.location.line == line
-      if is_match && proc_num == 0
-        return node.children[2]
-      end
-      if is_match
-        proc_num -= 1
-      end
-      node.children.lazy.map { |c| find_proc(c, line, proc_num) }.reject(&:nil?).first
+      result << node.children[2] if is_match
+      result += node.children.flat_map { |c| find_proc(c, line) }.reject(&:nil?)
+      result
     end
 
     def node_to_sexp(n, binding)

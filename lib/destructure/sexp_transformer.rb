@@ -246,7 +246,7 @@ class DMatch
     attr_reader :pattern
 
     def initialize(bad_pattern, unparsed=nil)
-      super(unparsed ? "Code: #{unparsed}\nAST:  #{bad_pattern.inspect}" : bad_pattern.inspect)
+      super(unparsed ? "Code: #{unparsed.inspect}\nAST:  #{bad_pattern.inspect}" : bad_pattern.inspect)
       @pattern = bad_pattern
     end
   end
