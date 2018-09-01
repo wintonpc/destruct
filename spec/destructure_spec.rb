@@ -76,6 +76,10 @@ describe 'destructure' do
     expect(log).to eql [true, false, false, true]
   end
 
+  # it 'allows multiple procs per line' do
+  #   expect(destructure(5) { match { !5 } }).to eql true
+  # end
+
   def package(v, extra: nil)
     {packaged: v, extra: extra}
   end

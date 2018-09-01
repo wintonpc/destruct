@@ -16,7 +16,9 @@ class DMatch
       def transform(p)
         p_src = p.cached_source_location
         patterns_by_proc.fetch(p_src) do
-          patterns_by_proc[p_src] = Pattern.from(SexpTransformer.new(p.binding).transform(ProcSexps.get(p)))
+          patterns_by_proc[p_src] = ProcSexps.get(p) do |sexp|
+            Pattern.from(SexpTransformer.new(p.binding).transform(sexp))
+          end
         end
       end
 

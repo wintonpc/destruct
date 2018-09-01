@@ -10,8 +10,8 @@ class DMatch
         Thread.current[:proc_sexps_instance] ||= ProcSexps.new
       end
 
-      def get(p)
-        instance.get(p)
+      def get(p, &k)
+        instance.get(p, &k)
       end
     end
 
@@ -20,8 +20,8 @@ class DMatch
       @sexps_by_proc = {}
     end
 
-    def get(p)
-      @sexps_by_proc.fetch(p) do
+    def get(p, &k)
+      sexp = @sexps_by_proc.fetch(p) do
         @sexps_by_proc[p] = begin
           file_path, line = *p.source_location
           ast = get_ast(file_path)
@@ -29,7 +29,7 @@ class DMatch
           node_to_sexp(node, p.binding)
         end
       end
-
+      k ? k.(sexp) : sexp
     end
 
     private
