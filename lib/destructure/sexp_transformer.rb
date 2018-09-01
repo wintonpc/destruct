@@ -34,7 +34,7 @@ class DMatch
     end
 
     def transform(sp)
-      destructure(sp, SexpTransformer0) do
+      destructure(sp, :silent, SexpTransformer0) do
         case
 
           # wildcard

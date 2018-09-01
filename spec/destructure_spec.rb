@@ -72,6 +72,11 @@ describe 'destructure' do
     expect(destructure(5) { match { !5 } }).to eql true
   end
 
+  it 'matches nested constants' do
+    obj = DMatch::SexpTransformer.new(nil)
+    destructure(obj, :or_raise) { match { DMatch::SexpTransformer0 } }
+  end
+
   def package(v, extra: nil)
     {packaged: v, extra: extra}
   end

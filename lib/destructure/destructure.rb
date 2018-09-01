@@ -5,7 +5,7 @@ require 'ostruct'
 
 class Destructure
   class << self
-    def destructure(obj, transformer, &block)
+    def destructure(obj, mode, transformer, &block)
       with_context do |context|
         context.reset(obj, transformer, block.binding)
         context.instance_exec(&block)
@@ -72,8 +72,8 @@ end
 class Object
   private
 
-  def destructure(obj, transformer=DMatch::SexpTransformer, &block)
-    Destructure.destructure(obj, transformer, &block)
+  def destructure(obj, mode=:silent, transformer=DMatch::SexpTransformer, &block)
+    Destructure.destructure(obj, mode, transformer, &block)
   end
 end
 
