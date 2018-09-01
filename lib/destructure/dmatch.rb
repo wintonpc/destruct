@@ -5,11 +5,11 @@ require 'destructure/types'
 
 class DMatch
   def self.match(pat, x)
-    DMatch.new.match(pat, x)
+    DMatch.new.match(Pattern.get_cooked(pat), x)
   end
 
   def self.last_match_attempt(pat, x)
-    DMatch.new.last_match_attempt(pat, x)
+    DMatch.new.last_match_attempt(Pattern.get_cooked(pat), x)
   end
 
   def self._

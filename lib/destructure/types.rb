@@ -104,4 +104,56 @@ class DMatch
       ps.inject([]) {|acc, p| p.is_a?(Or) ? acc + p.patterns : acc << p}
     end
   end
+
+  class Pattern
+    def self.from(p)
+      p.is_a?(Pattern) ? p : Pattern.new(p)
+    end
+
+    def self.get_cooked(p)
+      Pattern.from(p).pat
+    end
+
+    attr_reader :pat
+
+    def initialize(raw_pat)
+      @pat = cook(raw_pat)
+    end
+
+    private
+
+    def cook(x)
+      if x.is_a?(Array)
+        x.map { |v| cook(v) }
+      elsif x.is_a?(Hash)
+        x.each_with_object({}) do |(k, v), h|
+          h[k] = cook(v)
+        end
+      else
+        x
+      end
+    end
+
+    def decompose_splatted_enumerable(pat)
+      before = []
+      splat = nil
+      after = []
+      pat.each do |p|
+        case
+        when p.is_a?(Splat)
+          if splat.nil?
+            splat = p
+          else
+            raise "cannot have more than one splat in a single array: #{pat.inspect}"
+          end
+        when splat.nil?
+          before.push(p)
+        else
+          after.push(p)
+        end
+      end
+
+      splat && [before, splat, after]
+    end
+  end
 end
