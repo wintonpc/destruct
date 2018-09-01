@@ -16,7 +16,7 @@ class DMatch
     Wildcard.instance
   end
 
-  def initialize(env=nil)
+  def initialize(env: nil)
     @env = env || Env.new
   end
 

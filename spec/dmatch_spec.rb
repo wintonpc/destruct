@@ -82,7 +82,7 @@ class DMatch
     end
 
     it 'should pass the environment to the variable predicate' do
-      env = DMatch.match([1, Var.new(:x) {|x, e| DMatch.new(e).match({p: Var.new(:q)}, x) }], [1, { p: 10 }])
+      env = DMatch.match([1, Var.new(:x) {|x, e| DMatch.new(env: e).match({p: Var.new(:q)}, x) }], [1, { p: 10 }])
       expect(env[:x]).to eql({ p: 10 })
       expect(env[:q]).to eql 10
     end
