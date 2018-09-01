@@ -42,8 +42,8 @@ class DMatch
           DMatch::_
 
           # object matcher without parameters
-        when match { [:const, nil, klass = /^[A-Z].*/]}
-          make_obj(klass, {})
+        when match { [:const, parent, klass = /^[A-Z].*/] }
+          make_obj(flatten_nested_constants(parent, klass), {})
 
           # namespace-qualified object matcher without parameters
         when match { [:colon2, ~_] }
@@ -100,6 +100,18 @@ class DMatch
     end
 
     private
+
+    def flatten_nested_constants(parent_sexp, child_str)
+      destructure(parent_sexp) do
+        if match { nil }
+          child_str
+        elsif match { [:const, parent, klass = /^[A-Z].*/] }
+          "#{flatten_nested_constants(parent, klass)}::#{child_str}"
+        else
+          raise InvalidPattern.new(parent_sexp)
+        end
+      end
+    end
 
     def transform_pairs(pairs)
       pairs.map do |p|

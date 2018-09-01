@@ -114,9 +114,9 @@ class DMatch
       expect(transform(sexp { Numeric })).to be_instance_of Obj
     end
 
-    # it 'should allow object matchers be nested constants' do
-    #   expect(transform(sexp { DMatch::SexpTransformer })).to be_instance_of Obj
-    # end
+    it 'should allow object matchers be nested constants' do
+      expect(transform(sexp { DMatch::SexpTransformer })).to be_instance_of Obj
+    end
 
     it 'raises an error if the pattern is invalid' do
       expect { transform(sexp { f {} }) }.to raise_error InvalidPattern
