@@ -6,10 +6,8 @@ require 'ostruct'
 class Destructure
   class << self
     def destructure(obj, transformer, &block)
-      the_binding = block.binding
-      the_self = the_binding.receiver
       with_context do |context|
-        context.reset(obj, transformer, the_self)
+        context.reset(obj, transformer, block.binding)
         context.instance_exec(&block)
       end
     end
@@ -37,10 +35,11 @@ class Destructure
   end
 
   class Context
-    def reset(obj, transformer, outer_self)
+    def reset(obj, transformer, outer_binding)
       @obj = obj
       @transformer = transformer
-      @outer_self = outer_self
+      @outer_binding = outer_binding
+      @outer_self = outer_binding.receiver
       @matched_env = nil
     end
 
