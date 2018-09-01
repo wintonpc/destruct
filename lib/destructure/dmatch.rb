@@ -4,8 +4,8 @@ require 'destructure/env'
 require 'destructure/types'
 
 class DMatch
-  def self.match(pat, x)
-    DMatch.new.match(Pattern.get_cooked(pat), x)
+  def self.match(pat, x, binding: nil)
+    DMatch.new(binding: binding).match(Pattern.get_cooked(pat), x)
   end
 
   def self.last_match_attempt(pat, x)
@@ -16,14 +16,15 @@ class DMatch
     Wildcard.instance
   end
 
-  def initialize(env: nil)
+  def initialize(env: nil, binding: nil)
     @env = env || Env.new
+    @binding = binding
   end
 
   def match(pat, x)
     @last_match_attempt = [pat, x] if @track_last_match_attempt
     if pat.is_a?(Ref)
-      @binding.eval(pat.expr)
+      pat = @binding.eval(pat.expr)
     end
     case
     when pat.is_a?(Wildcard); @env

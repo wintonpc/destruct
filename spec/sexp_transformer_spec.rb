@@ -178,7 +178,8 @@ class DMatch
     it 'should transform complicated value references' do
       @one = OpenStruct.new({two: [:something, OpenStruct.new(three: 42)]})
       v = transform(sexp { [1, !@one.two[1].three] })
-      expect(v).to eql [1, 42]
+      expect(v[1]).to be_a Ref
+      expect(v[1].expr).to eql "@one.two[1].three"
     end
 
     it 'should transform the pipe operator to a set of alternative patterns' do
@@ -189,21 +190,6 @@ class DMatch
       v = transform(sexp { :foo | :bar | :grill | :baz })
       expect(v).to be_an_instance_of Or
       expect(v.patterns).to eql [:foo, :bar, :grill, :baz]
-    end
-
-    it 'should transform literal variable values' do
-      foo = 7
-      @my_var = 9
-
-      expect(transform(sexp { !5 })).to eql 5
-      expect(transform(sexp { !foo })).to eql 7
-      expect(transform(sexp { !@my_var })).to eql 9
-    end
-
-    it 'should compose patterns' do
-      a_literal = transform(sexp { :int | :float | :str })
-      result = transform(sexp { [!a_literal, val] })
-      expect(result).to dmatch [Obj.of_type(Or), Obj.of_type(Var, name: :val)]
     end
 
     def sexp(&block)
