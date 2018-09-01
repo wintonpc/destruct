@@ -7,7 +7,7 @@ class DMatch
   class ProcSexps
     class << self
       def instance
-        @instance ||= ProcSexps.new
+        Thread.current[:proc_sexps_instance] ||= ProcSexps.new
       end
 
       def get(p)

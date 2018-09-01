@@ -15,7 +15,7 @@ class DMatch
       end
 
       def patterns_by_proc
-        @patterns_by_proc ||= {}
+        Thread.current[:st_patterns_by_proc] ||= {}
       end
     end
 

@@ -17,6 +17,11 @@ class Destructure
     private
 
     def with_context
+      # instance_exec creates a singleton class for the receiver if one does not already exist.
+      # The singleton class occupies 456 bytes of memory. If we created a new Context for each
+      # call, a class would be allocated each time, which is not optimal.
+      # Instead, draw from a pool of contexts. The pool size limits destructure nesting;
+      # 100 should be plenty.
       contexts = Thread.current[:destructure_contexts] ||= begin
         cs = Array.new(100) { Context.new }
         cs.each(&:singleton_class)
