@@ -23,7 +23,7 @@ describe 'Performance' do
     destructure(a) do
       if match { [1, x, y, 4] }
       else
-        # raise "didn't match"
+        raise "didn't match"
       end
     end
   end

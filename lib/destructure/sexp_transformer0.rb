@@ -69,7 +69,7 @@ class DMatch
     end
 
     def let_var(name, pattern)
-      Var.new(name) { |x, env| DMatch.new(env: env).match(pattern, x) }
+      Var.new(name) { |x, env| DMatch.new(env).match(pattern, x) }
     end
 
     def splat(name)

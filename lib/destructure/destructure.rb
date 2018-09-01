@@ -48,7 +48,7 @@ class Destructure
         raise "Cannot specify both a pattern and a pattern proc"
       end
       pat ||= @transformer.transform(pat_proc)
-      env = DMatch.match(pat, @obj, binding: @outer_binding)
+      env = DMatch.match(pat, @obj, @outer_binding)
       set_env(env) if env
       !!env
     end
