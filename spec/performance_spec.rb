@@ -11,7 +11,7 @@ describe 'Performance' do
       end
     end
 
-    report.pretty_print
+    report.pretty_print # at last check, this was allocating 288 bytes
   end
 
   it 'is time-efficient' do
