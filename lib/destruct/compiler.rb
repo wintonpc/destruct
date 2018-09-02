@@ -67,6 +67,10 @@ class Destruct
       CODE
     end
 
+    def emit_literal_cond(pat, x_expr)
+
+    end
+
     def emit_var(pat, x_expr, dont_return)
       <<~CODE
 #{need_env}
@@ -89,9 +93,10 @@ class Destruct
     end
 
     def emit_or(pat, x_expr, dont_return)
-      pat.patterns.map do |p|
-        "if (#{emit(pat, x_expr)})"
-      end
+      clauses = pat.patterns.map do |p|
+        "if (#{emit(p, x_expr, true)})"
+      end.join("\nels")
+      clauses + "\nelse\nreturn nil\nend"
     end
 
     def get_ref(pat)
