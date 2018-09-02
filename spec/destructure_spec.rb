@@ -93,9 +93,12 @@ describe 'destructure' do
   end
 
   it 'matches nested constants' do
-    obj = DMatch::SexpTransformer.new(nil)
-    destructure(obj, :or_raise) { match { DMatch::SexpTransformer } }
-    destructure(obj, :or_raise) { match { ::DMatch::SexpTransformer } }
+    obj = DMatch::Var.new(:foo)
+    destructure(obj, :or_raise) { match { DMatch::Var } }
+    destructure(obj, :or_raise) { match { ::DMatch::Var } }
+    destructure(obj, :or_raise) { match { DMatch::Var[name: :foo] } }
+    destructure(obj, :or_raise) { match { ::DMatch::Var[name: :foo] } }
+    expect { destructure(obj, :or_raise) { match { ::DMatch::Var[name: :bar] } } }.to raise_error Destructure::NoMatchError
   end
 
   def package(v, extra: nil)

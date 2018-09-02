@@ -45,10 +45,6 @@ class DMatch
       when e = dmatch([:const, var(:parent), klass_sym], sp)
         make_obj(flatten_nested_constants(e[:parent], e[klass_sym]), {})
 
-        # namespace-qualified object matcher without parameters
-      when e = dmatch([:colon2, splat(:args)], sp) # TODO: unused?
-        make_obj(read_fq_const(sp), {})
-
         # '~' (splat)
       when e = dmatch([:send, var(:identifier_sexp), :~], sp)
         splat(unwind_receivers_and_clean(e[:identifier_sexp]))
@@ -129,33 +125,21 @@ class DMatch
       opts
     end
 
-    def read_fq_const(sp, parts=[])
-      klass_sym = Var.new(&method(:is_constant?))
-      case
-      when e = dmatch([:const, nil, klass_sym], sp)
-        parts = [e[klass_sym]] + parts
-        Object.const_get("#{parts.join('::')}")
-      when e = dmatch([:colon2, var(:prefix), var(:last)], sp)
-        read_fq_const(e[:prefix], [e[:last]] + parts)
-      end
-    end
-
     def transform_call(*sexp_call)
       sexp_receiver, sexp_msg, sexp_args = sexp_call
       _ = DMatch::_
       klass_sym_var = Var.new(&method(:is_constant?))
       case
         # Class[...]
-      when e = dmatch([[:const, nil, klass_sym_var], :[]], [sexp_receiver, sexp_msg])
+      when e = dmatch([[:const, var(:parent), klass_sym_var], :[]], [sexp_receiver, sexp_msg])
         field_map = make_field_map(sexp_args)
         klass_sym = e[klass_sym_var]
-        klass_sym == :Hash ? field_map : make_obj(klass_sym, field_map)
-
-        # namespace-qualified constant receiver
-      when e = dmatch([:colon2, splat(:args)], sexp_receiver)
-        field_map = make_field_map(sexp_args)
-        klass_sym = read_fq_const(sexp_receiver)
-        make_obj(klass_sym, field_map)
+        if klass_sym == :Hash
+          field_map
+          else
+            ks = flatten_nested_constants(e[:parent], e[klass_sym_var])
+            make_obj(ks, field_map)
+        end
 
         # local variable
       when e = dmatch([nil, var(:name), [:arglist]], sexp_call)
