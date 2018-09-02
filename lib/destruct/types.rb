@@ -12,4 +12,6 @@ class Destruct
       "#<Var: #{name}>"
     end
   end
+
+  class Splat < Var; end
 end

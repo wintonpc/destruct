@@ -27,6 +27,10 @@ class Destruct
       file_path, line = *p.source_location
       ast = get_ast(file_path)
       candidate_nodes = find_proc(ast, line)
+      candidate_nodes = candidate_nodes.sort_by do |n|
+        n.children[0].type == :send && (n.children[0].children[1] == :lambda ||
+            n.children[0].children[1] == :proc) ? 0 : 1
+      end.map { |n| n.children[2] }
 
       if !try_to_use
         @exprs_by_proc[p] = candidate_nodes.first
@@ -60,7 +64,7 @@ class Destruct
       return [] unless node.is_a?(Parser::AST::Node)
       result = []
       is_match = node.type == :block && node.location.line == line
-      result << node.children[2] if is_match
+      result << node if is_match
       result += node.children.flat_map { |c| find_proc(c, line) }.reject(&:nil?)
       result
     end
