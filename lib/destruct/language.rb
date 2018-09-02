@@ -1,5 +1,7 @@
 
 
+# frozen_string_literal: true
+
 class Destruct
   class Language
     LITERAL_TYPES = %i[int sym float str].freeze

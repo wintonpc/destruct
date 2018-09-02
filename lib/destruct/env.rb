@@ -83,7 +83,7 @@ class Destruct
     alias []= bind
 
     def each_key
-      @env_keys.each { |k| yield k } if @env_keys
+      @env_keys&.each { |k| yield k }
     end
 
     def merge!(other_env)
