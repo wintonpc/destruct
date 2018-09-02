@@ -1,8 +1,9 @@
+# frozen_string_literal: true
+
 require 'destruct'
 
 class Destruct
   describe Env do
-
     before :each do
       @env = Env.new
     end

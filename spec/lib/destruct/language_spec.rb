@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'destruct'
 
 class Destruct
@@ -10,7 +12,7 @@ class Destruct
       expect(lang.translate { 1 }).to eql 1
       expect(lang.translate { 2.0 }).to eql 2.0
       expect(lang.translate { :x }).to eql :x
-      expect(lang.translate { "x" }).to eql "x"
+      expect(lang.translate { 'x' }).to eql 'x'
     end
   end
 end
