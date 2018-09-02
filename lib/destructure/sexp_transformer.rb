@@ -211,7 +211,7 @@ class DMatch
     end
 
     def make_obj(klass_sym, field_map)
-      Obj.of_type(klass_sym.to_s.constantize, field_map)
+      Obj.of_type(caller_binding.eval(klass_sym.to_s), field_map)
     end
 
     def is_constant?(x, env=nil)

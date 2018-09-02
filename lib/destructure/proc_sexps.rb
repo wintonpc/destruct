@@ -66,21 +66,25 @@ class DMatch
     end
 
     def node_to_sexp(n, binding)
-      if n.is_a?(Parser::AST::Node)
-        if n.type == :dstr
-          str = n.children.map do |c|
-            if c.type == :str
-              c.children[0]
-            elsif c.type == :begin
-              binding.eval(Unparser.unparse(c))
-            end
-          end.join
-          [:str, str]
-        else
-          [n.type, *n.children.map { |c| node_to_sexp(c, binding) }]
-        end
+      if $testing
+        return n
       else
-        n
+        if n.is_a?(Parser::AST::Node)
+          if n.type == :dstr
+            str = n.children.map do |c|
+              if c.type == :str
+                c.children[0]
+              elsif c.type == :begin
+                binding.eval(Unparser.unparse(c))
+              end
+            end.join
+            [:str, str]
+          else
+            [n.type, *n.children.map { |c| node_to_sexp(c, binding) }]
+          end
+        else
+          n
+        end
       end
     end
   end
