@@ -31,16 +31,19 @@ class Destruct
 
     def add_rule(pat_proc, &translate)
       node = ExprCache.get(pat_proc)
-      rules << Rule.new(node_to_pattern(node), translate)
+      pat = node_to_pattern(node)
+      rules << Rule.new(pat, translate)
     end
 
     private
 
     def node_to_pattern(node)
-      if name = try_read_var(node)
+      if !node.is_a?(Parser::AST::Node)
+        node
+      elsif name = try_read_var(node)
         Var.new(name)
       else
-
+        n(node.type, *node.children.map { |c| node_to_pattern(c) })
       end
     end
 
