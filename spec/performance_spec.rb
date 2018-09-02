@@ -27,4 +27,34 @@ describe 'Performance' do
       end
     end
   end
+
+  def match_once2(a)
+    return nil unless a.size == 4
+    return nil unless a[0] == 1
+    return nil unless a[3] == 4
+    env_keys = nil
+    env_values = nil
+
+    value = a[1]
+    idx = env_keys && env_keys.find_index { |k| k == :x }
+    if idx
+      return nil unless env_values[idx] == value
+    else
+      env_keys ||= []
+      env_values ||= []
+      env_keys << :x
+      env_values << value
+    end
+
+    value = a[2]
+    idx = env_keys.find_index { |k| k == :y }
+    if idx
+      return nil unless env_values[idx] == value
+    else
+      env_keys << :y
+      env_values << value
+    end
+
+    true
+  end
 end
