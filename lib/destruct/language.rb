@@ -9,21 +9,25 @@ class Destruct
 
     Rule = Struct.new(:pat, :template)
     NIL = Object.new
+    NIL.singleton_class.instance_exec { define_method(:inspect) { "NIL" } }
 
     attr_reader :rules
 
     def initialize
       @rules = []
+      @rules << Rule.new(n(:int, v(:value)), proc { |value:| value })
+      @rules << Rule.new(n(:sym, v(:value)), proc { |value:| value })
+      @rules << Rule.new(n(:float, v(:value)), proc { |value:| value })
+      @rules << Rule.new(n(:str, v(:value)), proc { |value:| value })
+      @rules << Rule.new(n(:send, nil, v(:name)), proc { |name:| Var.new(name) })
     end
 
     def translate(expr=nil, &pat_proc)
       expr ||= ExprCache.get(pat_proc)
       if !expr.is_a?(Parser::AST::Node)
         expr
-      elsif LITERAL_TYPES.include?(expr.type)
-        expr.children[0]
-      elsif name = try_read_var(expr)
-        Var.new(name)
+      # elsif LITERAL_TYPES.include?(expr.type)
+      #   expr.children[0]
       else
         rules.each do |rule|
           if e = DMatch.match(rule.pat, expr)
@@ -67,6 +71,10 @@ class Destruct
 
     def v(name)
       DMatch::Var.new(name)
+    end
+
+    def any(alt_patterns)
+      DMatch::Or.new(alt_patterns)
     end
   end
 end
