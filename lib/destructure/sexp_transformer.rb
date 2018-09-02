@@ -34,7 +34,7 @@ class DMatch
     end
 
     def transform(sp)
-      destructure(sp, :silent, SexpTransformer0) do
+      destructure(sp) do
         case
 
           # wildcard
@@ -207,6 +207,10 @@ class DMatch
       else
         raise InvalidPattern.new(receiver)
       end
+    end
+
+    def destructure(obj, &block)
+      Destructure.destructure(obj, :silent, SexpTransformer0, &block)
     end
 
     def a_literal
