@@ -13,6 +13,7 @@ class Destruct
 
     def initialize
       @refs = {}
+      @reverse_refs = {}
     end
 
     def compile(pat)
@@ -33,7 +34,7 @@ class Destruct
 
     def ref_args
       return "" if @refs.none?
-      "|\n#{@refs.map { |k, v| "#{k.to_s.ljust(8)} # #{v.inspect}" }.join(",\n")}\n|"
+      "|\n#{@refs.map { |k, v| "#{k.to_s.ljust(8)}, # #{v.inspect}" }.join("\n")}\n|"
     end
 
     def emit(pat, x_expr)
@@ -48,6 +49,7 @@ class Destruct
 
     def emit_literal(pat, x_expr)
       <<~CODE
+        puts "\#{#{x_expr}.inspect} == \#{#{pat.inspect.inspect}}"
         return nil unless #{x_expr} == #{pat.inspect}
       CODE
     end
@@ -62,15 +64,22 @@ class Destruct
     def emit_obj(pat, x_expr)
       s = StringIO.new
       s << <<~CODE
+        puts "\#{#{x_expr}.inspect}.is_a?(#{get_ref(pat.type)})"
         return nil unless #{x_expr}.is_a?(#{get_ref(pat.type)})
       CODE
+      pat.fields.each do |k, v|
+        s << emit(v, "#{x_expr}[#{get_ref(k)}]")
+      end
       s.string
     end
 
     def get_ref(pat)
-      id = "_ref#{@refs.size}"
-      @refs[id] = pat
-      id
+      @reverse_refs.fetch(pat) do
+        id = "_ref#{@refs.size}"
+        @refs[id] = pat
+        @reverse_refs[pat] = id
+        id
+      end
     end
 
     def beautify_ruby(code)

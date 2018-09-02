@@ -22,5 +22,12 @@ class Destruct
       expect(cp.match({})).to be_a Env
       expect(cp.match([])).to be_nil
     end
+    Foo = Struct.new(:a, :b)
+    it 'compiles objs with field patterns' do
+      cp = Compiler.compile(Obj.new(Foo, a: 1, b: 2))
+      expect(cp.match([])).to be_nil
+      expect(cp.match(Foo.new(1, 2))).to be_a Env
+      expect(cp.match(Foo.new(1, 3))).to be_nil
+    end
   end
 end
