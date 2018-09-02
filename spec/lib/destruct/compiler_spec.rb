@@ -29,5 +29,17 @@ class Destruct
       expect(cp.match(Foo.new(1, 2))).to be_a Env
       expect(cp.match(Foo.new(1, 3))).to be_nil
     end
+    it 'compiles objs with vars' do
+      cp = Compiler.compile(Obj.new(Foo, a: 1, b: Var.new(:bvar)))
+      e = cp.match(Foo.new(1, 2))
+      expect(e).to be_an Env
+      expect(e[:bvar]).to eql 2
+    end
+    it 'compiles objs with deep vars' do
+      cp = Compiler.compile(Obj.new(Foo, a: 1, b: Obj.new(Foo, a: 1, b: Var.new(:bvar))))
+      e = cp.match(Foo.new(1, Foo.new(1, 2)))
+      expect(e).to be_an Env
+      expect(e[:bvar]).to eql 2
+    end
   end
 end

@@ -22,14 +22,24 @@ class Destruct
         lambda do #{ref_args}
           lambda do |x, binding, env|
             #{matching_code}
-            env ||= ::Destruct::Env.new
+      #{need_env}
+          env
           end
         end
       CODE
       code = beautify_ruby(code)
-      puts number_lines(code)
+      show_code(code)
       compiled = eval(code).call(*@refs.values)
       CompiledPattern.new(pat, compiled)
+    end
+
+    def need_env
+      if @emitted_env
+        ""
+      else
+        @emitted_env = true
+        "env ||= ::Destruct::Env.new"
+      end
     end
 
     def ref_args
@@ -56,7 +66,7 @@ class Destruct
 
     def emit_var(pat, x_expr)
       <<~CODE
-        env ||= ::Destruct::Env.new
+#{need_env}
         return nil unless env.bind(#{get_ref(pat)}, #{x_expr})
       CODE
     end
@@ -90,6 +100,22 @@ class Destruct
       code.split("\n").each_with_index.map do |line, n|
         "#{(n + 1).to_s.rjust(3)} #{line}"
       end
+    end
+
+    private
+
+    def show_code(code)
+      lines = number_lines(code)
+                  .reject { |line| line =~ /^\s*\d+\s*puts/ }
+                  .map do |line|
+        if line !~ /, #/
+          @refs.each do |k, v|
+            line = line.gsub(/#{k}(?!\d+)/, v.inspect)
+          end
+        end
+        line
+      end
+      puts lines
     end
   end
 
