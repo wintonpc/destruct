@@ -15,31 +15,23 @@ class Destruct
 
     def initialize
       @rules = []
-      @rules << Rule.new(n(:int, v(:value)), proc { |value:| value })
-      @rules << Rule.new(n(:sym, v(:value)), proc { |value:| value })
-      @rules << Rule.new(n(:float, v(:value)), proc { |value:| value })
-      @rules << Rule.new(n(:str, v(:value)), proc { |value:| value })
+      @rules << Rule.new(n(any(:int, :sym, :float, :str), v(:value)), proc { |value:| value })
       @rules << Rule.new(n(:send, nil, v(:name)), proc { |name:| Var.new(name) })
     end
 
     def translate(expr=nil, &pat_proc)
       expr ||= ExprCache.get(pat_proc)
-      if !expr.is_a?(Parser::AST::Node)
-        expr
-      # elsif LITERAL_TYPES.include?(expr.type)
-      #   expr.children[0]
-      else
-        rules.each do |rule|
-          if e = DMatch.match(rule.pat, expr)
-            args = {}
-            e.env_each do |k, v|
-              args[k.name] = translate(v)
-            end
-            return rule.template.(**args)
+      return expr unless expr.is_a?(Parser::AST::Node)
+      rules.each do |rule|
+        if e = DMatch.match(rule.pat, expr)
+          args = {}
+          e.env_each do |k, v|
+            args[k.name] = translate(v)
           end
+          return rule.template.(**args)
         end
-        NIL
       end
+      NIL
     end
 
     def add_rule(pat_proc, &translate)
@@ -73,8 +65,8 @@ class Destruct
       DMatch::Var.new(name)
     end
 
-    def any(alt_patterns)
-      DMatch::Or.new(alt_patterns)
+    def any(*alt_patterns)
+      DMatch::Or.new(*alt_patterns)
     end
   end
 end
