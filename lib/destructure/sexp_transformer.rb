@@ -195,17 +195,20 @@ class DMatch
     end
 
     def unwind_receivers(receiver)
-      case
-      when receiver.nil?; ''
-      when e = dmatch([a_literal, var(:value)], receiver); "#{e[:value]}."
-      when e = dmatch([:ivar, var(:name)], receiver); "#{e[:name]}."
-      when e = dmatch([:lvar, var(:name)], receiver); "#{e[:name]}."
-      when e = dmatch([:send, var(:receiver), :[], splat(:args)], receiver)
-        unwind_receivers(e[:receiver]) + format_hash_call(e[:args])
-      when e = dmatch([:send, var(:receiver), var(:msg), splat(:args)], receiver)
-        unwind_receivers(e[:receiver]) + format_method_call(e[:msg], e[:args])
-      else
-        raise InvalidPattern.new(receiver)
+      destructure(receiver) do
+        case
+        when receiver.nil?
+          ''
+        when e = dmatch([a_literal, var(:value)], receiver); "#{e[:value]}."
+        when e = dmatch([:ivar, var(:name)], receiver); "#{e[:name]}."
+        when e = dmatch([:lvar, var(:name)], receiver); "#{e[:name]}."
+        when e = dmatch([:send, var(:receiver), :[], splat(:args)], receiver)
+          unwind_receivers(e[:receiver]) + format_hash_call(e[:args])
+        when e = dmatch([:send, var(:receiver), var(:msg), splat(:args)], receiver)
+          unwind_receivers(e[:receiver]) + format_method_call(e[:msg], e[:args])
+        else
+          raise InvalidPattern.new(receiver)
+        end
       end
     end
 

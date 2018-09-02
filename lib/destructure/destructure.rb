@@ -71,11 +71,19 @@ class Destructure
     end
 
     def method_missing(method, *args, &block)
-      @matched_env.fetch(method) do
+      if @matched_env.nil?
         if @outer_self
           @outer_self.send(method, *args, &block)
         else
           super
+        end
+      else
+        @matched_env.fetch(method) do
+          if @outer_self
+            @outer_self.send(method, *args, &block)
+          else
+            super
+          end
         end
       end
     end
