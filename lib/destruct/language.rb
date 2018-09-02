@@ -23,7 +23,7 @@ class Destruct
       expr ||= ExprCache.get(pat_proc)
       return expr unless expr.is_a?(Parser::AST::Node)
       rules.each do |rule|
-        if e = DMatch.match(rule.pat, expr)
+        if e = Compiler.compile(rule.pat).match(expr)
           args = {}
           e.env_each do |k, v|
             args[k.name] = translate(v)
@@ -58,15 +58,15 @@ class Destruct
     end
 
     def n(type, *children)
-      DMatch::Obj.of_type(Parser::AST::Node, {type: type, children: children})
+      Obj.of_type(Parser::AST::Node, {type: type, children: children})
     end
 
     def v(name)
-      DMatch::Var.new(name)
+      Var.new(name)
     end
 
     def any(*alt_patterns)
-      DMatch::Or.new(*alt_patterns)
+      Or.new(*alt_patterns)
     end
   end
 end

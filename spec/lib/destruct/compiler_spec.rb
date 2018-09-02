@@ -41,5 +41,11 @@ class Destruct
       expect(e).to be_an Env
       expect(e[:bvar]).to eql 2
     end
+    it 'compiles ORs' do
+      cp = Compiler.compile(Or.new(1, 2))
+      expect(cp.match(1)).to be_a Env
+      expect(cp.match(2)).to be_a Env
+      expect(cp.match(3)).to be_nil
+    end
   end
 end

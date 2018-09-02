@@ -47,40 +47,51 @@ class Destruct
       "|\n#{@refs.map { |k, v| "#{k.to_s.ljust(8)}, # #{v.inspect}" }.join("\n")}\n|"
     end
 
-    def emit(pat, x_expr)
+    def emit(pat, x_expr, dont_return=false)
       if pat.is_a?(Obj)
-        emit_obj(pat, x_expr)
+        emit_obj(pat, x_expr, dont_return)
+      elsif pat.is_a?(Or)
+        emit_or(pat, x_expr, dont_return)
       elsif pat.is_a?(Var)
-        emit_var(pat, x_expr)
+        emit_var(pat, x_expr, dont_return)
       else
-        emit_literal(pat, x_expr)
+        emit_literal(pat, x_expr, dont_return)
       end
     end
 
-    def emit_literal(pat, x_expr)
+    def emit_literal(pat, x_expr, dont_return)
       <<~CODE
         puts "\#{#{x_expr}.inspect} == \#{#{pat.inspect.inspect}}"
-        return nil unless #{x_expr} == #{pat.inspect}
+        result = #{x_expr} == #{pat.inspect} 
+        #{dont_return ? "" : "return nil unless result"}
       CODE
     end
 
-    def emit_var(pat, x_expr)
+    def emit_var(pat, x_expr, dont_return)
       <<~CODE
 #{need_env}
-        return nil unless env.bind(#{get_ref(pat)}, #{x_expr})
+        result = env.bind(#{get_ref(pat)}, #{x_expr})
+        #{dont_return ? "" : "return nil unless result"}
       CODE
     end
 
-    def emit_obj(pat, x_expr)
+    def emit_obj(pat, x_expr, dont_return)
       s = StringIO.new
       s << <<~CODE
         puts "\#{#{x_expr}.inspect}.is_a?(#{get_ref(pat.type)})"
-        return nil unless #{x_expr}.is_a?(#{get_ref(pat.type)})
+        result = #{x_expr}.is_a?(#{get_ref(pat.type)})
+        #{dont_return ? "" : "return nil unless result"}
       CODE
       pat.fields.each do |k, v|
         s << emit(v, "#{x_expr}[#{get_ref(k)}]")
       end
       s.string
+    end
+
+    def emit_or(pat, x_expr, dont_return)
+      pat.patterns.map do |p|
+        "if (#{emit(pat, x_expr)})"
+      end
     end
 
     def get_ref(pat)

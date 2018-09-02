@@ -27,4 +27,18 @@ class Destruct
       "#<Obj: #{@type}[#{fields.map { |(k, v)| "#{k}: #{v}"}.join(", ")}]>"
     end
   end
+
+  class Or
+    attr_reader :patterns
+
+    def initialize(*patterns)
+      @patterns = flatten(patterns)
+    end
+
+    private
+
+    def flatten(ps)
+      ps.inject([]) {|acc, p| p.is_a?(Or) ? acc + p.patterns : acc << p}
+    end
+  end
 end
