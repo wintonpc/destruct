@@ -18,7 +18,7 @@ class Destruct
     def compile(pat)
       matching_code = emit(pat, "x")
       code = <<~CODE
-        lambda do |#{@refs.keys.join(", ")}|
+        lambda do #{ref_args}
           lambda do |x, binding, env|
             #{matching_code}
             env ||= ::Destruct::Env.new
@@ -31,8 +31,15 @@ class Destruct
       CompiledPattern.new(pat, compiled)
     end
 
+    def ref_args
+      return "" if @refs.none?
+      "|\n#{@refs.map { |k, v| "#{k.to_s.ljust(8)} # #{v.inspect}" }.join(",\n")}\n|"
+    end
+
     def emit(pat, x_expr)
-      if pat.is_a?(Var)
+      if pat.is_a?(Obj)
+        emit_obj(pat, x_expr)
+      elsif pat.is_a?(Var)
         emit_var(pat, x_expr)
       else
         emit_literal(pat, x_expr)
@@ -50,6 +57,14 @@ class Destruct
         env ||= ::Destruct::Env.new
         return nil unless env.bind(#{get_ref(pat)}, #{x_expr})
       CODE
+    end
+
+    def emit_obj(pat, x_expr)
+      s = StringIO.new
+      s << <<~CODE
+        return nil unless #{x_expr}.is_a?(#{get_ref(pat.type)})
+      CODE
+      s.string
     end
 
     def get_ref(pat)

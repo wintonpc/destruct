@@ -14,4 +14,17 @@ class Destruct
   end
 
   class Splat < Var; end
+
+  class Obj
+    attr_reader :type, :fields
+
+    def initialize(type, fields={})
+      @type = type
+      @fields = fields
+    end
+
+    def inspect
+      "#<Obj: #{@type}[#{fields.map { |(k, v)| "#{k}: #{v}"}.join(", ")}]>"
+    end
+  end
 end
