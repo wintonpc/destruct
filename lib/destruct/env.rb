@@ -86,6 +86,12 @@ class Destruct
       @env_keys&.each { |k| yield k }
     end
 
+    def to_h
+      h = {}
+      env_each { |k, v| h[k] = v }
+      h
+    end
+
     def merge!(other_env)
       other_env.each_key do |k|
         return nil if bind(k, other_env[k]).nil?

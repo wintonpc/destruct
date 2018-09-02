@@ -7,7 +7,7 @@ class Destruct
   class Language
     LITERAL_TYPES = %i[int sym float str].freeze
 
-    Rule = Struct.new(:pat, :translate)
+    Rule = Struct.new(:pat, :template)
     NIL = Object.new
 
     attr_reader :rules
@@ -25,6 +25,15 @@ class Destruct
       elsif name = try_read_var(expr)
         Var.new(name)
       else
+        rules.each do |rule|
+          if e = DMatch.match(rule.pat, expr)
+            args = {}
+            e.env_each do |k, v|
+              args[k.name] = translate(v)
+            end
+            return rule.template.(**args)
+          end
+        end
         NIL
       end
     end
@@ -41,7 +50,7 @@ class Destruct
       if !node.is_a?(Parser::AST::Node)
         node
       elsif name = try_read_var(node)
-        Var.new(name)
+        DMatch::Var.new(name)
       else
         n(node.type, *node.children.map { |c| node_to_pattern(c) })
       end
