@@ -68,6 +68,11 @@ class Destructure
 
     def set_env(matched_env)
       @matched_env = matched_env
+      @matched_env.each_key do |var|
+        if @outer_binding.local_variable_defined?(var.name)
+          @outer_binding.local_variable_set(var.name, @matched_env[var])
+        end
+      end
     end
 
     def method_missing(method, *args, &block)

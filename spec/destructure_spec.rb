@@ -76,6 +76,22 @@ describe 'destructure' do
     expect(destructure(5) { match { !5 } }).to eql true
   end
 
+  it 'external methods calls when unbound' do
+    destructure(5) do
+      package(42)
+    end
+  end
+
+  it 'can shadow local variables' do
+    v = 5
+    result = destructure([1, 2]) do
+      if match { [1, v] }
+        v
+      end
+    end
+    expect(result).to eql 2
+  end
+
   it 'matches nested constants' do
     obj = DMatch::SexpTransformer.new(nil)
     destructure(obj, :or_raise) { match { DMatch::SexpTransformer } }
