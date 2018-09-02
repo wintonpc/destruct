@@ -7,7 +7,8 @@ class Destruct
   class Language
     LITERAL_TYPES = %i[int sym float str].freeze
 
-    Rule = Struct.new(:expr, :translate)
+    Rule = Struct.new(:pat, :translate)
+    NIL = Object.new
 
     attr_reader :rules
 
@@ -21,19 +22,32 @@ class Destruct
         expr
       elsif LITERAL_TYPES.include?(expr.type)
         expr.children[0]
-      elsif e = DMatch.match(n(:send, nil, v(:name)), expr)
-        Var.new(e[:name])
+      elsif name = try_read_var(expr)
+        Var.new(name)
       else
-        raise "No translation rule for #{expr}"
+        NIL
       end
     end
 
     def add_rule(pat_proc, &translate)
-      pat = ExprCache.get(pat_proc).deep_dup
-      rules << Rule.new(pat, translate)
+      node = ExprCache.get(pat_proc)
+      rules << Rule.new(node_to_pattern(node), translate)
     end
 
     private
+
+    def node_to_pattern(node)
+      if name = try_read_var(node)
+        Var.new(name)
+      else
+
+      end
+    end
+
+    def try_read_var(node)
+      e = DMatch.match(n(:send, nil, v(:name)), node)
+      e[:name] if e
+    end
 
     def n(type, *children)
       DMatch::Obj.of_type(Parser::AST::Node, {type: type, children: children})
