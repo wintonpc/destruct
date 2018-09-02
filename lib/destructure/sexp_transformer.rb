@@ -2,7 +2,6 @@
 
 require 'active_support/inflector'
 require 'destructure/dmatch'
-require_relative './sexp_transformer0'
 
 class Proc
   def cached_source_location
@@ -34,94 +33,91 @@ class DMatch
     end
 
     def transform(sp)
-      destructure(sp) do
-        case
+      _ = DMatch::_
+      klass_sym = Var.new(&method(:is_constant?))
+      case
 
-          # wildcard
-        when match { [:send, _, :_] }
-          DMatch::_
+        # '_' wildcard
+      when e = dmatch([:send, _, :_], sp)
+        _
 
-          # object matcher without parameters
-        when match { [:const, parent, klass = /^[A-Z].*/] }
-          make_obj(flatten_nested_constants(parent, klass), {})
+        # object matcher without parameters
+      when e = dmatch([:const, var(:parent), klass_sym], sp)
+        make_obj(flatten_nested_constants(e[:parent], e[klass_sym]), {})
 
-          # namespace-qualified object matcher without parameters
-        when match { [:colon2, ~_] }
-          make_obj(read_fq_const(sp), {})
+        # namespace-qualified object matcher without parameters
+      when e = dmatch([:colon2, splat(:args)], sp) # TODO: unused?
+        make_obj(read_fq_const(sp), {})
 
-          # '~' (splat)
-        when match { [:send, identifier_sexp, :~] }
-          splat(unwind_receivers_and_clean(identifier_sexp))
+        # '~' (splat)
+      when e = dmatch([:send, var(:identifier_sexp), :~], sp)
+        splat(unwind_receivers_and_clean(e[:identifier_sexp]))
 
-          # '!' (variable value)
-        when match { [:send, value_sexp, :!] }
-          Ref.new(unwind_receivers_and_clean(value_sexp).to_s)
+        # '!' (variable value)
+      when e = dmatch([:send, var(:value_sexp), :!], sp)
+        Ref.new(unwind_receivers_and_clean(e[:value_sexp]).to_s)
 
-          # '|' (alternative patterns)
-        when match { [:send, rest, :|, alt] }
-          Or.new(*[rest, alt].map { |x| transform(x) })
+        # '|' (alternative patterns)
+      when e = dmatch([:send, var(:rest), :|, var(:alt)], sp)
+        Or.new(*[e[:rest], e[:alt]].map(&method(:transform)))
 
-          # let with local or instance vars
-        when match { [:lvasgn | :ivasgn, lhs, rhs] }
-          let_var(lhs, transform(rhs))
+        # let with local or instance vars
+      when e = dmatch([Or.new(:lvasgn, :ivasgn), var(:lhs), var(:rhs)], sp)
+        let_var(e[:lhs], transform(e[:rhs]))
 
-          # let with attributes or something more complicated
-        when match { [:send, obj, /(?<attr>.+)=/, rhs] }
-          var_name = unwind_receivers_and_clean([:send, obj, attr.to_sym])
-          let_var(var_name, transform(rhs))
+        # let with attributes or something more complicated
+      when e = dmatch([:send, var(:obj), /(?<attr>[^=]+)=/, var(:rhs)], sp)
+        var_name = unwind_receivers_and_clean([:send, e[:obj], e[:attr].sub(/=$/,'').to_sym])
+        let_var(var_name, transform(e[:rhs]))
 
-          # generic call
-        when match { [:send, receiver, msg, ~arglist] }
-          transform_call(receiver, msg, arglist)
+        # generic call
+      when e = dmatch([:send, var(:receiver), var(:msg), splat(:arglist)], sp)
+        transform_call(e[:receiver], e[:msg], e[:arglist])
 
-          # instance variable
-        when match { [:ivar, name] }
-          var(name.to_s)
+        # instance variable
+      when e = dmatch([:ivar, var(:name)], sp)
+        var(e[:name].to_s)
 
-          # local variable
-        when match { [:lvar, name] }
-          var(name)
+        # local variable
+      when e = dmatch([:lvar, var(:name)], sp)
+        var(e[:name])
 
-          # literal values
-        when match { [:int | :float | :str | :sym, value] } then value
-        when match { [:true] } then true
-        when match { [:false] } then false
-        when match { [:nil] } then nil
-        when match { [:regexp, [:str, str], [:regopt, ~opts]] }
-          Regexp.new(str, map_regexp_opts(opts))
-        when match { [:array, ~items] }
-          items.map { |x| transform(x) }
-        when match { [:hash, ~pairs] }
-          transform_pairs(pairs)
-        else
-          raise InvalidPattern.new(sp)
-        end
+        # literal values
+      when e = dmatch([a_literal, var(:value)], sp); e[:value]
+      when e = dmatch([:true], sp); true
+      when e = dmatch([:false], sp); false
+      when e = dmatch([:nil], sp); nil
+      when e = dmatch([:regexp, [:str, var(:str)], [:regopt, splat(:opts)]], sp)
+        Regexp.new(e[:str], map_regexp_opts(e[:opts]))
+      when e = dmatch([:array, splat(:items)], sp)
+        e[:items].map(&method(:transform))
+      when e = dmatch([:hash, splat(:pairs)], sp)
+        transform_pairs(e[:pairs])
+      else
+        raise InvalidPattern.new(sp)
       end
     end
 
     private
 
     def flatten_nested_constants(parent_sexp, child_str)
-      destructure(parent_sexp) do
-        if match { nil }
-          child_str
-        elsif match { [:cbase] }
-          "::#{child_str}"
-        elsif match { [:const, parent, klass = /^[A-Z].*/] }
-          "#{flatten_nested_constants(parent, klass)}::#{child_str}"
-        else
-          raise InvalidPattern.new(parent_sexp)
-        end
+      klass_sym = Var.new(&method(:is_constant?))
+      case
+      when e = dmatch(nil, parent_sexp)
+        child_str
+      when e = dmatch([:cbase], parent_sexp)
+        "::#{child_str}"
+      when e = dmatch([:const, var(:parent), klass_sym], parent_sexp)
+        "#{flatten_nested_constants(e[:parent], e[klass_sym])}::#{child_str}"
+      else
+        raise InvalidPattern.new(parent_sexp)
       end
     end
 
     def transform_pairs(pairs)
       pairs.map do |p|
-        destructure(p) do
-          if match { [:pair, k, v] }
-            [transform(k), transform(v)]
-          end
-        end
+        ep = dmatch([:pair, var(:k), var(:v)], p)
+        [transform(ep[:k]), transform(ep[:v])]
       end.to_h
     end
 
@@ -135,13 +131,12 @@ class DMatch
 
     def read_fq_const(sp, parts=[])
       klass_sym = Var.new(&method(:is_constant?))
-      destructure(sp) do
-        if match { [:const, nil, klass = !klass_sym] }
-          parts = [klass] + parts
-          Object.const_get("#{parts.join('::')}")
-        elsif match { [:colon2, prefix, last] }
-          read_fq_const(prefix, [last] + parts)
-        end
+      case
+      when e = dmatch([:const, nil, klass_sym], sp)
+        parts = [e[klass_sym]] + parts
+        Object.const_get("#{parts.join('::')}")
+      when e = dmatch([:colon2, var(:prefix), var(:last)], sp)
+        read_fq_const(e[:prefix], [e[:last]] + parts)
       end
     end
 
@@ -173,15 +168,17 @@ class DMatch
     end
 
     def make_field_map(sexp_args)
-      destructure(sexp_args) do
-        if match { [[:hash, ~pairs]] }
-          transform_pairs(pairs)
-        elsif match { [~field_name_sexps] }
-          field_names = transform_many(field_name_sexps)
-          Hash[field_names.map { |f| [f.name, var(f.name)] }]
-        else
-          raise InvalidPattern.new(sexp_args)
-        end
+      case
+        # Class[a: 1, b: 2]
+      when e = dmatch([[:hash, splat(:pairs)]], sexp_args)
+        transform_pairs(e[:pairs])
+
+        # Class[a, b, c]
+      when e = dmatch([splat(:field_name_sexps)], sexp_args)
+        field_names = transform_many(e[:field_name_sexps])
+        Hash[field_names.map { |f| [f.name, var(f.name)] }]
+      else
+        raise InvalidPattern.new(sexp_args)
       end
     end
 
@@ -195,25 +192,18 @@ class DMatch
     end
 
     def unwind_receivers(receiver)
-      destructure(receiver) do
-        case
-        when receiver.nil?
-          ''
-        when e = dmatch([a_literal, var(:value)], receiver); "#{e[:value]}."
-        when e = dmatch([:ivar, var(:name)], receiver); "#{e[:name]}."
-        when e = dmatch([:lvar, var(:name)], receiver); "#{e[:name]}."
-        when e = dmatch([:send, var(:receiver), :[], splat(:args)], receiver)
-          unwind_receivers(e[:receiver]) + format_hash_call(e[:args])
-        when e = dmatch([:send, var(:receiver), var(:msg), splat(:args)], receiver)
-          unwind_receivers(e[:receiver]) + format_method_call(e[:msg], e[:args])
-        else
-          raise InvalidPattern.new(receiver)
-        end
+      case
+      when receiver.nil?; ''
+      when e = dmatch([a_literal, var(:value)], receiver); "#{e[:value]}."
+      when e = dmatch([:ivar, var(:name)], receiver); "#{e[:name]}."
+      when e = dmatch([:lvar, var(:name)], receiver); "#{e[:name]}."
+      when e = dmatch([:send, var(:receiver), :[], splat(:args)], receiver)
+        unwind_receivers(e[:receiver]) + format_hash_call(e[:args])
+      when e = dmatch([:send, var(:receiver), var(:msg), splat(:args)], receiver)
+        unwind_receivers(e[:receiver]) + format_method_call(e[:msg], e[:args])
+      else
+        raise InvalidPattern.new(receiver)
       end
-    end
-
-    def destructure(obj, &block)
-      Destructure.destructure(obj, :silent, SexpTransformer0, &block)
     end
 
     def a_literal
