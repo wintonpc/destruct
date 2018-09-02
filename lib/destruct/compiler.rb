@@ -11,22 +11,29 @@ class Destruct
       end
     end
 
+    def initialize
+      @refs = {}
+    end
+
     def compile(pat)
+      matching_code = emit(pat, "x")
       code = <<~CODE
-        proc do
-          proc do |x, binding, env|
-            #{emit(pat, "x")}
+        lambda do |#{@refs.keys.join(", ")}|
+          lambda do |x, binding, env|
+            #{matching_code}
+            env ||= ::Destruct::Env.new
           end
         end
       CODE
       code = beautify_ruby(code)
       puts number_lines(code)
-      compiled = eval(code).call
+      compiled = eval(code).call(*@refs.values)
       CompiledPattern.new(pat, compiled)
     end
 
     def emit(pat, x_expr)
       if pat.is_a?(Var)
+        emit_var(pat, x_expr)
       else
         emit_literal(pat, x_expr)
       end
@@ -34,12 +41,21 @@ class Destruct
 
     def emit_literal(pat, x_expr)
       <<~CODE
-        if #{x_expr} == #{pat.inspect}
-          env ||= ::Destruct::Env.new
-        else
-          nil
-        end
+        return nil unless #{x_expr} == #{pat.inspect}
       CODE
+    end
+
+    def emit_var(pat, x_expr)
+      <<~CODE
+        env ||= ::Destruct::Env.new
+        return nil unless env.bind(#{get_ref(pat)}, #{x_expr})
+      CODE
+    end
+
+    def get_ref(pat)
+      id = "_ref#{@refs.size}"
+      @refs[id] = pat
+      id
     end
 
     def beautify_ruby(code)
