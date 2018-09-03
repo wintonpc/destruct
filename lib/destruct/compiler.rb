@@ -72,7 +72,7 @@ class Destruct
     end
 
     def test_literal(pat, x_expr, env_expr="env")
-      emit "puts \"\#{#{x_expr}.inspect} == \#{#{pat.inspect.inspect}}\""
+      # emit "puts \"\#{#{x_expr}.inspect} == \#{#{pat.inspect.inspect}}\""
       emit "#{env_expr} = #{x_expr} == #{pat.inspect} ? env : nil"
     end
 
@@ -83,6 +83,7 @@ class Destruct
 
     def test_var(pat, x_expr, env_expr="env")
       need_env
+      # emit "puts \"
       emit "#{env_expr} = env.bind(#{get_ref(pat)}, #{x_expr})"
     end
 
