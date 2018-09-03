@@ -46,14 +46,14 @@ class Destruct
       if !node.is_a?(Parser::AST::Node)
         node
       elsif name = try_read_var(node)
-        DMatch::Var.new(name)
+        Var.new(name)
       else
         n(node.type, *node.children.map { |c| node_to_pattern(c) })
       end
     end
 
     def try_read_var(node)
-      e = DMatch.match(n(:send, nil, v(:name)), node)
+      e = Compiler.compile(n(:send, nil, v(:name))).match(node)
       e[:name] if e
     end
 

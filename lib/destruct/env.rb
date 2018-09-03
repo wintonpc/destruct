@@ -40,7 +40,7 @@ class Destruct
       nil
     end
 
-    private def env_each
+    def env_each
       zip_each(env_keys, env_values) { |k, v| yield(k, v) } if @env_keys
     end
 
