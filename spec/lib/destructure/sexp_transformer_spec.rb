@@ -1,5 +1,5 @@
 require 'destructure'
-require_relative './../lib/destructure//rspec_matcher'
+require_relative './../lib/destructure/rspec_matcher'
 
 class DMatch
   describe SexpTransformer do

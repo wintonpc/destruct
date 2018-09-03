@@ -21,16 +21,21 @@ class Destruct
     def compile(pat)
       match(pat, "x")
       code = <<~CODE
-        lambda do #{ref_args}
+        lambda do |_code, _refs, #{ref_args}|
           lambda do |x, binding, env=true|
-            #{@emitted.string}
-            env
+            begin
+              #{@emitted.string}
+              env
+            rescue
+              ::Destruct::Compiler.show_code(_code, _refs)
+              raise
+            end
           end
         end
       CODE
       code = beautify_ruby(code)
-      show_code(code)
-      compiled = eval(code).call(*@refs.values)
+      # show_code(code, fancy: false)
+      compiled = eval(code).call(code, @refs, *@refs.values)
       CompiledPattern.new(pat, compiled)
     end
 
@@ -41,7 +46,7 @@ class Destruct
 
     def ref_args
       return "" if @refs.none?
-      "|\n#{@refs.map { |k, v| "#{k.to_s.ljust(8)}, # #{v.inspect}" }.join("\n")}\n|"
+      "\n#{@refs.map { |k, v| "#{k.to_s.ljust(8)}, # #{v.inspect}" }.join("\n")}\n"
     end
 
     def match(pat, x_expr)
@@ -65,6 +70,8 @@ class Destruct
         test_or(pat, x_expr, env_expr)
       elsif pat.is_a?(Var)
         test_var(pat, x_expr, env_expr)
+      elsif pat.is_a?(Array)
+        test_array(pat, x_expr, env_expr)
       else
         test_literal(pat, x_expr, env_expr)
       end
@@ -74,10 +81,10 @@ class Destruct
       emit "return nil unless env"
     end
 
-    def need_env
+    def need_env(env_expr="env")
       unless @created_env
         @created_env = true
-        emit "env = ::Destruct::Env.new"
+        emit "#{env_expr} = ::Destruct::Env.new"
       end
     end
 
@@ -124,7 +131,7 @@ class Destruct
     end
 
     def test_var(pat, x_expr, env_expr="env")
-      need_env
+      need_env(env_expr)
       # emit "puts \"
       emit "#{env_expr} = #{env_expr}.bind(#{get_ref(pat)}, #{x_expr})"
     end
@@ -183,26 +190,27 @@ class Destruct
       RBeautify.beautify_string(code.split("\n").reject { |line| line.strip == '' }).first
     end
 
-    def number_lines(code)
+    def self.show_code(code, refs, fancy: true)
+      lines = number_lines(code)
+      if fancy
+        lines = lines
+                    .reject { |line| line =~ /^\s*\d+\s*puts/ }
+                    .map do |line|
+          if line !~ /, #|_code|_refs/
+            refs.each do |k, v|
+              line = line.gsub(/#{k}(?!\d+)/, v.inspect)
+            end
+          end
+          line
+        end
+      end
+      puts lines
+    end
+
+    def self.number_lines(code)
       code.split("\n").each_with_index.map do |line, n|
         "#{(n + 1).to_s.rjust(3)} #{line}"
       end
-    end
-
-    private
-
-    def show_code(code)
-      lines = number_lines(code)
-      #             .reject { |line| line =~ /^\s*\d+\s*puts/ }
-      #             .map do |line|
-      #   if line !~ /, #/
-      #     @refs.each do |k, v|
-      #       line = line.gsub(/#{k}(?!\d+)/, v.inspect)
-      #     end
-      #   end
-      #   line
-      # end
-      puts lines
     end
   end
 
