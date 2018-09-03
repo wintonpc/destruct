@@ -55,13 +55,20 @@ class Destruct
       end
     end
 
+    def return_if_failed
+      emit "return nil unless env"
+    end
+
+    def need_env
+      unless @created_env
+        @created_env = true
+        emit "env = ::Destruct::Env.new"
+      end
+    end
+
     def match_literal(pat, x_expr)
       test_literal(pat, x_expr)
       return_if_failed
-    end
-
-    def return_if_failed
-      emit "return nil unless env"
     end
 
     def test_literal(pat, x_expr, env_expr="env")
@@ -70,11 +77,13 @@ class Destruct
     end
 
     def match_var(pat, x_expr)
-      <<~CODE
-#{need_env}
-        result = env.bind(#{get_ref(pat)}, #{x_expr})
-        #{dont_return ? "" : "return nil unless result"}
-      CODE
+      test_var(pat, x_expr)
+      return_if_failed
+    end
+
+    def test_var(pat, x_expr, env_expr="env")
+      need_env
+      emit "#{env_expr} = env.bind(#{get_ref(pat)}, #{x_expr})"
     end
 
     def match_obj(pat, x_expr, dont_return)
