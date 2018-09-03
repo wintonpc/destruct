@@ -15,6 +15,7 @@ class Destruct
       @refs = {}
       @reverse_refs = {}
       @emitted = StringIO.new
+      @temp_num = 0
     end
 
     def compile(pat)
@@ -110,11 +111,15 @@ class Destruct
 
     def get_ref(pat)
       @reverse_refs.fetch(pat) do
-        id = "_ref#{@refs.size}"
+        id = get_temp
         @refs[id] = pat
         @reverse_refs[pat] = id
         id
       end
+    end
+
+    def get_temp
+      "_t#{@temp_num += 1}"
     end
 
     def beautify_ruby(code)
