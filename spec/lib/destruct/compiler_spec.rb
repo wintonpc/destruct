@@ -60,5 +60,14 @@ class Destruct
       expect(cp.match(Foo.new(3))).to be_truthy
       expect(cp.match(Foo.new(4))).to be_nil
     end
+    it 'compiles arrays' do
+      cp = Compiler.compile([1, Var.new(:foo)])
+      e = cp.match([1, 2])
+      expect(e).to be_an Env
+      expect(e[:foo]).to eql 2
+      expect(cp.match([2, 2])).to be_falsey
+      expect(cp.match([])).to be_falsey
+      expect(cp.match([1, 2, 3])).to be_falsey
+    end
   end
 end

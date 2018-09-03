@@ -51,6 +51,8 @@ class Destruct
         match_or(pat, x_expr)
       elsif pat.is_a?(Var)
         match_var(pat, x_expr)
+      elsif pat.is_a?(Array)
+        match_array(pat, x_expr)
       else
         match_literal(pat, x_expr)
       end
@@ -79,6 +81,25 @@ class Destruct
       end
     end
 
+    def match_array(pat, x_expr)
+      test_array(pat, x_expr) # no need to return_if_failed because it's compound
+    end
+
+    def test_array(pat, x_expr, env_expr="env")
+      assign_env(env_expr, "#{x_expr}.size == #{get_ref(pat)}.size")
+      emit "if #{env_expr}"
+      pat.each_with_index do |pi, i|
+        if env_expr == "env"
+          # not in an Or, so fail fast
+          match(pi, "#{x_expr}[#{i}]")
+        else
+          # in an Or, so only test
+          test(pi, "#{x_expr}[#{i}]", env_expr)
+        end
+      end
+      emit "end"
+    end
+
     def match_literal(pat, x_expr)
       test_literal(pat, x_expr)
       return_if_failed
@@ -86,10 +107,14 @@ class Destruct
 
     def test_literal(pat, x_expr, env_expr="env")
       # emit "puts \"\#{#{x_expr}.inspect} == \#{#{pat.inspect.inspect}}\""
+      assign_env(env_expr, "#{x_expr} == #{pat.inspect}")
+    end
+
+    def assign_env(env_expr, cond)
       if env_expr == "env"
-        emit "#{env_expr} = #{x_expr} == #{pat.inspect} ? env : nil"
+        emit "#{env_expr} = #{cond} ? env : nil"
       else
-        emit "#{env_expr} = #{x_expr} == #{pat.inspect}"
+        emit "#{env_expr} = #{cond}"
       end
     end
 
@@ -110,7 +135,7 @@ class Destruct
     end
 
     def test_obj(pat, x_expr, env_expr="env")
-      emit "#{env_expr} = #{x_expr}.is_a?(#{get_ref(pat.type)}) ? env : nil"
+      assign_env(env_expr, "#{x_expr}.is_a?(#{get_ref(pat.type)})")
       emit "if #{env_expr}"
       pat.fields.each do |field_name, field_pat|
         if env_expr == "env"
@@ -168,15 +193,15 @@ class Destruct
 
     def show_code(code)
       lines = number_lines(code)
-                  .reject { |line| line =~ /^\s*\d+\s*puts/ }
-                  .map do |line|
-        if line !~ /, #/
-          @refs.each do |k, v|
-            line = line.gsub(/#{k}(?!\d+)/, v.inspect)
-          end
-        end
-        line
-      end
+      #             .reject { |line| line =~ /^\s*\d+\s*puts/ }
+      #             .map do |line|
+      #   if line !~ /, #/
+      #     @refs.each do |k, v|
+      #       line = line.gsub(/#{k}(?!\d+)/, v.inspect)
+      #     end
+      #   end
+      #   line
+      # end
       puts lines
     end
   end

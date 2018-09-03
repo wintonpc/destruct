@@ -58,7 +58,7 @@ class Destruct
     end
 
     def n(type, *children)
-      Obj.of_type(Parser::AST::Node, {type: type, children: children})
+      Obj.new(Parser::AST::Node, type: type, children: children)
     end
 
     def v(name)

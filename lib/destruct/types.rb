@@ -40,5 +40,9 @@ class Destruct
     def flatten(ps)
       ps.inject([]) {|acc, p| p.is_a?(Or) ? acc + p.patterns : acc << p}
     end
+
+    def inspect
+      "#<Or: #{patterns.map(&:inspect).join(", ")}>"
+    end
   end
 end
