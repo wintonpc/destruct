@@ -15,14 +15,14 @@ class Destruct
 
     def initialize
       @rules = []
-      @rules << Rule.new(n(any(:int, :sym, :float, :str), [v(:value)]), proc { |value:| value })
-      @rules << Rule.new(n(:nil, []), proc { nil })
-      @rules << Rule.new(n(:true, []), proc { true })
-      @rules << Rule.new(n(:false, []), proc { false })
-      @rules << Rule.new(n(:send, [nil, v(:name)]), proc { |name:| Var.new(name) })
-      @rules << Rule.new(n(:array, v(:items)), proc { |items:| items })
-      @rules << Rule.new(n(:hash, v(:pairs)), proc { |pairs:| pairs.to_h })
-      @rules << Rule.new(n(:pair, [v(:k), v(:v)]), proc { |k:, v:| [k, v] })
+      add_rule(n(any(:int, :sym, :float, :str), [v(:value)])) { |value:| value }
+      add_rule(n(:nil, [])) { nil }
+      add_rule(n(:true, [])) { true }
+      add_rule(n(:false, [])) { false }
+      add_rule(n(:send, [nil, v(:name)])) { |name:| Var.new(name) }
+      add_rule(n(:array, v(:items))) { |items:| items }
+      add_rule(n(:hash, v(:pairs))) { |pairs:| pairs.to_h }
+      add_rule(n(:pair, [v(:k), v(:v)])) { |k:, v:| [k, v] }
     end
 
     def translate(expr=nil, &pat_proc)
@@ -48,12 +48,12 @@ class Destruct
     end
 
     def add_rule(pat_or_proc, &translate)
-      if pat_or_proc.is_a?(Parser::AST::Node)
-        rules << Rule.new(pat_or_proc, translate)
-      else
+      if pat_or_proc.is_a?(Proc)
         node = ExprCache.get(pat_or_proc)
         pat = node_to_pattern(node)
         rules << Rule.new(pat, translate)
+      else
+        rules << Rule.new(pat_or_proc, translate)
       end
     end
 
