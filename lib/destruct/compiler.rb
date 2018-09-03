@@ -87,17 +87,18 @@ class Destruct
       emit "#{env_expr} = env.bind(#{get_ref(pat)}, #{x_expr})"
     end
 
-    def match_obj(pat, x_expr, dont_return)
-      s = StringIO.new
-      s << <<~CODE
-        puts "\#{#{x_expr}.inspect}.is_a?(#{get_ref(pat.type)})"
-        result = #{x_expr}.is_a?(#{get_ref(pat.type)})
-        #{dont_return ? "" : "return nil unless result"}
-      CODE
-      pat.fields.each do |k, v|
-        s << match(v, "#{x_expr}[#{get_ref(k)}]")
+    def match_obj(pat, x_expr)
+      test_obj(pat, x_expr)
+      # return_if_failed # thinking this not necessary since this is a compound test and all the primitive tests call it
+    end
+
+    def test_obj(pat, x_expr, env_expr="env")
+      emit "#{env_expr} = #{x_expr}.is_a?(#{get_ref(pat.type)}) ? env : nil"
+      emit "if #{env_expr}"
+      pat.fields.each do |key, field_pat|
+        match(field_pat, "#{x_expr}[#{get_ref(key)}]")
       end
-      s.string
+      emit "end"
     end
 
     def match_or(pat, x_expr, dont_return)
