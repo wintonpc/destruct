@@ -108,8 +108,14 @@ class Destruct
     def test_obj(pat, x_expr, env_expr="env")
       emit "#{env_expr} = #{x_expr}.is_a?(#{get_ref(pat.type)}) ? env : nil"
       emit "if #{env_expr}"
-      pat.fields.each do |key, field_pat|
-        match(field_pat, "#{x_expr}[#{get_ref(key)}]")
+      pat.fields.each do |field_name, field_pat|
+        if env_expr == "env"
+          # not in an Or, so fail fast
+          match(field_pat, "#{x_expr}.#{field_name}")
+        else
+          # in an Or, so only test
+          test(field_pat, "#{x_expr}.#{field_name}", env_expr)
+        end
       end
       emit "end"
     end
