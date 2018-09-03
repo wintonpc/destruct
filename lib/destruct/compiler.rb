@@ -86,7 +86,11 @@ class Destruct
 
     def test_literal(pat, x_expr, env_expr="env")
       # emit "puts \"\#{#{x_expr}.inspect} == \#{#{pat.inspect.inspect}}\""
-      emit "#{env_expr} = #{x_expr} == #{pat.inspect} ? env : nil"
+      if env_expr == "env"
+        emit "#{env_expr} = #{x_expr} == #{pat.inspect} ? env : nil"
+      else
+        emit "#{env_expr} = #{x_expr} == #{pat.inspect}"
+      end
     end
 
     def match_var(pat, x_expr)
@@ -97,7 +101,7 @@ class Destruct
     def test_var(pat, x_expr, env_expr="env")
       need_env
       # emit "puts \"
-      emit "#{env_expr} = env.bind(#{get_ref(pat)}, #{x_expr})"
+      emit "#{env_expr} = #{env_expr}.bind(#{get_ref(pat)}, #{x_expr})"
     end
 
     def match_obj(pat, x_expr)
@@ -121,15 +125,20 @@ class Destruct
     end
 
     def match_or(pat, x_expr)
-      temp_env_expr = get_temp
-      emit "#{temp_env_expr} = true"
-      pat.patterns.each do |alt|
-        test(alt, x_expr, temp_env_expr)
-        emit "unless #{temp_env_expr}"
-      end
-      pat.patterns.each { emit "end" }
-      emit "env = ::Destruct::Env.merge!(env, #{temp_env_expr})"
+      test_or(pat, x_expr)
       return_if_failed
+    end
+
+    def test_or(pat, x_expr, env_expr="env")
+      temp_env_expr = get_temp
+      emit "#{temp_env_expr} = nil"
+      num_nestings = pat.patterns.size - 1
+      pat.patterns.each_with_index do |alt, i|
+        test(alt, x_expr, temp_env_expr)
+        emit "unless #{temp_env_expr}" if i < num_nestings
+      end
+      num_nestings.times { emit "end" }
+      emit "#{env_expr} = ::Destruct::Env.merge!(#{env_expr}, #{temp_env_expr})"
     end
 
     def get_ref(pat)
