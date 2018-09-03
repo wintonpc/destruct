@@ -56,6 +56,18 @@ class Destruct
       end
     end
 
+    def test(pat, x_expr, env_expr="env")
+      if pat.is_a?(Obj)
+        test_obj(pat, x_expr, env_expr)
+      elsif pat.is_a?(Or)
+        test_or(pat, x_expr, env_expr)
+      elsif pat.is_a?(Var)
+        test_var(pat, x_expr, env_expr)
+      else
+        test_literal(pat, x_expr, env_expr)
+      end
+    end
+
     def return_if_failed
       emit "return nil unless env"
     end
@@ -102,11 +114,16 @@ class Destruct
       emit "end"
     end
 
-    def match_or(pat, x_expr, dont_return)
-      clauses = pat.patterns.map do |p|
-        "if (#{match(p, x_expr, true)})"
-      end.join("\nels")
-      clauses + "\nelse\nreturn nil\nend"
+    def match_or(pat, x_expr)
+      temp_env_expr = get_temp
+      emit "#{temp_env_expr} = true"
+      pat.patterns.each do |alt|
+        test(alt, x_expr, temp_env_expr)
+        emit "unless #{temp_env_expr}"
+      end
+      pat.patterns.each { emit "end" }
+      emit "env = ::Destruct::Env.merge!(env, #{temp_env_expr})"
+      return_if_failed
     end
 
     def get_ref(pat)

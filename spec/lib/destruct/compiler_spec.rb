@@ -43,14 +43,14 @@ class Destruct
     end
     it 'compiles ORs' do
       cp = Compiler.compile(Or.new(1, 2))
-      expect(cp.match(1)).to be_a Env
-      expect(cp.match(2)).to be_a Env
+      expect(cp.match(1)).to be_truthy
+      expect(cp.match(2)).to be_truthy
       expect(cp.match(3)).to be_nil
     end
     it 'compiles deep ORs' do
       cp = Compiler.compile(Or.new(Obj.new(Foo, a: 1), Obj.new(Foo, a: 2)))
-      expect(cp.match(Foo.new(1))).to be_a Env
-      expect(cp.match(Foo.new(2))).to be_a Env
+      expect(cp.match(Foo.new(1))).to be_truthy
+      expect(cp.match(Foo.new(2))).to be_truthy
       expect(cp.match(Foo.new(3))).to be_nil
     end
   end

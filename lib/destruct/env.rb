@@ -99,6 +99,18 @@ class Destruct
       self
     end
 
+    def self.merge!(env1, env2)
+      if env1.nil? || env2.nil?
+        nil
+      elsif env1 == true
+        env2
+      elsif env2 == true
+        env1
+      else
+        env1.merge!(env2)
+      end
+    end
+
     NIL = Object.new
   end
 end
