@@ -59,7 +59,7 @@ class Destruct
     #   lang.add_rule(->{ n(type, children) }) do |type:, children:|
     #     Obj.new(Parser::AST::Node, type: type, children: children)
     #   end
-    #   lang.add_rule(->{ klass[*fields] }) do |klass:, fields:|
+    #   lang.add_rule(->{ Class[*fields] }) do |klass:, fields:|
     #     to_s
     #   end
     #   lang.translate { Foo[b, c] }
