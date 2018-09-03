@@ -9,6 +9,10 @@ class Destruct
       def compile(pat)
         Compiler.new.compile(pat)
       end
+
+      def match(pat, x)
+        compile(pat).match(x)
+      end
     end
 
     def initialize

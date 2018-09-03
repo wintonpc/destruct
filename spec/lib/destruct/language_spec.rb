@@ -33,5 +33,37 @@ class Destruct
       expect(foo_splat).to be_a Splat
       expect(foo_splat.name).to eql :foo
     end
+    it 'translates more complex rules' do
+      lang = Language.new
+      v = nil
+      lang.add_rule(->{ ~v }) do |v:|
+        Splat.new(v.name)
+      end
+      r = lang.translate { [1, ~foo] }
+      expect(r[1]).to be_a Splat
+      expect(r[1].name).to eql :foo
+    end
+    it 'translates stuff with hashes' do
+      lang = Language.new
+      v = nil
+      lang.add_rule(->{ ~v }) do |v:|
+        Splat.new(v.name)
+      end
+      r = lang.translate { {a: 1, b: [1, ~foo]} }
+      expect(r).to be_a Hash
+      expect(r[:b].last).to be_a Splat
+    end
+    # Foo = Struct.new(:a, :b)
+    # it 'test' do
+    #   lang = Language.new
+    #   lang.add_rule(->{ n(type, children) }) do |type:, children:|
+    #     Obj.new(Parser::AST::Node, type: type, children: children)
+    #   end
+    #   lang.add_rule(->{ klass[*fields] }) do |klass:, fields:|
+    #     to_s
+    #   end
+    #   lang.translate { Foo[b, c] }
+    #   to_s
+    # end
   end
 end
