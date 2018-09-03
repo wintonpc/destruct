@@ -28,12 +28,12 @@ class DMatch
     end
     case
     when pat.is_a?(Wildcard); @env
-    when pat.is_a?(Pred) && pat.test(x, @env); @env
+    when pat.is_a?(Pred) && pat.match(x, @env); @env
     when pat.is_a?(FilterSplat); match_filter_splat(pat, x)
     when pat.is_a?(SelectSplat); match_select_splat(pat, x)
     when pat.is_a?(Splat); match_splat(pat, x)
-    when pat.is_a?(Var) && pat.test(x, @env); match_var(pat, x)
-    when pat.is_a?(Obj) && pat.test(x, @env) && all_field_patterns_match(pat, x); @env
+    when pat.is_a?(Var) && pat.match(x, @env); match_var(pat, x)
+    when pat.is_a?(Obj) && pat.match(x, @env) && all_field_patterns_match(pat, x); @env
     when pat.is_a?(String) && pat == x; @env
     when pat.is_a?(Regexp); match_regexp(pat, x)
     when pat.is_a?(Or); match_or(pat, x)

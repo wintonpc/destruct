@@ -105,9 +105,9 @@ class DMatch
 
     it 'should transform object matchers using the constant as a predicate' do
       v = transform(sexp { Numeric[] })
-      expect(v.test(5)).to be_truthy
-      expect(v.test(4.5)).to be_truthy
-      expect(v.test(Object.new)).to be_falsey
+      expect(v.match(5)).to be_truthy
+      expect(v.match(4.5)).to be_truthy
+      expect(v.match(Object.new)).to be_falsey
     end
 
     it 'should allow object matchers to omit the parentheses' do
@@ -157,24 +157,24 @@ class DMatch
       v = transform(sexp { ['hello', you = /.*!/ ] })
       expect(v.last).to be_instance_of Var
       expect(v.last.name).to eql :you
-      expect(v.last.test('World!', Env.new)).to be_truthy
-      expect(v.last.test('bad', Env.new)).to be_falsey
+      expect(v.last.match('World!', Env.new)).to be_truthy
+      expect(v.last.match('bad', Env.new)).to be_falsey
     end
 
     it 'should transform lets with ivar LHSs' do
       v = transform(sexp { ['hello', @thing = /.*!/ ] })
       expect(v.last).to be_instance_of Var
       expect(v.last.name).to eql :@thing
-      expect(v.last.test('World!', Env.new)).to be_truthy
-      expect(v.last.test('bad', Env.new)).to be_falsey
+      expect(v.last.match('World!', Env.new)).to be_truthy
+      expect(v.last.match('bad', Env.new)).to be_falsey
     end
 
     it 'should transform lets with complicated LHSs' do
       v = transform(sexp { ['hello', @one.two[1].three = /.*!/ ] })
       expect(v.last).to be_instance_of Var
       expect(v.last.name).to eql '@one.two[1].three'
-      expect(v.last.test('World!', Env.new)).to be_truthy
-      expect(v.last.test('bad', Env.new)).to be_falsey
+      expect(v.last.match('World!', Env.new)).to be_truthy
+      expect(v.last.match('bad', Env.new)).to be_falsey
     end
 
     it 'should transform splats with complicated LHSs' do

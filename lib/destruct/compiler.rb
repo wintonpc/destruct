@@ -14,16 +14,16 @@ class Destruct
     def initialize
       @refs = {}
       @reverse_refs = {}
+      @emitted = StringIO.new
     end
 
     def compile(pat)
-      matching_code = emit(pat, "x")
+      match(pat, "x")
       code = <<~CODE
         lambda do #{ref_args}
-          lambda do |x, binding, env|
-            #{matching_code}
-      #{need_env}
-          env
+          lambda do |x, binding, env=true|
+            #{@emitted.string}
+            env
           end
         end
       CODE
@@ -33,13 +33,9 @@ class Destruct
       CompiledPattern.new(pat, compiled)
     end
 
-    def need_env
-      if @emitted_env
-        ""
-      else
-        @emitted_env = true
-        "env ||= ::Destruct::Env.new"
-      end
+    def emit(str)
+      @emitted << str
+      @emitted << "\n"
     end
 
     def ref_args
@@ -47,31 +43,33 @@ class Destruct
       "|\n#{@refs.map { |k, v| "#{k.to_s.ljust(8)}, # #{v.inspect}" }.join("\n")}\n|"
     end
 
-    def emit(pat, x_expr, dont_return=false)
+    def match(pat, x_expr)
       if pat.is_a?(Obj)
-        emit_obj(pat, x_expr, dont_return)
+        match_obj(pat, x_expr)
       elsif pat.is_a?(Or)
-        emit_or(pat, x_expr, dont_return)
+        match_or(pat, x_expr)
       elsif pat.is_a?(Var)
-        emit_var(pat, x_expr, dont_return)
+        match_var(pat, x_expr)
       else
-        emit_literal(pat, x_expr, dont_return)
+        match_literal(pat, x_expr)
       end
     end
 
-    def emit_literal(pat, x_expr, dont_return)
-      <<~CODE
-        puts "\#{#{x_expr}.inspect} == \#{#{pat.inspect.inspect}}"
-        result = #{x_expr} == #{pat.inspect} 
-        #{dont_return ? "" : "return nil unless result"}
-      CODE
+    def match_literal(pat, x_expr)
+      test_literal(pat, x_expr)
+      return_if_failed
     end
 
-    def emit_literal_cond(pat, x_expr)
-
+    def return_if_failed
+      emit "return nil unless env"
     end
 
-    def emit_var(pat, x_expr, dont_return)
+    def test_literal(pat, x_expr, env_expr="env")
+      emit "puts \"\#{#{x_expr}.inspect} == \#{#{pat.inspect.inspect}}\""
+      emit "#{env_expr} = #{x_expr} == #{pat.inspect} ? env : nil"
+    end
+
+    def match_var(pat, x_expr)
       <<~CODE
 #{need_env}
         result = env.bind(#{get_ref(pat)}, #{x_expr})
@@ -79,7 +77,7 @@ class Destruct
       CODE
     end
 
-    def emit_obj(pat, x_expr, dont_return)
+    def match_obj(pat, x_expr, dont_return)
       s = StringIO.new
       s << <<~CODE
         puts "\#{#{x_expr}.inspect}.is_a?(#{get_ref(pat.type)})"
@@ -87,14 +85,14 @@ class Destruct
         #{dont_return ? "" : "return nil unless result"}
       CODE
       pat.fields.each do |k, v|
-        s << emit(v, "#{x_expr}[#{get_ref(k)}]")
+        s << match(v, "#{x_expr}[#{get_ref(k)}]")
       end
       s.string
     end
 
-    def emit_or(pat, x_expr, dont_return)
+    def match_or(pat, x_expr, dont_return)
       clauses = pat.patterns.map do |p|
-        "if (#{emit(p, x_expr, true)})"
+        "if (#{match(p, x_expr, true)})"
       end.join("\nels")
       clauses + "\nelse\nreturn nil\nend"
     end
@@ -143,8 +141,8 @@ class Destruct
       @compiled = compiled
     end
 
-    def match(x, binding=nil, env=nil)
-      @compiled.(x, binding, env)
+    def match(x, binding=nil)
+      @compiled.(x, binding)
     end
   end
 end
