@@ -53,8 +53,15 @@ class Destruct
     end
 
     def try_read_var(node)
-      e = Compiler.compile(n(:send, [nil, v(:name)])).match(node)
-      e[:name] if e
+      cp = Compiler.compile(any(n(:send, [nil, v(:name)]), n(:lvar, [v(:name)])))
+      e = cp.match(node)
+      if e
+        puts "successfully matched var #{node}"
+        e[:name]
+      else
+        puts "failed to match var #{node}"
+        nil
+      end
     end
 
     def n(type, children)

@@ -34,9 +34,9 @@ class Destruct
         end
       CODE
       code = beautify_ruby(code)
-      # show_code(code, fancy: false)
+      # Compiler.show_code(code, @refs, fancy: true)
       compiled = eval(code).call(code, @refs, *@refs.values)
-      CompiledPattern.new(pat, compiled)
+      CompiledPattern.new(pat, compiled, code)
     end
 
     def emit(str)
@@ -118,11 +118,11 @@ class Destruct
     end
 
     def assign_env(env_expr, cond)
-      if env_expr == "env"
-        emit "#{env_expr} = #{cond} ? env : nil"
-      else
-        emit "#{env_expr} = #{cond}"
-      end
+      # if env_expr == "env"
+      emit "#{env_expr} = #{cond} ? #{env_expr} : nil"
+      # else
+      #   emit "#{env_expr} = #{cond}"
+      # end
     end
 
     def match_var(pat, x_expr)
@@ -131,9 +131,9 @@ class Destruct
     end
 
     def test_var(pat, x_expr, env_expr="env")
-      need_env(env_expr)
+      # need_env(env_expr)
       # emit "puts \"
-      emit "#{env_expr} = #{env_expr}.bind(#{get_ref(pat)}, #{x_expr})"
+      emit "#{env_expr} = ::Destruct::Env.bind(#{env_expr}, #{get_ref(pat)}, #{x_expr})"
     end
 
     def match_obj(pat, x_expr)
@@ -163,11 +163,14 @@ class Destruct
 
     def test_or(pat, x_expr, env_expr="env")
       temp_env_expr = get_temp
-      emit "#{temp_env_expr} = nil"
+      emit "#{temp_env_expr} = true"
       num_nestings = pat.patterns.size - 1
       pat.patterns.each_with_index do |alt, i|
         test(alt, x_expr, temp_env_expr)
-        emit "unless #{temp_env_expr}" if i < num_nestings
+        if i < num_nestings
+          emit "unless #{temp_env_expr}"
+          emit "#{temp_env_expr} = true"
+        end
       end
       num_nestings.times { emit "end" }
       emit "#{env_expr} = ::Destruct::Env.merge!(#{env_expr}, #{temp_env_expr})"
@@ -215,11 +218,12 @@ class Destruct
   end
 
   class CompiledPattern
-    attr_reader :pat
+    attr_reader :pat, :code
 
-    def initialize(pat, compiled)
+    def initialize(pat, compiled, code)
       @pat = pat
       @compiled = compiled
+      @code = code
     end
 
     def match(x, binding=nil)

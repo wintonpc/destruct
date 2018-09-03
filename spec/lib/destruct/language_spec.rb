@@ -23,5 +23,15 @@ class Destruct
       expect(foo_splat).to be_a Splat
       expect(foo_splat.name).to eql :foo
     end
+    it 'allows matched vars to be locals' do
+      lang = Language.new
+      v = nil
+      lang.add_rule(->{ ~v }) do |v:|
+        Splat.new(v.name)
+      end
+      foo_splat = lang.translate { ~foo }
+      expect(foo_splat).to be_a Splat
+      expect(foo_splat.name).to eql :foo
+    end
   end
 end

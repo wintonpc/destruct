@@ -13,7 +13,11 @@ class Destruct
     end
   end
 
-  class Splat < Var; end
+  class Splat < Var
+    def inspect
+      "#<Splat: #{name}>"
+    end
+  end
 
   class Obj
     attr_reader :type, :fields

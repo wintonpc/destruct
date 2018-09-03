@@ -111,6 +111,16 @@ class Destruct
       end
     end
 
+    def self.bind(env, identifier, value)
+      if env == true
+        Env.new.bind(identifier, value)
+      elsif env.is_a?(Env)
+        env.bind(identifier, value)
+      else
+        env
+      end
+    end
+
     NIL = Object.new
   end
 end
