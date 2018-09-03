@@ -15,8 +15,8 @@ class Destruct
 
     def initialize
       @rules = []
-      @rules << Rule.new(n(any(:int, :sym, :float, :str), v(:value)), proc { |value:| value })
-      @rules << Rule.new(n(:send, nil, v(:name)), proc { |name:| Var.new(name) })
+      @rules << Rule.new(n(any(:int, :sym, :float, :str), [v(:value)]), proc { |value:| value })
+      @rules << Rule.new(n(:send, [nil, v(:name)]), proc { |name:| Var.new(name) })
     end
 
     def translate(expr=nil, &pat_proc)
@@ -48,16 +48,16 @@ class Destruct
       elsif name = try_read_var(node)
         Var.new(name)
       else
-        n(node.type, *node.children.map { |c| node_to_pattern(c) })
+        n(node.type, node.children.map { |c| node_to_pattern(c) })
       end
     end
 
     def try_read_var(node)
-      e = Compiler.compile(n(:send, nil, v(:name))).match(node)
+      e = Compiler.compile(n(:send, [nil, v(:name)])).match(node)
       e[:name] if e
     end
 
-    def n(type, *children)
+    def n(type, children)
       Obj.new(Parser::AST::Node, type: type, children: children)
     end
 
