@@ -96,8 +96,14 @@ class Destruct
       emit "#{env_expr} = #{"#{s.x}.size == #{get_ref(s.pat)}.size"} ? #{env_expr} : nil"
       return_if_failed(s) if !in_or(s)
       emit "if #{s.env}"
-      s.pat.each_with_index do |pi, i|
-        match(Frame.new(pi, "#{s.x}[#{i}]", s.env, s))
+      s.pat.each_with_index do |item_pat, item_x|
+        x = "#{s.x}[#{item_x}]"
+        if multi?(item_pat)
+          t = get_temp
+          emit "#{t} = #{x}"
+          x = t
+        end
+        match(Frame.new(item_pat, x, s.env, s))
       end
       emit "end"
     end
@@ -135,7 +141,7 @@ class Destruct
 
     def multi?(pat)
       pat.is_a?(Or) ||
-          (pat.is_a?(Array) && pat.size < 2) ||
+          (pat.is_a?(Array) && pat.size > 1) ||
           pat.is_a?(Obj) && pat.fields.any?
     end
 
