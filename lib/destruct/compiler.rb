@@ -93,7 +93,6 @@ class Destruct
     def match_array(s)
       s.type = :array
       test(s, "#{s.x}.size == #{get_ref(s.pat)}.size")
-      return_if_failed(s) if !in_or(s)
       emit "if #{s.env}"
       s.pat.each_with_index do |item_pat, item_x|
         x = "#{s.x}[#{item_x}]"
@@ -120,7 +119,7 @@ class Destruct
       if in_or(s)
         emit "#{s.env} = #{cond} ? #{s.env} : nil"
       else
-        emit "return nil unless #{cond}"
+        emit "#{cond} or return nil"
       end
     end
 
@@ -131,8 +130,7 @@ class Destruct
 
     def match_obj(s)
       s.type = :obj
-      emit "#{s.env} = #{"#{s.x}.is_a?(#{get_ref(s.pat.type)})"} ? #{s.env} : nil"
-      return_if_failed(s) if !in_or(s)
+      test(s, "#{s.x}.is_a?(#{get_ref(s.pat.type)})")
       s.pat.fields.each do |field_name, field_pat|
         x = "#{s.x}.#{field_name}"
         if multi?(field_pat)
@@ -142,7 +140,6 @@ class Destruct
         end
         match(Frame.new(field_pat, x, s.env, s))
       end
-      return_if_failed(s) if !in_or(s)
     end
 
     def multi?(pat)
@@ -165,8 +162,15 @@ class Destruct
         end
       end
       closers.each(&:call)
-      emit "#{s.env} = ::Destruct::Env.merge!(#{s.env}, #{or_env})"
-      return_if_failed(s) if !in_or(s)
+      emit "#{s.env} = ::Destruct::Env.merge!(#{s.env}, #{or_env})#{!in_or(s.parent) ? " or return nil" : ""}"
+    end
+
+    def merge(s, cond)
+      if in_or(s)
+        emit "#{s.env} = #{cond} ? #{s.env} : nil"
+      else
+        emit "#{cond} or return nil"
+      end
     end
 
     def get_ref(pat)
