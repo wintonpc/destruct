@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "pp"
 require_relative './types'
 require_relative './rbeautify'
 
@@ -28,6 +29,7 @@ class Destruct
       x = get_temp("x")
       env = get_temp("env")
       match(Frame.new(pat, x, env))
+
       code = <<~CODE
         lambda do |_code, _refs#{ref_args}|
           lambda do |#{x}, binding, #{env}=true|
@@ -42,7 +44,7 @@ class Destruct
         end
       CODE
       code = beautify_ruby(code)
-      Compiler.show_code(code, @refs, fancy: false)
+      Compiler.show_code(code, @refs, fancy: false, include_vm: false)
       compiled = eval(code).call(code, @refs, *@refs.values)
       CompiledPattern.new(pat, compiled, code)
     end
@@ -71,29 +73,9 @@ class Destruct
       end
     end
 
-    def pop(s)
-      s.parent
-    end
-
-    def return_if_failed(s)
-      emit "return nil unless #{s.env}"
-    end
-
-    def need_env(s)
-      unless created_envs.include?(s.env)
-        created_envs << s.env
-        emit "#{s.env} = ::Destruct::Env.new"
-      end
-    end
-
-    def created_envs
-      @created_envs ||= []
-    end
-
     def match_array(s)
       s.type = :array
       test(s, "#{s.x}.size == #{get_ref(s.pat)}.size")
-      emit "if #{s.env}"
       s.pat.each_with_index do |item_pat, item_x|
         x = "#{s.x}[#{item_x}]"
         if multi?(item_pat)
@@ -103,7 +85,6 @@ class Destruct
         end
         match(Frame.new(item_pat, x, s.env, s))
       end
-      emit "end"
     end
 
     def in_or(s)
@@ -190,7 +171,7 @@ class Destruct
       RBeautify.beautify_string(code.split("\n").reject { |line| line.strip == '' }).first
     end
 
-    def self.show_code(code, refs, fancy: true)
+    def self.show_code(code, refs, fancy: true, include_vm: false)
       lines = number_lines(code)
       if fancy
         lines = lines
@@ -205,6 +186,9 @@ class Destruct
         end
       end
       puts lines
+      if include_vm
+        pp RubyVM::InstructionSequence.compile(code).to_a
+      end
     end
 
     def self.number_lines(code)
