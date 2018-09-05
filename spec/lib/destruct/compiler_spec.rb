@@ -93,9 +93,23 @@ class Destruct
       expect(cp.match([1, [2, [3, 4], 5], 6, 7])).to be_truthy
     end
     it 'compiles splats' do
-      cp = Compiler.compile([1, Splat.new(:x), 4])
-      e = cp.match([1, 2, 3, 4])
-      expect(e[:x]).to eql [2, 3]
+      # splat in middle
+      expect(Compiler.compile([1, Splat.new(:x), 4]).match([1, 2, 3, 4])[:x]).to eql [2, 3]
+      expect(Compiler.compile([1, Splat.new(:x), 4]).match([1, 2, 4])[:x]).to eql [2]
+      expect(Compiler.compile([1, Splat.new(:x), 4]).match([1, 4])[:x]).to eql []
+      expect(Compiler.compile([1, Splat.new(:x), 4]).match([1])).to be_falsey
+
+      # splat at front
+      expect(Compiler.compile([Splat.new(:x), 3]).match([1, 2, 3])[:x]).to eql [1, 2]
+      expect(Compiler.compile([Splat.new(:x), 3]).match([1, 3])[:x]).to eql [1]
+      expect(Compiler.compile([Splat.new(:x), 3]).match([3])[:x]).to eql []
+      expect(Compiler.compile([Splat.new(:x), 3]).match([])).to be_falsey
+
+      # splat at end
+      expect(Compiler.compile([1, Splat.new(:x)]).match([1, 2, 3])[:x]).to eql [2, 3]
+      expect(Compiler.compile([1, Splat.new(:x)]).match([1, 2])[:x]).to eql [2]
+      expect(Compiler.compile([1, Splat.new(:x)]).match([1])[:x]).to eql []
+      expect(Compiler.compile([1, Splat.new(:x)]).match([])).to be_falsey
     end
   end
 end

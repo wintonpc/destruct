@@ -91,6 +91,7 @@ class Destruct
         emit "#{en} = #{s.x}.each"
         emit "#{done} = false"
         emit "begin"
+
         s.pat[0...(splat_index || s.pat.size)].each do |item_pat|
           x = "#{en}.next"
           if multi?(item_pat)
@@ -100,6 +101,28 @@ class Destruct
           end
           match(Frame.new(item_pat, x, s.env, s))
         end
+
+        if splat_index
+          splat = get_temp("splat")
+          splat_len = get_temp("splat_len")
+          emit "#{splat} = []"
+          emit "#{splat_len} = #{s.x}.size - #{s.pat.size - 1}"
+          emit "#{splat_len}.times do "
+          emit "#{splat} << #{en}.next"
+          emit "end"
+          bind(s, s.pat[splat_index], splat)
+
+          s.pat[(splat_index+1)...(s.pat.size)].each do |item_pat|
+            x = "#{en}.next"
+            if multi?(item_pat)
+              t = get_temp
+              emit "#{t} = #{x}"
+              x = t
+            end
+            match(Frame.new(item_pat, x, s.env, s))
+          end
+        end
+
         emit "#{done} = true"
         emit "#{en}.next"
         emit "rescue StopIteration"
@@ -137,7 +160,11 @@ class Destruct
 
     def match_var(s)
       s.type = :var
-      emit "#{s.env} = ::Destruct::Env.bind(#{s.env}, #{get_ref(s.pat)}, #{s.x})"
+      bind(s, s.pat, s.x)
+    end
+
+    def bind(s, var, val)
+      emit "#{s.env} = ::Destruct::Env.bind(#{s.env}, #{get_ref(var)}, #{val})"
     end
 
     def match_obj(s)
