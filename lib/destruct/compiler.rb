@@ -92,8 +92,7 @@ class Destruct
 
     def match_array(s)
       s.type = :array
-      env_expr = s.env
-      emit "#{env_expr} = #{"#{s.x}.size == #{get_ref(s.pat)}.size"} ? #{env_expr} : nil"
+      test(s, "#{s.x}.size == #{get_ref(s.pat)}.size")
       return_if_failed(s) if !in_or(s)
       emit "if #{s.env}"
       s.pat.each_with_index do |item_pat, item_x|
@@ -114,8 +113,15 @@ class Destruct
 
     def match_literal(s)
       s.type = :literal
-      emit "#{s.env} = #{"#{s.x} == #{s.pat.inspect}"} ? #{s.env} : nil"
-      return_if_failed(s) if !in_or(s)
+      test(s, "#{s.x} == #{s.pat.inspect}")
+    end
+
+    def test(s, cond)
+      if in_or(s)
+        emit "#{s.env} = #{cond} ? #{s.env} : nil"
+      else
+        emit "return nil unless #{cond}"
+      end
     end
 
     def match_var(s)
