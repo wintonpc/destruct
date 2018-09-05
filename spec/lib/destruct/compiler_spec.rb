@@ -111,5 +111,11 @@ class Destruct
       expect(Compiler.compile([1, Splat.new(:x)]).match([1])[:x]).to eql []
       expect(Compiler.compile([1, Splat.new(:x)]).match([])).to be_falsey
     end
+    it 'compiles open-ended splat' do
+      en = (1..3).cycle
+      e = Compiler.compile([Var.new(:head), Splat.new(:tail)]).match(en)
+      expect(e[:head]).to eql 1
+      expect(e[:tail].take(3)).to eql [2, 3, 1]
+    end
   end
 end

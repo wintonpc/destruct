@@ -84,7 +84,6 @@ class Destruct
       is_closed = splat_index && splat_index != s.pat.size - 1
 
       test(s, "#{s.x}.is_a?(#{is_closed ? "Array" : "Enumerable"})") do
-
         en = get_temp("en")
         done = get_temp("done")
         stopped = get_temp("stopped")
@@ -103,23 +102,27 @@ class Destruct
         end
 
         if splat_index
-          splat = get_temp("splat")
-          splat_len = get_temp("splat_len")
-          emit "#{splat} = []"
-          emit "#{splat_len} = #{s.x}.size - #{s.pat.size - 1}"
-          emit "#{splat_len}.times do "
-          emit "#{splat} << #{en}.next"
-          emit "end"
-          bind(s, s.pat[splat_index], splat)
+          if is_closed
+            splat = get_temp("splat")
+            splat_len = get_temp("splat_len")
+            emit "#{splat} = []"
+            emit "#{splat_len} = #{s.x}.size - #{s.pat.size - 1}"
+            emit "#{splat_len}.times do "
+            emit "#{splat} << #{en}.next"
+            emit "end"
+            bind(s, s.pat[splat_index], splat)
 
-          s.pat[(splat_index+1)...(s.pat.size)].each do |item_pat|
-            x = "#{en}.next"
-            if multi?(item_pat)
-              t = get_temp
-              emit "#{t} = #{x}"
-              x = t
+            s.pat[(splat_index+1)...(s.pat.size)].each do |item_pat|
+              x = "#{en}.next"
+              if multi?(item_pat)
+                t = get_temp
+                emit "#{t} = #{x}"
+                x = t
+              end
+              match(Frame.new(item_pat, x, s.env, s))
             end
-            match(Frame.new(item_pat, x, s.env, s))
+          else
+            bind(s, s.pat[splat_index], en)
           end
         end
 
@@ -144,7 +147,7 @@ class Destruct
 
     def test(s, cond)
       if in_or(s)
-        update = "#{s.env} = #{cond} ? #{s.env} : nil"
+        update = "#{s.env} = (#{cond}) ? #{s.env} : nil"
         if block_given?
           emit "if (#{update})"
           yield
@@ -164,7 +167,7 @@ class Destruct
     end
 
     def bind(s, var, val)
-      emit "#{s.env} = ::Destruct::Env.bind(#{s.env}, #{get_ref(var)}, #{val})"
+      test(s, "#{s.env} = ::Destruct::Env.bind(#{s.env}, #{get_ref(var)}, #{val})")
     end
 
     def match_obj(s)
