@@ -58,11 +58,11 @@ class Destruct
       expect(cp.match(Foo.new(4))).to be_truthy
     end
     it 'compiles nested ORs' do
-      cp = Compiler.compile(Or.new(Obj.new(Foo, a: 1), Obj.new(Foo, a: Or.new(2, 3))))
-      expect(cp.match(Foo.new(1))).to be_truthy
-      expect(cp.match(Foo.new(2))).to be_truthy
-      expect(cp.match(Foo.new(3))).to be_truthy
-      expect(cp.match(Foo.new(4))).to be_nil
+      cp = Compiler.compile(Or.new(Obj.new(Foo, a: 9, b: 1), Obj.new(Foo, a: 9, b: Or.new(2, 3))))
+      expect(cp.match(Foo.new(9, 1))).to be_truthy
+      expect(cp.match(Foo.new(9, 2))).to be_truthy
+      expect(cp.match(Foo.new(9, 3))).to be_truthy
+      expect(cp.match(Foo.new(9, 4))).to be_nil
     end
     it 'compiles nested ORs with Vars' do
       cp = Compiler.compile(Or.new(Obj.new(Foo, a: 1), Obj.new(Foo, a: Or.new(2, 3), b: Var.new(:x))))
