@@ -15,6 +15,8 @@ class Destruct
       end
     end
 
+    Frame = Struct.new(:pat, :x, :env, :parent, :type)
+
     def initialize
       @refs = {}
       @reverse_refs = {}
@@ -23,13 +25,15 @@ class Destruct
     end
 
     def compile(pat)
-      match(pat, "x")
+      x = get_temp("x")
+      env = get_temp("env")
+      match(Frame.new(pat, x, env))
       code = <<~CODE
-        lambda do |_code, _refs, #{ref_args}|
-          lambda do |x, binding, env=true|
+        lambda do |_code, _refs#{ref_args}|
+          lambda do |#{x}, binding, #{env}=true|
             begin
               #{@emitted.string}
-              env
+      #{env}
             rescue
               ::Destruct::Compiler.show_code(_code, _refs)
               raise
@@ -38,7 +42,7 @@ class Destruct
         end
       CODE
       code = beautify_ruby(code)
-      # Compiler.show_code(code, @refs, fancy: true)
+      Compiler.show_code(code, @refs, fancy: true)
       compiled = eval(code).call(code, @refs, *@refs.values)
       CompiledPattern.new(pat, compiled, code)
     end
@@ -50,134 +54,107 @@ class Destruct
 
     def ref_args
       return "" if @refs.none?
-      "\n#{@refs.map { |k, v| "#{k.to_s.ljust(8)}, # #{v.inspect}" }.join("\n")}\n"
+      ", \n#{@refs.map { |k, v| "#{k.to_s.ljust(8)}, # #{v.inspect}" }.join("\n")}\n"
     end
 
-    def match(pat, x_expr)
-      if pat.is_a?(Obj)
-        match_obj(pat, x_expr)
-      elsif pat.is_a?(Or)
-        match_or(pat, x_expr)
-      elsif pat.is_a?(Var)
-        match_var(pat, x_expr)
-      elsif pat.is_a?(Array)
-        match_array(pat, x_expr)
+    def match(s)
+      match_or_test(s, true)
+    end
+
+    def test(s)
+      match_or_test(s, false)
+    end
+
+    def match_or_test(s, fail_fast)
+      if s.pat.is_a?(Obj)
+        test_obj(s)
+        # return_if_failed not necessary since this is a compound test
+      elsif s.pat.is_a?(Or)
+        test_or(s)
+        return_if_failed(s) if fail_fast
+      elsif s.pat.is_a?(Var)
+        test_var(s)
+        return_if_failed(s) if fail_fast
+      elsif s.pat.is_a?(Array)
+        test_array(s)
+        # return_if_failed not necessary since this is a compound test
       else
-        match_literal(pat, x_expr)
+        test_literal(s)
+        return_if_failed(s) if fail_fast
       end
     end
 
-    def test(pat, x_expr, env_expr="env")
-      if pat.is_a?(Obj)
-        test_obj(pat, x_expr, env_expr)
-      elsif pat.is_a?(Or)
-        test_or(pat, x_expr, env_expr)
-      elsif pat.is_a?(Var)
-        test_var(pat, x_expr, env_expr)
-      elsif pat.is_a?(Array)
-        test_array(pat, x_expr, env_expr)
-      else
-        test_literal(pat, x_expr, env_expr)
+    def pop(s)
+      s.parent
+    end
+
+    def return_if_failed(s)
+      emit "return nil unless #{s.env}"
+    end
+
+    def need_env(s)
+      unless created_envs.include?(s.env)
+        created_envs << s.env
+        emit "#{s.env} = ::Destruct::Env.new"
       end
     end
 
-    def return_if_failed
-      emit "return nil unless env"
+    def created_envs
+      @created_envs ||= []
     end
 
-    def need_env(env_expr="env")
-      unless @created_env
-        @created_env = true
-        emit "#{env_expr} = ::Destruct::Env.new"
-      end
-    end
-
-    def match_array(pat, x_expr)
-      test_array(pat, x_expr) # no need to return_if_failed because it's compound
-    end
-
-    def test_array(pat, x_expr, env_expr="env")
-      assign_env(env_expr, "#{x_expr}.size == #{get_ref(pat)}.size")
-      emit "if #{env_expr}"
-      pat.each_with_index do |pi, i|
-        if env_expr == "env"
-          # not in an Or, so fail fast
-          match(pi, "#{x_expr}[#{i}]")
-        else
-          # in an Or, so only test
-          test(pi, "#{x_expr}[#{i}]", env_expr)
-        end
+    def test_array(s)
+      s.type = :array
+      env_expr = s.env
+      emit "#{env_expr} = #{"#{s.x}.size == #{get_ref(s.pat)}.size"} ? #{env_expr} : nil"
+      emit "if #{s.env}"
+      s.pat.each_with_index do |pi, i|
+        match_or_test(Frame.new(pi, "#{s.x}[#{i}]", s.env, s), !in_or(s))
       end
       emit "end"
     end
 
-    def match_literal(pat, x_expr)
-      test_literal(pat, x_expr)
-      return_if_failed
+    def in_or(s)
+      !s.nil? && (s.type == :or || in_or(s.parent))
     end
 
-    def test_literal(pat, x_expr, env_expr="env")
-      # emit "puts \"\#{#{x_expr}.inspect} == \#{#{pat.inspect.inspect}}\""
-      assign_env(env_expr, "#{x_expr} == #{pat.inspect}")
+    def test_literal(s)
+      s.type = :literal
+      emit "#{s.env} = #{"#{s.x} == #{s.pat.inspect}"} ? #{s.env} : nil"
     end
 
-    def assign_env(env_expr, cond)
-      # if env_expr == "env"
-      emit "#{env_expr} = #{cond} ? #{env_expr} : nil"
-      # else
-      #   emit "#{env_expr} = #{cond}"
-      # end
+    def test_var(s)
+      s.type = :var
+      emit "#{s.env} = ::Destruct::Env.bind(#{s.env}, #{get_ref(s.pat)}, #{s.x})"
     end
 
-    def match_var(pat, x_expr)
-      test_var(pat, x_expr)
-      return_if_failed
+    def test_obj(s)
+      s.type = :obj
+      emit "#{s.env} = #{"#{s.x}.is_a?(#{get_ref(s.pat.type)})"} ? #{s.env} : nil"
+      if s.pat.fields.any?
+        emit "if #{s.env}"
+        s.pat.fields.each do |field_name, field_pat|
+          match_or_test(Frame.new(field_pat, "#{s.x}.#{field_name}", s.env, s), !in_or(s))
+        end
+        emit "end"
+      end
     end
 
-    def test_var(pat, x_expr, env_expr="env")
-      # need_env(env_expr)
-      # emit "puts \"
-      emit "#{env_expr} = ::Destruct::Env.bind(#{env_expr}, #{get_ref(pat)}, #{x_expr})"
-    end
-
-    def match_obj(pat, x_expr)
-      test_obj(pat, x_expr)
-      # return_if_failed # thinking this not necessary since this is a compound test and all the primitive tests call it
-    end
-
-    def test_obj(pat, x_expr, env_expr="env")
-      assign_env(env_expr, "#{x_expr}.is_a?(#{get_ref(pat.type)})")
-      emit "if #{env_expr}"
-      pat.fields.each do |field_name, field_pat|
-        if env_expr == "env"
-          # not in an Or, so fail fast
-          match(field_pat, "#{x_expr}.#{field_name}")
-        else
-          # in an Or, so only test
-          test(field_pat, "#{x_expr}.#{field_name}", env_expr)
+    def test_or(s)
+      s.type = :or
+      closers = []
+      or_env = get_temp("env")
+      emit "#{or_env} = true"
+      s.pat.patterns.each_with_index do |alt, i|
+        test(Frame.new(alt, s.x, or_env, s))
+        if i < s.pat.patterns.size - 1
+          emit "unless #{or_env}"
+          closers << proc { emit "end" }
+          emit "#{or_env} = true"
         end
       end
-      emit "end"
-    end
-
-    def match_or(pat, x_expr)
-      test_or(pat, x_expr)
-      return_if_failed
-    end
-
-    def test_or(pat, x_expr, env_expr="env")
-      temp_env_expr = get_temp
-      emit "#{temp_env_expr} = true"
-      num_nestings = pat.patterns.size - 1
-      pat.patterns.each_with_index do |alt, i|
-        test(alt, x_expr, temp_env_expr)
-        if i < num_nestings
-          emit "unless #{temp_env_expr}"
-          emit "#{temp_env_expr} = true"
-        end
-      end
-      num_nestings.times { emit "end" }
-      emit "#{env_expr} = ::Destruct::Env.merge!(#{env_expr}, #{temp_env_expr})"
+      closers.each(&:call)
+      emit "#{s.env} = ::Destruct::Env.merge!(#{s.env}, #{or_env})"
     end
 
     def get_ref(pat)
@@ -189,8 +166,8 @@ class Destruct
       end
     end
 
-    def get_temp
-      "_t#{@temp_num += 1}"
+    def get_temp(prefix="t")
+      "_#{prefix}#{@temp_num += 1}"
     end
 
     def beautify_ruby(code)
