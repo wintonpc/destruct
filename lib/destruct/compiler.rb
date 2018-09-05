@@ -4,6 +4,17 @@ require "pp"
 require_relative './types'
 require_relative './rbeautify'
 
+module Enumerable
+  def rest
+    result = []
+    while true
+      result << self.next
+    end
+  rescue StopIteration
+    result
+  end
+end
+
 class Destruct
   class Compiler
     class << self
@@ -44,7 +55,7 @@ class Destruct
         end
       CODE
       code = beautify_ruby(code)
-      Compiler.show_code(code, @refs, fancy: false, include_vm: false)
+      Compiler.show_code(code, @refs, fancy: true, include_vm: false)
       compiled = eval(code).call(code, @refs, *@refs.values)
       CompiledPattern.new(pat, compiled, code)
     end
@@ -81,8 +92,7 @@ class Destruct
       end
 
       splat_index = s.pat.find_index { |p| p.is_a?(Splat) }
-      is_closed = splat_index && splat_index != s.pat.size - 1
-
+      is_closed = !splat_index || splat_index != s.pat.size - 1
       test(s, "#{s.x}.is_a?(#{is_closed ? "Array" : "Enumerable"})") do
         en = get_temp("en")
         done = get_temp("done")
@@ -122,7 +132,7 @@ class Destruct
               match(Frame.new(item_pat, x, s.env, s))
             end
           else
-            bind(s, s.pat[splat_index], en)
+            bind(s, s.pat[splat_index], "#{s.x}.is_a?(Array) ? #{en}.rest : #{en}")
           end
         end
 
@@ -132,7 +142,7 @@ class Destruct
         emit "#{stopped} = true"
         test(s, done)
         emit "end"
-        test(s, stopped)
+        test(s, stopped) if is_closed
       end
     end
 
@@ -146,6 +156,7 @@ class Destruct
     end
 
     def test(s, cond)
+      emit "puts \"test: \#{#{cond.inspect}}\""
       if in_or(s)
         update = "#{s.env} = (#{cond}) ? #{s.env} : nil"
         if block_given?
