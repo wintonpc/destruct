@@ -62,15 +62,12 @@ class Destruct
         match_obj(s)
       elsif s.pat.is_a?(Or)
         match_or(s)
-        return_if_failed(s) if !in_or(s)
       elsif s.pat.is_a?(Var)
         match_var(s)
-        return_if_failed(s) if !in_or(s)
       elsif s.pat.is_a?(Array)
         match_array(s)
       else
         match_literal(s)
-        return_if_failed(s) if !in_or(s)
       end
     end
 
@@ -112,6 +109,7 @@ class Destruct
     def match_literal(s)
       s.type = :literal
       emit "#{s.env} = #{"#{s.x} == #{s.pat.inspect}"} ? #{s.env} : nil"
+      return_if_failed(s) if !in_or(s)
     end
 
     def match_var(s)
@@ -132,6 +130,7 @@ class Destruct
         end
         match(Frame.new(field_pat, x, s.env, s))
       end
+      return_if_failed(s) if !in_or(s)
     end
 
     def multi?(pat)
@@ -155,6 +154,7 @@ class Destruct
       end
       closers.each(&:call)
       emit "#{s.env} = ::Destruct::Env.merge!(#{s.env}, #{or_env})"
+      return_if_failed(s) if !in_or(s)
     end
 
     def get_ref(pat)
