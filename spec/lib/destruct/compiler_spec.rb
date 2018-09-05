@@ -60,6 +60,10 @@ class Destruct
       expect(cp.match(Foo.new(3))).to be_truthy
       expect(cp.match(Foo.new(4))).to be_nil
     end
+    it 'compiles nested ORs with Vars' do
+      cp = Compiler.compile(Or.new(Obj.new(Foo, a: 1), Obj.new(Foo, a: Or.new(2, 3), b: Var.new(:x))))
+      expect(cp.match(Foo.new(2, 9))[:x]).to eql 9
+    end
     it 'compiles arrays' do
       cp = Compiler.compile([1, Var.new(:foo)])
       e = cp.match([1, 2])
@@ -68,6 +72,10 @@ class Destruct
       expect(cp.match([2, 2])).to be_falsey
       expect(cp.match([])).to be_falsey
       expect(cp.match([1, 2, 3])).to be_falsey
+    end
+    it 'compiles nested arrays' do
+      cp = Compiler.compile([1, [2, [3, 4], 5], 6, 7])
+      expect(cp.match([1, [2, [3, 4], 5], 6, 7])).to be_truthy
     end
   end
 end
