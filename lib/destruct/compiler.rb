@@ -13,6 +13,31 @@ module Enumerable
   rescue StopIteration
     result
   end
+
+  def new_from_here
+    orig = self
+    WrappedEnumerator.new(orig) do |y|
+      while true
+        y << orig.next
+      end
+    end
+  end
+end
+
+class WrappedEnumerator < Enumerator
+  def initialize(inner, &block)
+    super(&block)
+    @inner = inner
+  end
+
+  def new_from_here
+    orig = @inner
+    WrappedEnumerator.new(orig) do |y|
+      while true
+        y << orig.next
+      end
+    end
+  end
 end
 
 class Destruct
@@ -61,8 +86,14 @@ class Destruct
     end
 
     def emit(str)
+      @emitted_line_count ||= 0
+      @emitted_line_count += 1
       @emitted << str
       @emitted << "\n"
+    end
+
+    def emitted_line_count
+      @emitted_line_count ||= 0
     end
 
     def ref_args
@@ -112,10 +143,10 @@ class Destruct
         end
 
         if splat_index
+          splat = get_temp("splat")
+          emit "#{splat} = []"
           if is_closed
-            splat = get_temp("splat")
             splat_len = get_temp("splat_len")
-            emit "#{splat} = []"
             emit "#{splat_len} = #{s.x}.size - #{s.pat.size - 1}"
             emit "#{splat_len}.times do "
             emit "#{splat} << #{en}.next"
@@ -132,12 +163,12 @@ class Destruct
               match(Frame.new(item_pat, x, s.env, s))
             end
           else
-            bind(s, s.pat[splat_index], "#{s.x}.is_a?(Array) ? #{en}.rest : #{en}")
+            bind(s, s.pat[splat_index], "#{s.x}.is_a?(Array) ? #{en}.rest : #{en}.new_from_here")
           end
         end
 
         emit "#{done} = true"
-        emit "#{en}.next"
+        emit "#{en}.next" if is_closed
         emit "rescue StopIteration"
         emit "#{stopped} = true"
         test(s, done)
@@ -156,6 +187,7 @@ class Destruct
     end
 
     def test(s, cond)
+      # emit "puts \"line #{emitted_line_count + 8}: \#{#{cond.inspect}}\""
       emit "puts \"test: \#{#{cond.inspect}}\""
       if in_or(s)
         update = "#{s.env} = (#{cond}) ? #{s.env} : nil"

@@ -111,11 +111,33 @@ class Destruct
       expect(Compiler.compile([1, Splat.new(:x)]).match([1])[:x]).to eql []
       expect(Compiler.compile([1, Splat.new(:x)]).match([])).to be_falsey
     end
-    it 'compiles open-ended splat' do
+    it 'compiles open-ended splat with enumerable' do
       en = (1..3).cycle
       e = Compiler.compile([Var.new(:head), Splat.new(:tail)]).match(en)
       expect(e[:head]).to eql 1
-      expect(e[:tail].take(3)).to eql [2, 3, 1]
+      expect(e[:tail].take(3).to_a).to eql [2, 3, 1]
+
+      # doesn't reevaluate
+      evaluations = []
+      tail = Enumerator.new do |y|
+        i = 0
+        while true
+          evaluations << i
+          y << i
+          i += 1
+        end
+      end
+      head_and_tail = Compiler.compile([Var.new(:head), Splat.new(:tail)])
+      e = head_and_tail.match(tail)
+      expect(e[:head]).to eql 0
+      e = head_and_tail.match(e[:tail])
+      expect(e[:head]).to eql 1
+      e = head_and_tail.match(e[:tail])
+      expect(e[:head]).to eql 2
+      expect(evaluations).to eql [0, 1, 2]
+      expect(e[:tail]).to be_a WrappedEnumerator
+      expect(e[:tail].instance_exec { @inner }).to be_an Enumerator
+      expect(e[:tail].instance_exec { @inner }).to_not be_a WrappedEnumerator
     end
   end
 end
