@@ -53,6 +53,10 @@ class Destruct
       expect(cp.match(Foo.new(2))).to be_truthy
       expect(cp.match(Foo.new(3))).to be_nil
     end
+    it 'compiles ORs with arrays' do
+      cp = Compiler.compile(Or.new(Obj.new(Foo, a: [1, 2, 3]), Obj.new(Foo, a: 4)))
+      expect(cp.match(Foo.new(4))).to be_truthy
+    end
     it 'compiles nested ORs' do
       cp = Compiler.compile(Or.new(Obj.new(Foo, a: 1), Obj.new(Foo, a: Or.new(2, 3))))
       expect(cp.match(Foo.new(1))).to be_truthy
@@ -72,10 +76,26 @@ class Destruct
       expect(cp.match([2, 2])).to be_falsey
       expect(cp.match([])).to be_falsey
       expect(cp.match([1, 2, 3])).to be_falsey
+      expect(cp.match(Object.new)).to be_falsey
+    end
+    it 'array edge cases' do
+      expect(Compiler.compile([]).match([])).to be_truthy
+      expect(Compiler.compile([1]).match([2])).to be_falsey
+      expect(Compiler.compile([1]).match([1, 2])).to be_falsey
+      expect(Compiler.compile([1]).match([8, 9])).to be_falsey
+      expect(Compiler.compile([1, 2]).match([1])).to be_falsey
+      expect(Compiler.compile([8, 9]).match([1])).to be_falsey
+      expect(Compiler.compile([1, 2]).match([1, 2])).to be_truthy
+      expect(Compiler.compile([1, 2]).match([8, 9])).to be_falsey
     end
     it 'compiles nested arrays' do
       cp = Compiler.compile([1, [2, [3, 4], 5], 6, 7])
       expect(cp.match([1, [2, [3, 4], 5], 6, 7])).to be_truthy
+    end
+    it 'compiles splats' do
+      cp = Compiler.compile([1, Splat.new(:x), 4])
+      e = cp.match([1, 2, 3, 4])
+      expect(e[:x]).to eql [2, 3]
     end
   end
 end

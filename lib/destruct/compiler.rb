@@ -75,15 +75,38 @@ class Destruct
 
     def match_array(s)
       s.type = :array
-      test(s, "#{s.x}.size == #{get_ref(s.pat)}.size")
-      s.pat.each_with_index do |item_pat, item_x|
-        x = "#{s.x}[#{item_x}]"
-        if multi?(item_pat)
-          t = get_temp
-          emit "#{t} = #{x}"
-          x = t
+      splat_count = s.pat.count { |p| p.is_a?(Splat) }
+      if splat_count > 1
+        raise "An array pattern cannot have more than one splat: #{s.pat}"
+      end
+
+      splat_index = s.pat.find_index { |p| p.is_a?(Splat) }
+      is_closed = splat_index && splat_index != s.pat.size - 1
+
+      test(s, "#{s.x}.is_a?(#{is_closed ? "Array" : "Enumerable"})") do
+
+        en = get_temp("en")
+        done = get_temp("done")
+        stopped = get_temp("stopped")
+        emit "#{en} = #{s.x}.each"
+        emit "#{done} = false"
+        emit "begin"
+        s.pat[0...(splat_index || s.pat.size)].each do |item_pat|
+          x = "#{en}.next"
+          if multi?(item_pat)
+            t = get_temp
+            emit "#{t} = #{x}"
+            x = t
+          end
+          match(Frame.new(item_pat, x, s.env, s))
         end
-        match(Frame.new(item_pat, x, s.env, s))
+        emit "#{done} = true"
+        emit "#{en}.next"
+        emit "rescue StopIteration"
+        emit "#{stopped} = true"
+        test(s, done)
+        emit "end"
+        test(s, stopped)
       end
     end
 
@@ -98,9 +121,17 @@ class Destruct
 
     def test(s, cond)
       if in_or(s)
-        emit "#{s.env} = #{cond} ? #{s.env} : nil"
+        update = "#{s.env} = #{cond} ? #{s.env} : nil"
+        if block_given?
+          emit "if (#{update})"
+          yield
+          emit "end"
+        else
+          emit update
+        end
       else
         emit "#{cond} or return nil"
+        yield if block_given?
       end
     end
 
@@ -111,15 +142,16 @@ class Destruct
 
     def match_obj(s)
       s.type = :obj
-      test(s, "#{s.x}.is_a?(#{get_ref(s.pat.type)})")
-      s.pat.fields.each do |field_name, field_pat|
-        x = "#{s.x}.#{field_name}"
-        if multi?(field_pat)
-          t = get_temp
-          emit "#{t} = #{x}"
-          x = t
+      test(s, "#{s.x}.is_a?(#{get_ref(s.pat.type)})") do
+        s.pat.fields.each do |field_name, field_pat|
+          x = "#{s.x}.#{field_name}"
+          if multi?(field_pat)
+            t = get_temp
+            emit "#{t} = #{x}"
+            x = t
+          end
+          match(Frame.new(field_pat, x, s.env, s))
         end
-        match(Frame.new(field_pat, x, s.env, s))
       end
     end
 
