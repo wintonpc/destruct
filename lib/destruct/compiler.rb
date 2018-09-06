@@ -121,60 +121,80 @@ class Destruct
       if splat_count > 1
         raise "An array pattern cannot have more than one splat: #{s.pat}"
       end
-
       splat_index = s.pat.find_index { |p| p.is_a?(Splat) }
       is_closed = !splat_index || splat_index != s.pat.size - 1
-      test(s, "#{s.x}.is_a?(#{is_closed ? "Array" : "Enumerable"})") do
-        en = get_temp("en")
-        done = get_temp("done")
-        stopped = get_temp("stopped")
-        emit "#{en} = #{s.x}.each"
-        emit "#{done} = false"
-        emit "begin"
+      pre_splat_range = 0...(splat_index || s.pat.size)
 
-        s.pat[0...(splat_index || s.pat.size)].each do |item_pat|
-          x = "#{en}.next"
-          if multi?(item_pat)
-            t = get_temp
-            emit "#{t} = #{x}"
-            x = t
-          end
+      emit "if #{s.x}.is_a?(Array)"
+
+      cond = splat_index ? "#{s.x}.size >= #{s.pat.size - 1}" : "#{s.x}.size == #{s.pat.size}"
+      test(s, cond) do
+
+        pre_splat_range.each do |i|
+          item_pat = s.pat[i]
+          x = localize(item_pat, "#{s.x}[#{i}]")
           match(Frame.new(item_pat, x, s.env, s))
         end
 
         if splat_index
-          splat = get_temp("splat")
-          emit "#{splat} = []"
-          if is_closed
-            splat_len = get_temp("splat_len")
-            emit "#{splat_len} = #{s.x}.size - #{s.pat.size - 1}"
-            emit "#{splat_len}.times do "
-            emit "#{splat} << #{en}.next"
-            emit "end"
-            bind(s, s.pat[splat_index], splat)
+          splat_range = get_temp("splat_range")
+          emit "#{splat_range} = #{splat_index}...(#{s.x}.size - #{s.pat.size - splat_index - 1})"
+          bind(s, s.pat[splat_index], "#{s.x}[#{splat_range}]")
 
-            s.pat[(splat_index+1)...(s.pat.size)].each do |item_pat|
-              x = "#{en}.next"
-              if multi?(item_pat)
-                t = get_temp
-                emit "#{t} = #{x}"
-                x = t
-              end
-              match(Frame.new(item_pat, x, s.env, s))
-            end
-          else
-            bind(s, s.pat[splat_index], "#{s.x}.is_a?(Array) ? #{en}.rest : #{en}.new_from_here")
+          post_splat_pat_range = ((splat_index + 1)...s.pat.size)
+          post_splat_pat_range.each do |i|
+            item_pat = s.pat[i]
+            x = localize(item_pat, "#{s.x}[-#{s.pat.size - i}]")
+            match(Frame.new(item_pat, x, s.env, s))
           end
         end
-
-        emit "#{done} = true"
-        emit "#{en}.next" if is_closed
-        emit "rescue StopIteration"
-        emit "#{stopped} = true"
-        test(s, done)
-        emit "end"
-        test(s, stopped) if is_closed
       end
+
+      emit "elsif #{s.x}.is_a?(Enumerable)"
+
+      en = get_temp("en")
+      done = get_temp("done")
+      stopped = get_temp("stopped")
+      emit "#{en} = #{s.x}.each"
+      emit "#{done} = false"
+      emit "begin"
+
+      s.pat[0...(splat_index || s.pat.size)].each do |item_pat|
+        x = localize(item_pat, "#{en}.next")
+        match(Frame.new(item_pat, x, s.env, s))
+      end
+
+      if splat_index
+        splat = get_temp("splat")
+        emit "#{splat} = []"
+        if is_closed
+          splat_len = get_temp("splat_len")
+          emit "#{splat_len} = #{s.x}.size - #{s.pat.size - 1}"
+          emit "#{splat_len}.times do "
+          emit "#{splat} << #{en}.next"
+          emit "end"
+          bind(s, s.pat[splat_index], splat)
+
+          s.pat[(splat_index+1)...(s.pat.size)].each do |item_pat|
+            x = localize(item_pat, "#{en}.next")
+            match(Frame.new(item_pat, x, s.env, s))
+          end
+        else
+          bind(s, s.pat[splat_index], "#{en}.new_from_here")
+        end
+      end
+
+      emit "#{done} = true"
+      emit "#{en}.next" if is_closed
+      emit "rescue StopIteration"
+      emit "#{stopped} = true"
+      test(s, done)
+      emit "end"
+      test(s, stopped) if is_closed
+
+      emit "else"
+      test(s, "nil")
+      emit "end"
     end
 
     def in_or(s)
@@ -217,12 +237,7 @@ class Destruct
       s.type = :obj
       test(s, "#{s.x}.is_a?(#{get_ref(s.pat.type)})") do
         s.pat.fields.each do |field_name, field_pat|
-          x = "#{s.x}.#{field_name}"
-          if multi?(field_pat)
-            t = get_temp
-            emit "#{t} = #{x}"
-            x = t
-          end
+          x = localize(field_pat, "#{s.x}.#{field_name}")
           match(Frame.new(field_pat, x, s.env, s))
         end
       end
@@ -300,6 +315,17 @@ class Destruct
       code.split("\n").each_with_index.map do |line, n|
         "#{(n + 1).to_s.rjust(3)} #{line}"
       end
+    end
+
+    private
+
+    def localize(pat, x)
+      if multi?(pat)
+        t = get_temp
+        emit "#{t} = #{x}"
+        x = t
+      end
+      x
     end
   end
 
