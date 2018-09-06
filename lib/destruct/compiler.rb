@@ -3,6 +3,7 @@
 require "pp"
 require_relative './types'
 require_relative './rbeautify'
+require 'set'
 
 module Enumerable
   def rest
@@ -59,6 +60,7 @@ class Destruct
       @reverse_refs = {}
       @emitted = StringIO.new
       @temp_num = 0
+      @vars = Set.new
     end
 
     def compile(pat)
@@ -68,6 +70,7 @@ class Destruct
 
       code = <<~CODE
         lambda do |_code, _refs#{ref_args}|
+          #{@vars.any? ? "env_class = Struct.new(#{@vars.map(&:inspect).join(", ")})" : ""}
           lambda do |#{x}, binding, #{env}=true|
             begin
               #{@emitted.string}
@@ -83,6 +86,19 @@ class Destruct
       Compiler.show_code(code, @refs, fancy: true, include_vm: false)
       compiled = eval(code).call(code, @refs, *@refs.values)
       CompiledPattern.new(pat, compiled, code)
+    end
+
+    def gen_env_class
+      s = StringIO.new
+      s << "def initialize"
+      @vars.each do |var|
+        s << "@#{var.name} = ::Destruct::Env::NIL"
+      end
+      s << "end"
+      s << "attr_reader #{@vars.map(&:name).map(&:inspect).join(", ")}"
+      Class.new do
+        eval(s.string)
+      end
     end
 
     def emit(str)
@@ -107,6 +123,7 @@ class Destruct
       elsif s.pat.is_a?(Or)
         match_or(s)
       elsif s.pat.is_a?(Var)
+        @vars << s.pat.name
         match_var(s)
       elsif s.pat.is_a?(Array)
         match_array(s)
@@ -124,6 +141,7 @@ class Destruct
       splat_index = s.pat.find_index { |p| p.is_a?(Splat) }
       is_closed = !splat_index || splat_index != s.pat.size - 1
       pre_splat_range = 0...(splat_index || s.pat.size)
+      @vars << s.pat[splat_index].name if splat_index
 
       emit "if #{s.x}.is_a?(Array)"
 

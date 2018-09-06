@@ -16,6 +16,12 @@ class Destruct
       e = cp.match(1)
       expect(e).to be_an Env
       expect(e[:foo]).to eql 1
+
+      cp = Compiler.compile([Var.new(:foo), Var.new(:bar)])
+      e = cp.match([1, 2])
+      expect(e).to be_an Env
+      expect(e[:foo]).to eql 1
+      expect(e[:bar]).to eql 2
     end
     it 'compiles plain objs' do
       cp = Compiler.compile(Obj.new(Hash))
