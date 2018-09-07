@@ -248,13 +248,13 @@ class Destruct
       bind(s, s.pat, s.x)
     end
 
-    def bind(s, var, val)
+    def bind(s, var, val, val_could_be_unbound=false)
       current_val = get_temp("current_val")
       proposed_val = get_temp("proposed_val")
       emit <<~CODE
         # bind #{var.name}
       #{proposed_val} = #{val}
-        if #{s.env} && #{proposed_val} != ::Destruct::Env::UNBOUND
+        if #{s.env} #{val_could_be_unbound ? "&& #{proposed_val} != ::Destruct::Env::UNBOUND" : ""} 
       #{s.env} = _make_env.() if #{s.env} == true
           #{current_val} = #{s.env}.#{var.name}
           if #{current_val} == ::Destruct::Env::UNBOUND
@@ -311,7 +311,7 @@ class Destruct
         elsif #{other_env} != true
       CODE
       @vars.each do |var|
-        bind(s, var, "#{other_env}.#{var.name}")
+        bind(s, var, "#{other_env}.#{var.name}", true)
       end
       emit "end"
     end
