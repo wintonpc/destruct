@@ -142,6 +142,7 @@ class Destruct
       pre_splat_range = 0...(splat_index || s.pat.size)
       saw_var(s.pat[splat_index]) if splat_index
 
+      s.x = localize(nil, s.x)
       emit "if #{s.x}.is_a?(Array)"
 
       cond = splat_index ? "#{s.x}.size >= #{s.pat.size - 1}" : "#{s.x}.size == #{s.pat.size}"
@@ -226,7 +227,7 @@ class Destruct
 
     def test(s, cond)
       # emit "puts \"line #{emitted_line_count + 8}: \#{#{cond.inspect}}\""
-      emit "puts \"test: \#{#{cond.inspect}}\""
+      # emit "puts \"test: \#{#{cond.inspect}}\""
       if in_or(s)
         update = "#{s.env} = (#{cond}) ? #{s.env} : nil if #{s.env}"
         if block_given?
@@ -270,7 +271,7 @@ class Destruct
       s.type = :obj
       test(s, "#{s.x}.is_a?(#{get_ref(s.pat.type)})") do
         s.pat.fields.each do |field_name, field_pat|
-          x = localize(field_pat, "#{s.x}.#{field_name}")
+          x = localize(field_pat, "#{s.x}.#{field_name}", field_name)
           match(Frame.new(field_pat, x, s.env, s))
         end
       end
@@ -360,9 +361,9 @@ class Destruct
 
     private
 
-    def localize(pat, x)
-      if multi?(pat)
-        t = get_temp
+    def localize(pat, x, prefix="t")
+      if pat.nil? || multi?(pat)
+        t = get_temp(prefix)
         emit "#{t} = #{x}"
         x = t
       end
