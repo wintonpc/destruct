@@ -41,9 +41,9 @@ class Destruct
       else
         @rules.each do |rule|
           if rule.pat.is_a?(Class) && rule.pat.ancestors.include?(Syntax) && expr.is_a?(rule.pat)
-            return transform(apply_template(rule, expr), iters + 1, binding)
+            return transform(apply_template(rule, expr, binding: binding), iters + 1, binding)
           elsif e = Compiler.compile(rule.pat).match(expr)
-            args = {}
+            args = {binding: binding}
             if e.is_a?(Env)
               e.env_each do |k, v|
                 args[k] = transform(v, iters, binding)
@@ -59,6 +59,10 @@ class Destruct
 
     def apply_template(rule, *args, **kws)
       if kws.any?
+        if !rule.template.parameters.include?([:key, :binding]) && !rule.template.parameters.include?([:keyreq, :binding])
+          kws = kws.dup
+          kws.delete(:binding)
+        end
         rule.template.(*args, **kws)
       else
         rule.template.(*args)
