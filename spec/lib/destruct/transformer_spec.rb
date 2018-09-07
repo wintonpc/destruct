@@ -22,7 +22,7 @@ class Destruct
       expect(x_const.fqn).to eql 'Foo'
     end
     it 'Pattern' do
-      t = Transformer::Pattern
+      t = Transformer::PatternBase
       x_var = t.transform { x }
       expect(x_var).to be_a Var
       expect(x_var.name).to eql :x
@@ -76,7 +76,7 @@ class Destruct
       end
     end
     it 'metacircularish' do
-      t = Transformer.from(Transformer::Pattern) do
+      t = Transformer.from(Transformer::PatternBase) do
         add_rule(->{ n(type, children) }) do |type:, children:|
           Obj.new(Parser::AST::Node, type: type, children: children)
         end
@@ -88,7 +88,7 @@ class Destruct
       expect(e.var_name).to eql :asdf
     end
     it 'array-style object matches' do
-      t = Transformer.from(Transformer::Pattern) do
+      t = Transformer.from(Transformer::PatternBase) do
         add_rule(->{ klass[*field_pats] }) do |klass:, field_pats:|
           raise Transformer::NotApplicable unless klass.is_a?(Class) || klass.is_a?(Module)
           Obj.new(klass, field_pats.map { |f| [f.name, f] }.to_h)
@@ -104,7 +104,7 @@ class Destruct
       expect(r[0]).to eql :unmatched_expr
     end
     it 'hash-style object matches' do
-      t = Transformer.from(Transformer::Pattern) do
+      t = Transformer.from(Transformer::PatternBase) do
         add_rule(->{ klass[fields] }) do |klass:, fields:|
           raise Transformer::NotApplicable unless klass.is_a?(Class) || klass.is_a?(Module)
           Obj.new(klass, fields)
@@ -122,6 +122,42 @@ class Destruct
     #   r3 = ExprCache.get(->{c[a, b]})
     #   r4 = ExprCache.get(->{c[a: x, b: y]})
     #   r4
+    # end
+    # it 'test2' do
+    #   x = [1, 3]
+    #   r = ExprCache.get(proc do
+    #     case x
+    #     when match([1, 2])
+    #       :one_two
+    #     when match([1, 3])
+    #       :one_three
+    #     else
+    #       :fell_through
+    #     end
+    #   end)
+    #   r = ExprCache.get(proc do
+    #     if match [1, 2]
+    #       body1
+    #     elsif match [1, 3]
+    #       body2
+    #     else
+    #       :fell_through
+    #     end
+    #   end)
+    #   puts r
+    #
+    #   # t = Transformer.from(Transformer::Pattern) do
+    #   #   add_rule(-> do
+    #   #     match value
+    #   #     when(test1)
+    #   #     body1
+    #   #   end) do |klass:, fields:|
+    #   #     raise Transformer::NotApplicable unless klass.is_a?(Class) || klass.is_a?(Module)
+    #   #     Obj.new(klass, fields)
+    #   #   end
+    #   # end
+    #   #
+    #   # r
     # end
   end
 end
