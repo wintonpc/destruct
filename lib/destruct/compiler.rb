@@ -257,29 +257,13 @@ class Destruct
           #{current_val} = #{s.env}.#{var.name}
           if #{current_val} == ::Destruct::Env::UNBOUND
             #{s.env}.#{var.name} = #{proposed_val}
-          elsif #{current_val} != #{proposed_val} && #{current_val} != ::Destruct::Env::UNBOUND
+          elsif #{current_val} != #{proposed_val}
       #{s.env} = nil
           end
         end
       CODE
       test(s, "#{s.env}")
     end
-
-    # def merge(s, other_env)
-    #   emit <<~CODE
-    #     if #{s.env}.nil? || #{other_env}.nil?
-    #       nil
-    #     elsif #{s.env} == true
-    #       #{other_env}
-    #     elsif #{other_env} == true
-    #       #{s.env}
-    #   CODE
-    #   @vars.each do |var|
-    #     bind(s, var, "#{other_env}.#{var.name}")
-    #   end
-    #   emit s.env
-    #   emit "end"
-    # end
 
     def match_obj(s)
       s.type = :obj
@@ -311,8 +295,23 @@ class Destruct
         end
       end
       closers.each(&:call)
-      emit "#{s.env} = ::Destruct::Env.merge!(#{s.env}, #{or_env})"
+      # emit "#{s.env} = ::Destruct::Env.merge!(#{s.env}, #{or_env})"
+      merge(s, or_env)
       emit "#{s.env} or return nil" if !in_or(s.parent)
+    end
+
+    def merge(s, other_env)
+      emit <<~CODE
+        if #{s.env}.nil? || #{other_env}.nil?
+          #{s.env} = nil
+        elsif #{s.env} == true
+          #{s.env} = #{other_env}
+        elsif #{other_env} != true
+      CODE
+      @vars.each do |var|
+        bind(s, var, "#{other_env}.#{var.name}")
+      end
+      emit "end"
     end
 
     def get_ref(pat)
