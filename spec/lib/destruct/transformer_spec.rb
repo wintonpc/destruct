@@ -3,9 +3,9 @@
 require 'destruct'
 
 class Destruct
-  describe Language do
+  describe Transformer do
     it 'built-in rules' do
-      lang = Language::Basic
+      lang = Transformer::Basic
       expect(lang.translate { 1 }).to eql 1
       expect(lang.translate { 2.0 }).to eql 2.0
       expect(lang.translate { :x }).to eql :x
@@ -15,7 +15,7 @@ class Destruct
       expect(x_var.name).to eql :x
     end
     it 'passes matches to the block' do
-      lang = Language.from(Language::Basic) do
+      lang = Transformer.from(Transformer::Basic) do
         add_rule(->{ ~v }) do |v:|
           Splat.new(v.name)
         end
@@ -25,7 +25,7 @@ class Destruct
       expect(foo_splat.name).to eql :foo
     end
     it 'allows matched vars to be locals' do
-      lang = Language.from(Language::Basic) do
+      lang = Transformer.from(Transformer::Basic) do
         v = nil
         add_rule(->{ ~v }) do |v:|
           Splat.new(v.name)
@@ -36,7 +36,7 @@ class Destruct
       expect(foo_splat.name).to eql :foo
     end
     it 'translates more complex rules' do
-      lang = Language.from(Language::Basic) do
+      lang = Transformer.from(Transformer::Basic) do
         v = nil
         add_rule(->{ ~v }) do |v:|
           Splat.new(v.name)
@@ -47,7 +47,7 @@ class Destruct
       expect(r[1].name).to eql :foo
     end
     it 'translates stuff with hashes' do
-      lang = Language.from(Language::Basic) do
+      lang = Transformer.from(Transformer::Basic) do
         v = nil
         add_rule(->{ ~v }) do |v:|
           Splat.new(v.name)
@@ -58,7 +58,7 @@ class Destruct
       expect(r[:b].last).to be_a Splat
     end
     it 'metacircularish' do
-      lang = Language.from(Language::Basic) do
+      lang = Transformer.from(Transformer::Basic) do
         add_rule(->{ n(type, children) }) do |type:, children:|
           Obj.new(Parser::AST::Node, type: type, children: children)
         end

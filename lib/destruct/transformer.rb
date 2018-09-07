@@ -4,7 +4,7 @@ require 'destructure'
 require 'active_support/core_ext/object/deep_dup'
 
 class Destruct
-  class Language
+  class Transformer
     LITERAL_TYPES = %i[int sym float str].freeze
 
     Rule = Struct.new(:pat, :template)
@@ -103,8 +103,8 @@ class Destruct
       Or.new(*alt_patterns)
     end
 
-    Identity = Language.new
-    Basic = Language.from(Identity) do
+    Identity = Transformer.new
+    Basic = Transformer.from(Identity) do
       add_rule(n(any(:int, :sym, :float, :str), [v(:value)])) { |value:| value }
       add_rule(n(:nil, [])) { nil }
       add_rule(n(:true, [])) { true }
