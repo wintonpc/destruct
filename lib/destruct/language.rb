@@ -43,7 +43,7 @@ class Destruct
             return rule.template.(**args)
           end
         end
-        NIL
+        expr
       end
     end
 

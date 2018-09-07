@@ -53,6 +53,17 @@ class Destruct
       expect(r).to be_a Hash
       expect(r[:b].last).to be_a Splat
     end
+    it 'metacircularish' do
+      lang = Language.new
+      lang.add_rule(->{ n(type, children) }) do |type:, children:|
+        Obj.new(Parser::AST::Node, type: type, children: children)
+      end
+      pat = lang.translate { n(:send, [nil, var_name]) }
+      cp = Compiler.compile(pat)
+      x = ExprCache.get(->{ asdf })
+      e = cp.match(x)
+      expect(e.var_name).to eql :asdf
+    end
     # Foo = Struct.new(:a, :b)
     # it 'test' do
     #   lang = Language.new
