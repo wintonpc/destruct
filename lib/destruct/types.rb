@@ -19,6 +19,12 @@ class Destruct
     end
   end
 
+  class KwSplat < Var
+    def inspect
+      "#<KwSplat: #{name}>"
+    end
+  end
+
   class Obj
     attr_reader :type, :fields
 

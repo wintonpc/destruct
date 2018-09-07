@@ -87,13 +87,14 @@ class Destruct
       e = cp.match(x)
       expect(e.var_name).to eql :asdf
     end
-    it 'object matches' do
+    it 'array-style object matches' do
       t = Transformer.from(Transformer::Pattern) do
         add_rule(->{ klass[*field_pats] }) do |klass:, field_pats:|
           raise Transformer::NotApplicable unless klass.is_a?(Class) || klass.is_a?(Module)
           Obj.new(klass, field_pats.map { |f| [f.name, f] }.to_h)
         end
       end
+
       cp = Compiler.compile(t.transform { Foo[a, b] })
       e = cp.match(Foo.new(1, 2))
       expect(e.a).to eql 1
@@ -102,5 +103,25 @@ class Destruct
       r = t.transform { foo[a, b] }
       expect(r[0]).to eql :unmatched_expr
     end
+    it 'hash-style object matches' do
+      t = Transformer.from(Transformer::Pattern) do
+        add_rule(->{ klass[fields] }) do |klass:, fields:|
+          raise Transformer::NotApplicable unless klass.is_a?(Class) || klass.is_a?(Module)
+          Obj.new(klass, fields)
+        end
+      end
+
+      cp = Compiler.compile(t.transform { Foo[a: x, b: y] })
+      e = cp.match(Foo.new(1, 2))
+      expect(e.x).to eql 1
+      expect(e.y).to eql 2
+    end
+    # it 'test' do
+    #   r1 = ExprCache.get(->{c[fs]})
+    #   r2 = ExprCache.get(->{c[*fs]})
+    #   r3 = ExprCache.get(->{c[a, b]})
+    #   r4 = ExprCache.get(->{c[a: x, b: y]})
+    #   r4
+    # end
   end
 end
