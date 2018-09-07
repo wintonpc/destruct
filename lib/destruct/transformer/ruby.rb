@@ -24,6 +24,7 @@ class Destruct
       add_rule(n(:true, [])) { true }
       add_rule(n(:false, [])) { false }
       add_rule(n(:send, [nil, v(:name)])) { |name:| VarRef.new(name) }
+      add_rule(n(:const, [nil, v(:name)])) { |name:| ConstRef.new(name.to_s) }
       add_rule(n(:array, v(:items))) { |items:| items }
       add_rule(n(:hash, v(:pairs))) { |pairs:| pairs.to_h }
       add_rule(n(:pair, [v(:k), v(:v)])) { |k:, v:| [k, v] }

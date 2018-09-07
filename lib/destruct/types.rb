@@ -23,6 +23,9 @@ class Destruct
     attr_reader :type, :fields
 
     def initialize(type, fields={})
+      unless type.is_a?(Class) || type.is_a?(Module)
+        raise "Obj type must be a Class or a Module, was: #{type}"
+      end
       @type = type
       @fields = fields
     end

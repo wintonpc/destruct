@@ -5,21 +5,30 @@ require 'time_it'
 
 class Destruct
   describe Transformer do
+    Foo = Struct.new(:a, :b)
     it 'Ruby' do
       t = Transformer::Ruby
       expect(t.transform { 1 }).to eql 1
       expect(t.transform { 2.0 }).to eql 2.0
       expect(t.transform { :x }).to eql :x
       expect(t.transform { 'x' }).to eql 'x'
+
       x_var = t.transform { x }
       expect(x_var).to be_a Transformer::VarRef
       expect(x_var.name).to eql :x
+
+      x_const = t.transform { Foo }
+      expect(x_const).to be_a Transformer::ConstRef
+      expect(x_const.fqn).to eql 'Foo'
     end
     it 'Pattern' do
       t = Transformer::Pattern
       x_var = t.transform { x }
       expect(x_var).to be_a Var
       expect(x_var.name).to eql :x
+
+      x_const = t.transform { Foo }
+      expect(x_const).to eql Foo
     end
     it 'passes matches to the block' do
       t = Transformer.from(Transformer::Ruby) do
@@ -78,17 +87,19 @@ class Destruct
       e = cp.match(x)
       expect(e.var_name).to eql :asdf
     end
-    Foo = Struct.new(:a, :b)
     it 'object matches' do
-      t = Transformer.from(Transformer::Ruby) do
-        add_rule(->{ klass[*fields] }) do |klass:, fields:|
-          Obj.new(klass, fields)
+      t = Transformer.from(Transformer::Pattern) do
+        add_rule(->{ klass[*field_pats] }) do |klass:, field_pats:|
+          Obj.new(klass, field_pats.map { |f| [f.name, f] }.to_h)
         end
       end
       cp = Compiler.compile(t.transform { Foo[a, b] })
       e = cp.match(Foo.new(1, 2))
       expect(e.a).to eql 1
       expect(e.b).to eql 2
+
+      r = t.transform { foo[a, b] }
+      r
     end
   end
 end
