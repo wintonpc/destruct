@@ -8,21 +8,17 @@ class Destruct
     LITERAL_TYPES = %i[int sym float str].freeze
 
     Rule = Struct.new(:pat, :template)
-    NIL = Object.new
-    NIL.singleton_class.instance_exec { define_method(:inspect) { "NIL" }; define_method(:to_s) { "NIL" } }
 
     attr_reader :rules
 
-    def initialize
-      @rules = []
-      add_rule(n(any(:int, :sym, :float, :str), [v(:value)])) { |value:| value }
-      add_rule(n(:nil, [])) { nil }
-      add_rule(n(:true, [])) { true }
-      add_rule(n(:false, [])) { false }
-      add_rule(n(:send, [nil, v(:name)])) { |name:| Var.new(name) }
-      add_rule(n(:array, v(:items))) { |items:| items }
-      add_rule(n(:hash, v(:pairs))) { |pairs:| pairs.to_h }
-      add_rule(n(:pair, [v(:k), v(:v)])) { |k:, v:| [k, v] }
+    def initialize(initial_rules=[])
+      @rules = initial_rules
+    end
+
+    def self.from(base, &add_rules)
+      lang = new(base.rules)
+      lang.instance_exec(&add_rules) if add_rules
+      lang
     end
 
     def translate(expr=nil, &pat_proc)
@@ -43,7 +39,7 @@ class Destruct
             return rule.template.(**args)
           end
         end
-        expr
+        [:unmatched_expr, expr]
       end
     end
 
@@ -105,6 +101,18 @@ class Destruct
 
     def any(*alt_patterns)
       Or.new(*alt_patterns)
+    end
+
+    Identity = Language.new
+    Basic = Language.from(Identity) do
+      add_rule(n(any(:int, :sym, :float, :str), [v(:value)])) { |value:| value }
+      add_rule(n(:nil, [])) { nil }
+      add_rule(n(:true, [])) { true }
+      add_rule(n(:false, [])) { false }
+      add_rule(n(:send, [nil, v(:name)])) { |name:| Var.new(name) }
+      add_rule(n(:array, v(:items))) { |items:| items }
+      add_rule(n(:hash, v(:pairs))) { |pairs:| pairs.to_h }
+      add_rule(n(:pair, [v(:k), v(:v)])) { |k:, v:| [k, v] }
     end
   end
 end
