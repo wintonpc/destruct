@@ -178,25 +178,17 @@ class Destruct
     #   # r
     # end
     it 'test' do
-      destruct [1, 3] do
-        if [1, 2]
-          12
-        elsif [1, 3]
-          13
-        else
-          99
-        end
-      end
-      destruct do
+      r = Destruct.destruct do
         case [1, 3]
-        when [1, 2]
-          12
-        when [1, 3]
-          13
+        when [v, 2]
+          [v, 2].inspect
+        when [v, 3]
+          [v, 3].inspect
         else
           99
         end
       end
+      expect(r).to eql "[1, 3]"
     end
   end
 end

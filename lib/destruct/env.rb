@@ -23,6 +23,10 @@ class Destruct
           def env_each
             #{var_names.map { |v| "yield(#{v.inspect}, @#{v})" }.join("\n")}
           end
+
+          def to_s
+            "#<Env: #{var_names.map { |v| "#{v}=\#{#{v}}" }.join(", ")}>"
+          end
         CODE
       end
     end
