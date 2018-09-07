@@ -15,48 +15,53 @@ class Destruct
       expect(x_var.name).to eql :x
     end
     it 'passes matches to the block' do
-      lang = Language.from(Language::Basic)
-      lang.add_rule(->{ ~v }) do |v:|
-        Splat.new(v.name)
+      lang = Language.from(Language::Basic) do
+        add_rule(->{ ~v }) do |v:|
+          Splat.new(v.name)
+        end
       end
       foo_splat = lang.translate { ~foo }
       expect(foo_splat).to be_a Splat
       expect(foo_splat.name).to eql :foo
     end
     it 'allows matched vars to be locals' do
-      lang = Language.from(Language::Basic)
-      v = nil
-      lang.add_rule(->{ ~v }) do |v:|
-        Splat.new(v.name)
+      lang = Language.from(Language::Basic) do
+        v = nil
+        add_rule(->{ ~v }) do |v:|
+          Splat.new(v.name)
+        end
       end
       foo_splat = lang.translate { ~foo }
       expect(foo_splat).to be_a Splat
       expect(foo_splat.name).to eql :foo
     end
     it 'translates more complex rules' do
-      lang = Language.from(Language::Basic)
-      v = nil
-      lang.add_rule(->{ ~v }) do |v:|
-        Splat.new(v.name)
+      lang = Language.from(Language::Basic) do
+        v = nil
+        add_rule(->{ ~v }) do |v:|
+          Splat.new(v.name)
+        end
       end
       r = lang.translate { [1, ~foo] }
       expect(r[1]).to be_a Splat
       expect(r[1].name).to eql :foo
     end
     it 'translates stuff with hashes' do
-      lang = Language.from(Language::Basic)
-      v = nil
-      lang.add_rule(->{ ~v }) do |v:|
-        Splat.new(v.name)
+      lang = Language.from(Language::Basic) do
+        v = nil
+        add_rule(->{ ~v }) do |v:|
+          Splat.new(v.name)
+        end
       end
       r = lang.translate { {a: 1, b: [1, ~foo]} }
       expect(r).to be_a Hash
       expect(r[:b].last).to be_a Splat
     end
     it 'metacircularish' do
-      lang = Language.from(Language::Basic)
-      lang.add_rule(->{ n(type, children) }) do |type:, children:|
-        Obj.new(Parser::AST::Node, type: type, children: children)
+      lang = Language.from(Language::Basic) do
+        add_rule(->{ n(type, children) }) do |type:, children:|
+          Obj.new(Parser::AST::Node, type: type, children: children)
+        end
       end
       pat = lang.translate { n(:send, [nil, var_name]) }
       cp = Compiler.compile(pat)
