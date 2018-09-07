@@ -100,7 +100,7 @@ class Destruct
       expect(e.b).to eql 2
 
       r = t.transform { foo[a, b] }
-      r
+      expect(r[0]).to eql :unmatched_expr
     end
   end
 end
