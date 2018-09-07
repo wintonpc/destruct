@@ -72,7 +72,7 @@ class Destruct
       if @vars.any?
         env_class_code = <<~ENV
           _env_class = ::Destruct::Env.new_class(#{@vars.map(&:name).map(&:inspect).join(", ")})
-          _make_env = lambda { _env_class.new }
+          _make_env = _env_class.method(:new)
         ENV
       end
 
