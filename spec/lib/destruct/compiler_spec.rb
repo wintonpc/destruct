@@ -78,6 +78,27 @@ class Destruct
       cp = Compiler.compile(Or.new(Obj.new(Foo, a: 1), Obj.new(Foo, a: Or.new(2, 3), b: Var.new(:x))))
       expect(cp.match(Foo.new(2, 9))[:x]).to eql 9
     end
+    it 'compiles ORs with Vars' do
+      cp = Compiler.compile([Var.new(:a), Or.new([1, Var.new(:b)], [2, Var.new(:c)])])
+      e = cp.match([3, [1, 7]])
+      expect(e.a).to eql 3
+      expect(e.b).to eql 7
+      expect(e.c).to eql ::Destruct::Env::UNBOUND
+      e = cp.match([3, [2, 8]])
+      expect(e.a).to eql 3
+      expect(e.b).to eql ::Destruct::Env::UNBOUND
+      expect(e.c).to eql 8
+
+      cp = Compiler.compile([Var.new(:a), Or.new([1, Var.new(:a)], [2, Var.new(:a)])])
+      expect(cp.match([3, [1, 3]])).to be_truthy
+      expect(cp.match([3, [1, 4]])).to be_falsey
+
+      cp = Compiler.compile(Or.new([Var.new(:a), Or.new([1, Var.new(:b)], [2, Var.new(:c)])]))
+      e = cp.match([3, [1, 7]])
+      expect(e.a).to eql 3
+      expect(e.b).to eql 7
+      expect(e.c).to eql ::Destruct::Env::UNBOUND
+    end
     it 'compiles arrays' do
       cp = Compiler.compile([1, Var.new(:foo)])
       e = cp.match([1, 2])
