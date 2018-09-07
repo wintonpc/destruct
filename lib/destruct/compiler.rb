@@ -251,10 +251,11 @@ class Destruct
     def bind(s, var, val, val_could_be_unbound=false)
       current_val = get_temp("current_val")
       proposed_val = get_temp("proposed_val")
+      require_outer_check = in_or(s) || val_could_be_unbound
       emit <<~CODE
         # bind #{var.name}
       #{proposed_val} = #{val}
-        if #{s.env} #{val_could_be_unbound ? "&& #{proposed_val} != ::Destruct::Env::UNBOUND" : ""} 
+        #{require_outer_check ? "if #{s.env} #{val_could_be_unbound ? "&& #{proposed_val} != ::Destruct::Env::UNBOUND" : ""}" : ""} 
       #{s.env} = _make_env.() if #{s.env} == true
           #{current_val} = #{s.env}.#{var.name}
           if #{current_val} == ::Destruct::Env::UNBOUND
@@ -262,7 +263,7 @@ class Destruct
           elsif #{current_val} != #{proposed_val}
       #{s.env} = nil
           end
-        end
+        #{require_outer_check ? "end" : ""}
       CODE
       test(s, "#{s.env}")
     end
@@ -362,7 +363,7 @@ class Destruct
     private
 
     def localize(pat, x, prefix="t")
-      if pat.nil? || multi?(pat)
+      if (pat.nil? && x =~ /\.\[\]/) || multi?(pat)
         t = get_temp(prefix)
         emit "#{t} = #{x}"
         x = t
