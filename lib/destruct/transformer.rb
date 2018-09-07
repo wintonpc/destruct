@@ -29,8 +29,11 @@ class Destruct
 
     NOTHING = Object.new
 
-    def transform(expr=NOTHING, iters: 0, &pat_proc)
-      expr = ExprCache.get(pat_proc) if expr == NOTHING
+    def transform(expr=NOTHING, iters=0, binding=nil, &pat_proc)
+      if expr == NOTHING
+        expr = ExprCache.get(pat_proc)
+        binding = pat_proc.binding
+      end
       if expr.is_a?(Array)
         expr.map { |exp| transform(exp) }
       elsif !expr.is_a?(Parser::AST::Node) && !expr.is_a?(Syntax)
@@ -38,7 +41,7 @@ class Destruct
       else
         @rules.each do |rule|
           if rule.pat.is_a?(Class) && rule.pat.ancestors.include?(Syntax) && expr.is_a?(rule.pat)
-            return transform(rule.template.(expr), iters: iters + 1)
+            return transform(rule.template.(expr), iters + 1, binding)
           elsif e = Compiler.compile(rule.pat).match(expr)
             args = {}
             if e.is_a?(Env)
@@ -46,7 +49,7 @@ class Destruct
                 args[k] = transform(v)
               end
             end
-            return transform(rule.template.(**args), iters: iters + 1)
+            return transform(rule.template.(**args), iters + 1, binding)
           end
         end
         # no rules matched
