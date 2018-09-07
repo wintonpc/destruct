@@ -250,7 +250,7 @@ class Destruct
           #{current_val} = #{s.env}.#{var.name}
           if #{current_val} == ::Destruct::Env::UNBOUND
             #{s.env}.#{var.name} = #{val}
-          elsif #{current_val} != #{val}
+          elsif #{current_val} != #{val} && #{current_val} != ::Destruct::Env::UNBOUND
       #{s.env} = nil
           end
         end
