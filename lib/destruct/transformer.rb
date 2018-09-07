@@ -41,19 +41,27 @@ class Destruct
       else
         @rules.each do |rule|
           if rule.pat.is_a?(Class) && rule.pat.ancestors.include?(Syntax) && expr.is_a?(rule.pat)
-            return transform(rule.template.(expr), iters + 1, binding)
+            return transform(apply_template(rule, expr), iters + 1, binding)
           elsif e = Compiler.compile(rule.pat).match(expr)
             args = {}
             if e.is_a?(Env)
               e.env_each do |k, v|
-                args[k] = transform(v)
+                args[k] = transform(v, iters, binding)
               end
             end
-            return transform(rule.template.(**args), iters + 1, binding)
+            return transform(apply_template(rule, **args), iters + 1, binding)
           end
         end
         # no rules matched
         iters > 0 ? expr : [:unmatched_expr, expr]
+      end
+    end
+
+    def apply_template(rule, *args, **kws)
+      if kws.any?
+        rule.template.(*args, **kws)
+      else
+        rule.template.(*args)
       end
     end
 
