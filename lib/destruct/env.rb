@@ -5,14 +5,14 @@ require_relative './types'
 class Destruct
   class Env
     NIL = Object.new
-    UNBOUND = Object.new
+    UNBOUND = :__unbound__
 
     def self.new_class(*var_names)
       Class.new(Env) do
         attr_accessor(*var_names)
         eval <<~CODE
           def initialize
-            #{var_names.map { |v| "@#{v} = ::Destruct::Env::UNBOUND" }.join("\n")}
+            #{var_names.map { |v| "@#{v} = :__unbound__" }.join("\n")}
           end
 
           # deprecated

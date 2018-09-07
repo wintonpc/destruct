@@ -255,10 +255,10 @@ class Destruct
       emit <<~CODE
         # bind #{var.name}
       #{proposed_val} = #{val}
-        #{require_outer_check ? "if #{s.env} #{val_could_be_unbound ? "&& #{proposed_val} != ::Destruct::Env::UNBOUND" : ""}" : ""} 
+        #{require_outer_check ? "if #{s.env} #{val_could_be_unbound ? "&& #{proposed_val} != :__unbound__" : ""}" : ""} 
       #{s.env} = _make_env.() if #{s.env} == true
           #{current_val} = #{s.env}.#{var.name}
-          if #{current_val} == ::Destruct::Env::UNBOUND
+          if #{current_val} == :__unbound__
             #{s.env}.#{var.name} = #{proposed_val}
           elsif #{current_val} != #{proposed_val}
       #{s.env} = nil
