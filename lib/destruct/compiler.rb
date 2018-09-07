@@ -71,8 +71,8 @@ class Destruct
       env_class_code = ""
       if @vars.any?
         env_class_code = <<~ENV
-          _env_class = Struct.new(#{@vars.map(&:name).map(&:inspect).join(", ")})
-          _make_env = lambda { _env_class.new(#{Array.new(@vars.size, "::Destruct::Env::UNBOUND").join(", ")}) }
+          _env_class = ::Destruct::Env.new_class(#{@vars.map(&:name).map(&:inspect).join(", ")})
+          _make_env = lambda { _env_class.new }
         ENV
       end
 

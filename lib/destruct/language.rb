@@ -37,7 +37,7 @@ class Destruct
             args = {}
             if e.is_a?(Env)
               e.env_each do |k, v|
-                args[k.name] = translate(v)
+                args[k] = translate(v)
               end
             end
             return rule.template.(**args)
