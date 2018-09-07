@@ -52,9 +52,9 @@ class Destruct
       if pat_or_proc.is_a?(Proc)
         node = ExprCache.get(pat_or_proc)
         pat = node_to_pattern(node)
-        rules << Rule.new(pat, translate)
+        rules.unshift(Rule.new(pat, translate))
       else
-        rules << Rule.new(pat_or_proc, translate)
+        rules.unshift(Rule.new(pat_or_proc, translate))
       end
     end
 
