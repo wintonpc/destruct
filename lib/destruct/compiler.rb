@@ -67,10 +67,17 @@ class Destruct
       x = get_temp("x")
       env = get_temp("env")
       match(Frame.new(pat, x, env))
+      env_class_code = ""
+      if @vars.any?
+        env_class_code = <<~ENV
+          _env_class = Struct.new(#{@vars.map(&:inspect).join(", ")})
+          _make_env = lambda { _env_class.new(#{Array.new(@vars.size, "::Destruct::Env::UNBOUND").join(", ")}) }
+        ENV
+      end
 
       code = <<~CODE
         lambda do |_code, _refs#{ref_args}|
-          #{@vars.any? ? "env_class = Struct.new(#{@vars.map(&:inspect).join(", ")})" : ""}
+          #{env_class_code}
           lambda do |#{x}, binding, #{env}=true|
             begin
               #{@emitted.string}
@@ -86,19 +93,6 @@ class Destruct
       Compiler.show_code(code, @refs, fancy: true, include_vm: false)
       compiled = eval(code).call(code, @refs, *@refs.values)
       CompiledPattern.new(pat, compiled, code)
-    end
-
-    def gen_env_class
-      s = StringIO.new
-      s << "def initialize"
-      @vars.each do |var|
-        s << "@#{var.name} = ::Destruct::Env::NIL"
-      end
-      s << "end"
-      s << "attr_reader #{@vars.map(&:name).map(&:inspect).join(", ")}"
-      Class.new do
-        eval(s.string)
-      end
     end
 
     def emit(str)
@@ -248,7 +242,20 @@ class Destruct
     end
 
     def bind(s, var, val)
-      test(s, "#{s.env} = ::Destruct::Env.bind(#{s.env}, #{get_ref(var)}, #{val})")
+      current_val = get_temp("current_val")
+      emit <<~CODE
+        # bind #{var.name}
+        if #{s.env}
+      #{s.env} = _make_env.() if #{s.env} == true
+          #{current_val} = #{s.env}.#{var.name}
+          if #{current_val} == ::Destruct::Env::UNBOUND
+            #{s.env}.#{var.name} = #{val}
+          elsif #{current_val} != #{val}
+      #{s.env} = nil
+          end
+        end
+      CODE
+      test(s, "#{s.env}")
     end
 
     def merge(s, or_env)

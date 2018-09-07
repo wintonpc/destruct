@@ -14,14 +14,18 @@ class Destruct
     it 'compiles vars' do
       cp = Compiler.compile(Var.new(:foo))
       e = cp.match(1)
-      expect(e).to be_an Env
+      expect(e).to be_truthy
       expect(e[:foo]).to eql 1
 
       cp = Compiler.compile([Var.new(:foo), Var.new(:bar)])
       e = cp.match([1, 2])
-      expect(e).to be_an Env
+      expect(e).to be_truthy
       expect(e[:foo]).to eql 1
       expect(e[:bar]).to eql 2
+
+      cp = Compiler.compile([Var.new(:foo), Var.new(:foo)])
+      expect(cp.match([1, 1].each)).to be_truthy
+      expect(cp.match([1, 2].each)).to be_falsey
     end
     it 'compiles plain objs' do
       cp = Compiler.compile(Obj.new(Hash))
@@ -38,13 +42,13 @@ class Destruct
     it 'compiles objs with vars' do
       cp = Compiler.compile(Obj.new(Foo, a: 1, b: Var.new(:bvar)))
       e = cp.match(Foo.new(1, 2))
-      expect(e).to be_an Env
+      expect(e).to be_truthy
       expect(e[:bvar]).to eql 2
     end
     it 'compiles objs with deep vars' do
       cp = Compiler.compile(Obj.new(Foo, a: 1, b: Obj.new(Foo, a: 1, b: Var.new(:bvar))))
       e = cp.match(Foo.new(1, Foo.new(1, 2)))
-      expect(e).to be_an Env
+      expect(e).to be_truthy
       expect(e[:bvar]).to eql 2
     end
     it 'compiles ORs' do
@@ -77,7 +81,7 @@ class Destruct
     it 'compiles arrays' do
       cp = Compiler.compile([1, Var.new(:foo)])
       e = cp.match([1, 2])
-      expect(e).to be_an Env
+      expect(e).to be_truthy
       expect(e[:foo]).to eql 2
       expect(cp.match([2, 2])).to be_falsey
       expect(cp.match([])).to be_falsey

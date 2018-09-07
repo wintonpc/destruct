@@ -122,5 +122,6 @@ class Destruct
     end
 
     NIL = Object.new
+    UNBOUND = Object.new
   end
 end
