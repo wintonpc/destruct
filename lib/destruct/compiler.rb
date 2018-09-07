@@ -155,7 +155,8 @@ class Destruct
 
         if splat_index
           splat_range = get_temp("splat_range")
-          emit "#{splat_range} = #{splat_index}...(#{s.x}.size - #{s.pat.size - splat_index - 1})"
+          post_splat_width = s.pat.size - splat_index - 1
+          emit "#{splat_range} = #{splat_index}...(#{s.x}.size#{post_splat_width > 0 ? "- #{post_splat_width}" : ""})"
           bind(s, s.pat[splat_index], "#{s.x}[#{splat_range}]")
 
           post_splat_pat_range = ((splat_index + 1)...s.pat.size)
