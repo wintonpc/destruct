@@ -6,6 +6,8 @@ require 'active_support/core_ext/object/deep_dup'
 class Destruct
   class Transformer
     LITERAL_TYPES = %i[int sym float str].freeze
+    class NotApplicable < RuntimeError
+    end
 
     Rule = Struct.new(:pat, :template)
     class Syntax
@@ -40,16 +42,20 @@ class Destruct
         expr
       else
         @rules.each do |rule|
-          if rule.pat.is_a?(Class) && rule.pat.ancestors.include?(Syntax) && expr.is_a?(rule.pat)
-            return transform(apply_template(rule, expr, binding: binding), iters + 1, binding)
-          elsif e = Compiler.compile(rule.pat).match(expr)
-            args = {binding: binding}
-            if e.is_a?(Env)
-              e.env_each do |k, v|
-                args[k] = transform(v, iters, binding)
+          begin
+            if rule.pat.is_a?(Class) && rule.pat.ancestors.include?(Syntax) && expr.is_a?(rule.pat)
+              return transform(apply_template(rule, expr, binding: binding), iters + 1, binding)
+            elsif e = Compiler.compile(rule.pat).match(expr)
+              args = {binding: binding}
+              if e.is_a?(Env)
+                e.env_each do |k, v|
+                  args[k] = transform(v, iters, binding)
+                end
               end
+              return transform(apply_template(rule, **args), iters + 1, binding)
             end
-            return transform(apply_template(rule, **args), iters + 1, binding)
+          rescue NotApplicable
+            # continue to next rule
           end
         end
         # no rules matched
