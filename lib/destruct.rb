@@ -1,5 +1,6 @@
 require_relative './destruct/env'
 require_relative './destruct/types'
 require_relative './destruct/expr_cache'
-require_relative './destruct/language'
+require_relative './destruct/transformer'
+require_relative './destruct/basic_transformer'
 require_relative './destruct/compiler'

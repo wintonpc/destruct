@@ -15,16 +15,18 @@ class Destruct
       @rules = initial_rules
     end
 
+    Identity = Transformer.new
+
     def self.from(base, &add_rules)
-      lang = new(base.rules)
-      lang.instance_exec(&add_rules) if add_rules
-      lang
+      t = new(base.rules)
+      t.instance_exec(&add_rules) if add_rules
+      t
     end
 
-    def translate(expr=nil, &pat_proc)
+    def transform(expr=nil, &pat_proc)
       expr ||= ExprCache.get(pat_proc)
       if expr.is_a?(Array)
-        expr.map { |exp| translate(exp) }
+        expr.map { |exp| transform(exp) }
       elsif !expr.is_a?(Parser::AST::Node)
         expr
       else
@@ -33,7 +35,7 @@ class Destruct
             args = {}
             if e.is_a?(Env)
               e.env_each do |k, v|
-                args[k] = translate(v)
+                args[k] = transform(v)
               end
             end
             return rule.template.(**args)
@@ -101,18 +103,6 @@ class Destruct
 
     def any(*alt_patterns)
       Or.new(*alt_patterns)
-    end
-
-    Identity = Transformer.new
-    Basic = Transformer.from(Identity) do
-      add_rule(n(any(:int, :sym, :float, :str), [v(:value)])) { |value:| value }
-      add_rule(n(:nil, [])) { nil }
-      add_rule(n(:true, [])) { true }
-      add_rule(n(:false, [])) { false }
-      add_rule(n(:send, [nil, v(:name)])) { |name:| Var.new(name) }
-      add_rule(n(:array, v(:items))) { |items:| items }
-      add_rule(n(:hash, v(:pairs))) { |pairs:| pairs.to_h }
-      add_rule(n(:pair, [v(:k), v(:v)])) { |k:, v:| [k, v] }
     end
   end
 end
