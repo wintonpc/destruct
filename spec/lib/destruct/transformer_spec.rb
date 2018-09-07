@@ -178,17 +178,28 @@ class Destruct
     #   # r
     # end
     it 'test' do
-      r = Destruct.destruct do
-        case [1, 3]
+      outer = 42
+      r = Destruct.destruct([1, 3]) do
+        case
         when [v, 2]
-          [v, 2].inspect
+          [v, 2, outer].inspect
         when [v, 3]
-          [v, 3].inspect
+          [v, 3, outer].inspect
         else
           99
         end
       end
-      expect(r).to eql "[1, 3]"
+      lambda do
+        # injected params
+        obj = [1, 3]
+        cp1 = Compiler.compile(Transformer::PatternBase.transform { [v, 2] })
+        cp2 = Compiler.compile(Transformer::PatternBase.transform { [v, 3] })
+
+        # generated code
+        e = cp1.match(obj) and return [e.v, 2, binding.eval("outer")].inspect
+        e = cp2.match(obj) and return [e.v, 3, binding.eval("outer")].inspect
+        99
+      end
     end
   end
 end

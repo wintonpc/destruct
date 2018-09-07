@@ -2,6 +2,7 @@
 
 require 'destructure'
 require 'active_support/core_ext/object/deep_dup'
+require 'destruct/types'
 
 class Destruct
   class Transformer
@@ -31,35 +32,35 @@ class Destruct
 
     NOTHING = Object.new
 
-    def transform(expr=NOTHING, iters=0, binding=nil, &pat_proc)
+    def transform(expr=NOTHING, iters=0, binding=nil, tag_unmatched: true, &pat_proc)
       if expr == NOTHING
         expr = ExprCache.get(pat_proc)
         binding = pat_proc.binding
       end
       if expr.is_a?(Array)
-        expr.map { |exp| transform(exp) }
+        expr.map { |exp| transform(exp, iters, binding, tag_unmatched: tag_unmatched) }
       elsif !expr.is_a?(Parser::AST::Node) && !expr.is_a?(Syntax)
         expr
       else
         @rules.each do |rule|
           begin
             if rule.pat.is_a?(Class) && rule.pat.ancestors.include?(Syntax) && expr.is_a?(rule.pat)
-              return transform(apply_template(rule, expr, binding: binding), iters + 1, binding)
+              return transform(apply_template(rule, expr, binding: binding), iters + 1, binding, tag_unmatched: tag_unmatched)
             elsif e = Compiler.compile(rule.pat).match(expr)
               args = {binding: binding}
               if e.is_a?(Env)
                 e.env_each do |k, v|
-                  args[k] = transform(v, iters, binding)
+                  args[k] = transform(v, iters, binding, tag_unmatched: tag_unmatched)
                 end
               end
-              return transform(apply_template(rule, **args), iters + 1, binding)
+              return transform(apply_template(rule, **args), iters + 1, binding, tag_unmatched: tag_unmatched)
             end
           rescue NotApplicable
             # continue to next rule
           end
         end
         # no rules matched
-        iters > 0 ? expr : [:unmatched_expr, expr]
+        iters > 0 || !tag_unmatched ? expr : [:unmatched_expr, expr]
       end
     end
 
