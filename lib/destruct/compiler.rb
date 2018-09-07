@@ -3,7 +3,6 @@
 require "pp"
 require_relative './types'
 require_relative './rbeautify'
-require 'set'
 
 module Enumerable
   def rest
@@ -60,17 +59,19 @@ class Destruct
       @reverse_refs = {}
       @emitted = StringIO.new
       @temp_num = 0
-      @vars = Set.new
+      @vars = []
     end
 
     def compile(pat)
       x = get_temp("x")
       env = get_temp("env")
       match(Frame.new(pat, x, env))
+      match_code = @emitted.string
+
       env_class_code = ""
       if @vars.any?
         env_class_code = <<~ENV
-          _env_class = Struct.new(#{@vars.map(&:inspect).join(", ")})
+          _env_class = Struct.new(#{@vars.map(&:name).map(&:inspect).join(", ")})
           _make_env = lambda { _env_class.new(#{Array.new(@vars.size, "::Destruct::Env::UNBOUND").join(", ")}) }
         ENV
       end
@@ -80,7 +81,7 @@ class Destruct
           #{env_class_code}
           lambda do |#{x}, binding, #{env}=true|
             begin
-              #{@emitted.string}
+              #{match_code}
       #{env}
             rescue
               ::Destruct::Compiler.show_code(_code, _refs)
@@ -117,13 +118,17 @@ class Destruct
       elsif s.pat.is_a?(Or)
         match_or(s)
       elsif s.pat.is_a?(Var)
-        @vars << s.pat.name
+        saw_var(s.pat)
         match_var(s)
       elsif s.pat.is_a?(Array)
         match_array(s)
       else
         match_literal(s)
       end
+    end
+
+    def saw_var(var)
+      @vars << var unless @vars.any? { |v| v.name == var.name }
     end
 
     def match_array(s)
@@ -135,7 +140,7 @@ class Destruct
       splat_index = s.pat.find_index { |p| p.is_a?(Splat) }
       is_closed = !splat_index || splat_index != s.pat.size - 1
       pre_splat_range = 0...(splat_index || s.pat.size)
-      @vars << s.pat[splat_index].name if splat_index
+      saw_var(s.pat[splat_index]) if splat_index
 
       emit "if #{s.x}.is_a?(Array)"
 
@@ -243,14 +248,16 @@ class Destruct
 
     def bind(s, var, val)
       current_val = get_temp("current_val")
+      proposed_val = get_temp("proposed_val")
       emit <<~CODE
         # bind #{var.name}
-        if #{s.env}
+      #{proposed_val} = #{val}
+        if #{s.env} && #{proposed_val} != ::Destruct::Env::UNBOUND
       #{s.env} = _make_env.() if #{s.env} == true
           #{current_val} = #{s.env}.#{var.name}
           if #{current_val} == ::Destruct::Env::UNBOUND
-            #{s.env}.#{var.name} = #{val}
-          elsif #{current_val} != #{val} && #{current_val} != ::Destruct::Env::UNBOUND
+            #{s.env}.#{var.name} = #{proposed_val}
+          elsif #{current_val} != #{proposed_val} && #{current_val} != ::Destruct::Env::UNBOUND
       #{s.env} = nil
           end
         end
@@ -258,6 +265,21 @@ class Destruct
       test(s, "#{s.env}")
     end
 
+    # def merge(s, other_env)
+    #   emit <<~CODE
+    #     if #{s.env}.nil? || #{other_env}.nil?
+    #       nil
+    #     elsif #{s.env} == true
+    #       #{other_env}
+    #     elsif #{other_env} == true
+    #       #{s.env}
+    #   CODE
+    #   @vars.each do |var|
+    #     bind(s, var, "#{other_env}.#{var.name}")
+    #   end
+    #   emit s.env
+    #   emit "end"
+    # end
 
     def match_obj(s)
       s.type = :obj
