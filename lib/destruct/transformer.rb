@@ -8,8 +8,8 @@ class Destruct
     LITERAL_TYPES = %i[int sym float str].freeze
 
     Rule = Struct.new(:pat, :template)
-
-    attr_reader :rules
+    class Syntax
+    end
 
     def initialize(initial_rules=[])
       @rules = initial_rules
@@ -23,17 +23,23 @@ class Destruct
       t
     end
 
+    def rules
+      @rules.dup
+    end
+
     NOTHING = Object.new
 
     def transform(expr=NOTHING, iters: 0, &pat_proc)
       expr = ExprCache.get(pat_proc) if expr == NOTHING
       if expr.is_a?(Array)
         expr.map { |exp| transform(exp) }
-      elsif !expr.is_a?(Parser::AST::Node)
+      elsif !expr.is_a?(Parser::AST::Node) && !expr.is_a?(Syntax)
         expr
       else
-        rules.each do |rule|
-          if e = Compiler.compile(rule.pat).match(expr)
+        @rules.each do |rule|
+          if rule.pat.is_a?(Class) && rule.pat.ancestors.include?(Syntax) && expr.is_a?(rule.pat)
+            return transform(rule.template.(expr), iters: iters + 1)
+          elsif e = Compiler.compile(rule.pat).match(expr)
             args = {}
             if e.is_a?(Env)
               e.env_each do |k, v|
@@ -44,7 +50,7 @@ class Destruct
           end
         end
         # no rules matched
-        iters == 0 ? [:unmatched_expr, expr] : expr
+        iters > 0 ? expr : [:unmatched_expr, expr]
       end
     end
 
@@ -52,9 +58,9 @@ class Destruct
       if pat_or_proc.is_a?(Proc)
         node = ExprCache.get(pat_or_proc)
         pat = node_to_pattern(node)
-        rules.unshift(Rule.new(pat, translate))
+        @rules.unshift(Rule.new(pat, translate))
       else
-        rules.unshift(Rule.new(pat_or_proc, translate))
+        @rules.unshift(Rule.new(pat_or_proc, translate))
       end
     end
 

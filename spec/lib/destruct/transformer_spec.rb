@@ -1,21 +1,28 @@
 # frozen_string_literal: true
 
 require 'destruct'
+require 'time_it'
 
 class Destruct
   describe Transformer do
-    it 'built-in rules' do
-      t = Transformer::Basic
+    it 'Ruby' do
+      t = Transformer::Ruby
       expect(t.transform { 1 }).to eql 1
       expect(t.transform { 2.0 }).to eql 2.0
       expect(t.transform { :x }).to eql :x
       expect(t.transform { 'x' }).to eql 'x'
       x_var = t.transform { x }
+      expect(x_var).to be_a Transformer::VarRef
+      expect(x_var.name).to eql :x
+    end
+    it 'Pattern' do
+      t = Transformer::Pattern
+      x_var = t.transform { x }
       expect(x_var).to be_a Var
       expect(x_var.name).to eql :x
     end
     it 'passes matches to the block' do
-      t = Transformer.from(Transformer::Basic) do
+      t = Transformer.from(Transformer::Ruby) do
         add_rule(->{ ~v }) do |v:|
           Splat.new(v.name)
         end
@@ -25,7 +32,7 @@ class Destruct
       expect(foo_splat.name).to eql :foo
     end
     it 'allows matched vars to be locals' do
-      t = Transformer.from(Transformer::Basic) do
+      t = Transformer.from(Transformer::Ruby) do
         v = nil
         add_rule(->{ ~v }) do |v:|
           Splat.new(v.name)
@@ -36,7 +43,7 @@ class Destruct
       expect(foo_splat.name).to eql :foo
     end
     it 'translates more complex rules' do
-      t = Transformer.from(Transformer::Basic) do
+      t = Transformer.from(Transformer::Ruby) do
         v = nil
         add_rule(->{ ~v }) do |v:|
           Splat.new(v.name)
@@ -47,18 +54,20 @@ class Destruct
       expect(r[1].name).to eql :foo
     end
     it 'translates stuff with hashes' do
-      t = Transformer.from(Transformer::Basic) do
-        v = nil
-        add_rule(->{ ~v }) do |v:|
-          Splat.new(v.name)
+      time_it("test") do
+        t = Transformer.from(Transformer::Ruby) do
+          v = nil
+          add_rule(->{ ~v }) do |v:|
+            Splat.new(v.name)
+          end
         end
+        r = t.transform { {a: 1, b: [1, ~foo]} }
+        expect(r).to be_a Hash
+        expect(r[:b].last).to be_a Splat
       end
-      r = t.transform { {a: 1, b: [1, ~foo]} }
-      expect(r).to be_a Hash
-      expect(r[:b].last).to be_a Splat
     end
     it 'metacircularish' do
-      t = Transformer.from(Transformer::Basic) do
+      t = Transformer.from(Transformer::Pattern) do
         add_rule(->{ n(type, children) }) do |type:, children:|
           Obj.new(Parser::AST::Node, type: type, children: children)
         end
@@ -71,7 +80,7 @@ class Destruct
     end
     Foo = Struct.new(:a, :b)
     it 'object matches' do
-      t = Transformer.from(Transformer::Basic) do
+      t = Transformer.from(Transformer::Ruby) do
         add_rule(->{ klass[*fields] }) do |klass:, fields:|
           Obj.new(klass, fields)
         end

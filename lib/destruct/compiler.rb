@@ -92,7 +92,13 @@ class Destruct
       CODE
       code = beautify_ruby(code)
       # Compiler.show_code(code, @refs, fancy: true, include_vm: false)
-      compiled = eval(code).call(code, @refs, *@refs.values)
+      compiled =
+          begin
+            eval(code).call(code, @refs, *@refs.values)
+          rescue SyntaxError
+            Compiler.show_code(code, @refs, fancy: true, include_vm: false)
+            raise
+          end
       CompiledPattern.new(pat, compiled, code)
     end
 
@@ -255,7 +261,7 @@ class Destruct
       emit <<~CODE
         # bind #{var.name}
       #{proposed_val} = #{val}
-        #{require_outer_check ? "if #{s.env} #{val_could_be_unbound ? "&& #{proposed_val} != :__unbound__" : ""}" : ""} 
+      #{require_outer_check ? "if #{s.env} #{val_could_be_unbound ? "&& #{proposed_val} != :__unbound__" : ""}" : ""}
       #{s.env} = _make_env.() if #{s.env} == true
           #{current_val} = #{s.env}.#{var.name}
           if #{current_val} == :__unbound__
