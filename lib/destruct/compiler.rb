@@ -91,7 +91,7 @@ class Destruct
         end
       CODE
       code = beautify_ruby(code)
-      Compiler.show_code(code, @refs, fancy: true, include_vm: false)
+      # Compiler.show_code(code, @refs, fancy: true, include_vm: false)
       compiled = eval(code).call(code, @refs, *@refs.values)
       CompiledPattern.new(pat, compiled, code)
     end

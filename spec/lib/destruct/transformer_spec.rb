@@ -69,17 +69,17 @@ class Destruct
       e = cp.match(x)
       expect(e.var_name).to eql :asdf
     end
-    # Foo = Struct.new(:a, :b)
-    # it 'test' do
-    #   t = tuage.from(tuage::Basic)
-    #   t.add_rule(->{ n(type, children) }) do |type:, children:|
-    #     Obj.new(Parser::AST::Node, type: type, children: children)
-    #   end
-    #   t.add_rule(->{ Class[*fields] }) do |klass:, fields:|
-    #     to_s
-    #   end
-    #   t.translate { Foo[b, c] }
-    #   to_s
-    # end
+    Foo = Struct.new(:a, :b)
+    it 'object matches' do
+      t = Transformer.from(Transformer::Basic) do
+        add_rule(->{ klass[*fields] }) do |klass:, fields:|
+          Obj.new(klass, fields)
+        end
+      end
+      cp = Compiler.compile(t.transform { Foo[a, b] })
+      e = cp.match(Foo.new(1, 2))
+      expect(e.a).to eql 1
+      expect(e.b).to eql 2
+    end
   end
 end

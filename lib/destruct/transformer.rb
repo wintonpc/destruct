@@ -23,8 +23,10 @@ class Destruct
       t
     end
 
-    def transform(expr=nil, &pat_proc)
-      expr ||= ExprCache.get(pat_proc)
+    NOTHING = Object.new
+
+    def transform(expr=NOTHING, iters: 0, &pat_proc)
+      expr = ExprCache.get(pat_proc) if expr == NOTHING
       if expr.is_a?(Array)
         expr.map { |exp| transform(exp) }
       elsif !expr.is_a?(Parser::AST::Node)
@@ -38,10 +40,11 @@ class Destruct
                 args[k] = transform(v)
               end
             end
-            return rule.template.(**args)
+            return transform(rule.template.(**args), iters: iters + 1)
           end
         end
-        [:unmatched_expr, expr]
+        # no rules matched
+        iters == 0 ? [:unmatched_expr, expr] : expr
       end
     end
 
