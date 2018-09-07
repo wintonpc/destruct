@@ -107,7 +107,14 @@ class Destruct
       elsif env2 == true
         env1
       else
-        env1.merge!(env2)
+        env2.to_h.keys.each do |k|
+          if env1[k] == UNBOUND
+            env1[k] = env2[k]
+          elsif env2[k] != UNBOUND && env1[k] != env2[k]
+            return nil
+          end
+        end
+        env1
       end
     end
 

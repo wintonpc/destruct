@@ -258,9 +258,6 @@ class Destruct
       test(s, "#{s.env}")
     end
 
-    def merge(s, or_env)
-      emit "#{s.env} = ::Destruct::Env.merge!(#{s.env}, #{or_env})#{!in_or(s.parent) ? " or return nil" : ""}"
-    end
 
     def match_obj(s)
       s.type = :obj
@@ -292,7 +289,7 @@ class Destruct
         end
       end
       closers.each(&:call)
-      merge(s, or_env)
+      emit "#{s.env} = ::Destruct::Env.merge!(#{s.env}, #{or_env})#{!in_or(s.parent) ? " or return nil" : ""}"
     end
 
     def get_ref(pat)
