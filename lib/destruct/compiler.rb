@@ -311,7 +311,8 @@ class Destruct
         end
       end
       closers.each(&:call)
-      emit "#{s.env} = ::Destruct::Env.merge!(#{s.env}, #{or_env})#{!in_or(s.parent) ? " or return nil" : ""}"
+      emit "#{s.env} = ::Destruct::Env.merge!(#{s.env}, #{or_env})"
+      emit "#{s.env} or return nil" if !in_or(s.parent)
     end
 
     def get_ref(pat)
