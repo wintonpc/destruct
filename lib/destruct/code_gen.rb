@@ -27,6 +27,17 @@ class Destruct
       end
     end
 
+    def show_code_on_error(inner_code)
+      <<~CODE
+        begin
+          #{inner_code}
+        rescue
+          ::Destruct::CodeGen.show_code(_code, _refs)
+          raise
+        end
+      CODE
+    end
+
     private def ref_args
       return "" if refs.none?
       ", \n#{refs.map { |k, v| "#{k.to_s.ljust(8)}, # #{v.inspect}" }.join("\n")}\n"
@@ -44,11 +55,15 @@ class Destruct
       @reverse_refs ||= {}
     end
 
-    def get_ref(pat)
-      reverse_refs.fetch(pat) do
-        id = get_temp
-        refs[id] = pat
-        reverse_refs[pat] = id
+    def get_ref(value, id=nil)
+      reverse_refs.fetch(value) do
+        if id
+          raise "ref #{id} is already bound" if refs.keys.include?(id)
+        else
+          id = get_temp
+        end
+        refs[id] = value
+        reverse_refs[value] = id
         id
       end
     end

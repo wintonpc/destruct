@@ -69,22 +69,13 @@ class Destruct
 
       env_class_code = ""
       if @vars.any?
-        env_class_code = <<~ENV
-          _env_class = ::Destruct::Env.new_class(#{@vars.map(&:name).map(&:inspect).join(", ")})
-          _make_env = _env_class.method(:new)
-        ENV
+        get_ref(::Destruct::Env.new_class(*@vars.map(&:name)).method(:new), "_make_env")
       end
 
       code = <<~CODE
         #{env_class_code}
         lambda do |#{x}, binding, #{env}=true|
-          begin
-            #{match_code}
-    #{env}
-          rescue
-            ::Destruct::CodeGen.show_code(_code, _refs)
-            raise
-          end
+          #{show_code_on_error(match_code + "\n" + env)}
         end
       CODE
       compiled = generate(code)
