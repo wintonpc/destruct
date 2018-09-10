@@ -189,16 +189,19 @@ class Destruct
           99
         end
       end
-      lambda do
+      lambda do |obj, binding|
         # injected params
-        obj = [1, 3]
         cp1 = Compiler.compile(Transformer::PatternBase.transform { [v, 2] })
         cp2 = Compiler.compile(Transformer::PatternBase.transform { [v, 3] })
 
         # generated code
-        e = cp1.match(obj) and return [e.v, 2, binding.eval("outer")].inspect
-        e = cp2.match(obj) and return [e.v, 3, binding.eval("outer")].inspect
-        99
+        if e = cp1.match(obj)
+          [e.v, 2, binding.eval("outer")].inspect
+        elsif e = cp2.match(obj)
+          [e.v, 3, binding.eval("outer")].inspect
+        else
+          99
+        end
       end
     end
   end

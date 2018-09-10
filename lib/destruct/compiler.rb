@@ -3,6 +3,7 @@
 require "pp"
 require_relative './types'
 require_relative './rbeautify'
+require_relative './code_gen'
 
 module Enumerable
   def rest
@@ -42,6 +43,8 @@ end
 
 class Destruct
   class Compiler
+    include CodeGen
+
     class << self
       def compile(pat)
         Compiler.new.compile(pat)
@@ -57,7 +60,6 @@ class Destruct
     def initialize
       @refs = {}
       @reverse_refs = {}
-      @emitted = StringIO.new
       @temp_num = 0
       @vars = []
     end
@@ -66,7 +68,7 @@ class Destruct
       x = get_temp("x")
       env = get_temp("env")
       match(Frame.new(pat, x, env))
-      match_code = @emitted.string
+      match_code = emitted.string
 
       env_class_code = ""
       if @vars.any?
@@ -100,17 +102,6 @@ class Destruct
             raise
           end
       CompiledPattern.new(pat, compiled, code)
-    end
-
-    def emit(str)
-      @emitted_line_count ||= 0
-      @emitted_line_count += 1
-      @emitted << str
-      @emitted << "\n"
-    end
-
-    def emitted_line_count
-      @emitted_line_count ||= 0
     end
 
     def ref_args
