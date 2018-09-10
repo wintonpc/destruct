@@ -86,19 +86,19 @@ class Destruct
               #{match_code}
       #{env}
             rescue
-              ::Destruct::Compiler.show_code(_code, _refs)
+              ::Destruct::CodeGen.show_code(_code, _refs)
               raise
             end
           end
         end
       CODE
       code = beautify_ruby(code)
-      # Compiler.show_code(code, @refs, fancy: true, include_vm: false)
+      # show_code(code, @refs, fancy: true, include_vm: false)
       compiled =
           begin
             eval(code).call(code, @refs, *@refs.values)
           rescue SyntaxError
-            Compiler.show_code(code, @refs, fancy: true, include_vm: false)
+            show_code(code, @refs, fancy: true, include_vm: false)
             raise
           end
       CompiledPattern.new(pat, compiled, code)
@@ -325,36 +325,6 @@ class Destruct
 
     def get_temp(prefix="t")
       "_#{prefix}#{@temp_num += 1}"
-    end
-
-    def beautify_ruby(code)
-      RBeautify.beautify_string(code.split("\n").reject { |line| line.strip == '' }).first
-    end
-
-    def self.show_code(code, refs, fancy: true, include_vm: false)
-      lines = number_lines(code)
-      if fancy
-        lines = lines
-                    .reject { |line| line =~ /^\s*\d+\s*puts/ }
-                    .map do |line|
-          if line !~ /, #|_code|_refs/
-            refs.each do |k, v|
-              line = line.gsub(/#{k}(?!\d+)/, v.inspect)
-            end
-          end
-          line
-        end
-      end
-      puts lines
-      if include_vm
-        pp RubyVM::InstructionSequence.compile(code).to_a
-      end
-    end
-
-    def self.number_lines(code)
-      code.split("\n").each_with_index.map do |line, n|
-        "#{(n + 1).to_s.rjust(3)} #{line}"
-      end
     end
 
     private
