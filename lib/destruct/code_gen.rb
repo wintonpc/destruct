@@ -11,8 +11,25 @@ class Destruct
       emitted << "\n"
     end
 
-    def generate(code, injected_bindings)
+    def generate(code)
+      code = <<~CODE
+        lambda do |_code, _refs#{ref_args}|
+          #{code}
+        end
+      CODE
+      code = beautify_ruby(code)
+      # show_code(code, refs, fancy: true, include_vm: false)
+      begin
+        eval(code).call(code, refs, *refs.values)
+      rescue SyntaxError
+        show_code(code, refs, fancy: true, include_vm: false)
+        raise
+      end
+    end
 
+    private def ref_args
+      return "" if refs.none?
+      ", \n#{refs.map { |k, v| "#{k.to_s.ljust(8)}, # #{v.inspect}" }.join("\n")}\n"
     end
 
     def beautify_ruby(code)
