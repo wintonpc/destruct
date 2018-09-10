@@ -57,29 +57,36 @@ class Destruct
 
     Frame = Struct.new(:pat, :x, :env, :parent, :type)
 
-    def initialize
-      @vars = []
-    end
-
     def compile(pat)
-      x = get_temp("x")
-      env = get_temp("env")
-      match(Frame.new(pat, x, env))
-      match_code = emitted.string
-
-      env_class_code = ""
-      if @vars.any?
-        get_ref(::Destruct::Env.new_class(*@vars.map(&:name)).method(:new), "_make_env")
+      @var_names = find_var_names(pat)
+      if @var_names.any?
+        get_ref(::Destruct::Env.new_class(*@var_names).method(:new), "_make_env")
       end
 
-      code = <<~CODE
-        #{env_class_code}
-        lambda do |#{x}, binding, #{env}=true|
-          #{show_code_on_error(match_code + "\n" + env)}
-        end
-      CODE
-      compiled = generate(code)
-      CompiledPattern.new(pat, compiled, code)
+      x = get_temp("x")
+      env = get_temp("env")
+      emit "lambda do |#{x}, binding, #{env}=true|"
+      show_code_on_error do
+        match(Frame.new(pat, x, env))
+        emit env
+      end
+      emit "end"
+      compiled = generate
+      CompiledPattern.new(pat, compiled, emitted.string)
+    end
+
+    def find_var_names(pat)
+      if pat.is_a?(Obj)
+        pat.fields.values.flat_map(&method(:find_var_names))
+      elsif pat.is_a?(Or)
+        pat.patterns.flat_map(&method(:find_var_names))
+      elsif pat.is_a?(Var)
+        [pat.name]
+      elsif pat.is_a?(Array)
+        pat.flat_map(&method(:find_var_names))
+      else
+        []
+      end.uniq
     end
 
     def match(s)
@@ -88,17 +95,12 @@ class Destruct
       elsif s.pat.is_a?(Or)
         match_or(s)
       elsif s.pat.is_a?(Var)
-        saw_var(s.pat)
         match_var(s)
       elsif s.pat.is_a?(Array)
         match_array(s)
       else
         match_literal(s)
       end
-    end
-
-    def saw_var(var)
-      @vars << var unless @vars.any? { |v| v.name == var.name }
     end
 
     def match_array(s)
@@ -110,7 +112,6 @@ class Destruct
       splat_index = s.pat.find_index { |p| p.is_a?(Splat) }
       is_closed = !splat_index || splat_index != s.pat.size - 1
       pre_splat_range = 0...(splat_index || s.pat.size)
-      saw_var(s.pat[splat_index]) if splat_index
 
       s.x = localize(nil, s.x)
       emit "if #{s.x}.is_a?(Array)"
@@ -219,17 +220,18 @@ class Destruct
     end
 
     def bind(s, var, val, val_could_be_unbound=false)
+      var_name = var.is_a?(Var) ? var.name : var
       current_val = get_temp("current_val")
       proposed_val = get_temp("proposed_val")
       require_outer_check = in_or(s) || val_could_be_unbound
       emit <<~CODE
-        # bind #{var.name}
+        # bind #{var_name}
       #{proposed_val} = #{val}
       #{require_outer_check ? "if #{s.env} #{val_could_be_unbound ? "&& #{proposed_val} != :__unbound__" : ""}" : ""}
       #{s.env} = _make_env.() if #{s.env} == true
-          #{current_val} = #{s.env}.#{var.name}
+          #{current_val} = #{s.env}.#{var_name}
           if #{current_val} == :__unbound__
-            #{s.env}.#{var.name} = #{proposed_val}
+            #{s.env}.#{var_name} = #{proposed_val}
           elsif #{current_val} != #{proposed_val}
       #{s.env} = nil
           end
@@ -281,8 +283,8 @@ class Destruct
           #{s.env} = #{other_env}
         elsif #{other_env} != true
       CODE
-      @vars.each do |var|
-        bind(s, var, "#{other_env}.#{var.name}", true)
+      @var_names.each do |var_name|
+        bind(s, var_name, "#{other_env}.#{var_name}", true)
       end
       emit "end"
     end

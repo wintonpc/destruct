@@ -11,10 +11,10 @@ class Destruct
       emitted << "\n"
     end
 
-    def generate(code)
+    def generate
       code = <<~CODE
         lambda do |_code, _refs#{ref_args}|
-          #{code}
+          #{emitted.string}
         end
       CODE
       code = beautify_ruby(code)
@@ -27,15 +27,21 @@ class Destruct
       end
     end
 
-    def show_code_on_error(inner_code)
-      <<~CODE
-        begin
-          #{inner_code}
+    def show_code_on_error(&emit_inner_code)
+      emit_begin emit_body: emit_inner_code, emit_rescues: (proc do
+        emit <<~RESCUE
         rescue
           ::Destruct::CodeGen.show_code(_code, _refs)
           raise
-        end
-      CODE
+        RESCUE
+      end)
+    end
+
+    def emit_begin(emit_body:, emit_rescues: nil)
+      emit "begin"
+      emit_body.call
+      emit_rescues&.call
+      emit "end"
     end
 
     private def ref_args
