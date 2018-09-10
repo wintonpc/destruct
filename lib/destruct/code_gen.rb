@@ -19,6 +19,28 @@ class Destruct
       RBeautify.beautify_string(code.split("\n").reject { |line| line.strip == '' }).first
     end
 
+    def refs
+      @refs ||= {}
+    end
+
+    def reverse_refs
+      @reverse_refs ||= {}
+    end
+
+    def get_ref(pat)
+      reverse_refs.fetch(pat) do
+        id = get_temp
+        refs[id] = pat
+        reverse_refs[pat] = id
+        id
+      end
+    end
+
+    def get_temp(prefix="t")
+      @temp_num ||= 0
+      "_#{prefix}#{@temp_num += 1}"
+    end
+
     module_function
 
     def show_code(code, refs, fancy: true, include_vm: false)

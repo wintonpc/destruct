@@ -58,9 +58,6 @@ class Destruct
     Frame = Struct.new(:pat, :x, :env, :parent, :type)
 
     def initialize
-      @refs = {}
-      @reverse_refs = {}
-      @temp_num = 0
       @vars = []
     end
 
@@ -93,20 +90,20 @@ class Destruct
         end
       CODE
       code = beautify_ruby(code)
-      # show_code(code, @refs, fancy: true, include_vm: false)
+      # show_code(code, refs, fancy: true, include_vm: false)
       compiled =
           begin
-            eval(code).call(code, @refs, *@refs.values)
+            eval(code).call(code, refs, *refs.values)
           rescue SyntaxError
-            show_code(code, @refs, fancy: true, include_vm: false)
+            show_code(code, refs, fancy: true, include_vm: false)
             raise
           end
       CompiledPattern.new(pat, compiled, code)
     end
 
     def ref_args
-      return "" if @refs.none?
-      ", \n#{@refs.map { |k, v| "#{k.to_s.ljust(8)}, # #{v.inspect}" }.join("\n")}\n"
+      return "" if refs.none?
+      ", \n#{refs.map { |k, v| "#{k.to_s.ljust(8)}, # #{v.inspect}" }.join("\n")}\n"
     end
 
     def match(s)
@@ -312,19 +309,6 @@ class Destruct
         bind(s, var, "#{other_env}.#{var.name}", true)
       end
       emit "end"
-    end
-
-    def get_ref(pat)
-      @reverse_refs.fetch(pat) do
-        id = get_temp
-        @refs[id] = pat
-        @reverse_refs[pat] = id
-        id
-      end
-    end
-
-    def get_temp(prefix="t")
-      "_#{prefix}#{@temp_num += 1}"
     end
 
     private
