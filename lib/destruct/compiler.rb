@@ -65,12 +65,12 @@ class Destruct
 
       x = get_temp("x")
       env = get_temp("env")
-      emit "lambda do |#{x}, binding, #{env}=true|"
-      show_code_on_error do
-        match(Frame.new(pat, x, env))
-        emit env
+      emit_lambda(x, "binding", "#{env}=true") do
+        show_code_on_error do
+          match(Frame.new(pat, x, env))
+          emit env
+        end
       end
-      emit "end"
       compiled = generate
       CompiledPattern.new(pat, compiled, emitted.string)
     end

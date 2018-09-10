@@ -44,6 +44,12 @@ class Destruct
       emit "end"
     end
 
+    def emit_lambda(*args, &emit_body)
+      emit "lambda do |#{args.join(", ")}|"
+      emit_body.call
+      emit "end"
+    end
+
     private def ref_args
       return "" if refs.none?
       ", \n#{refs.map { |k, v| "#{k.to_s.ljust(8)}, # #{v.inspect}" }.join("\n")}\n"
