@@ -63,3 +63,7 @@ class Destruct
     Parser::AST::Node.new(type, children)
   end
 end
+
+def destruct(obj, transformer=Destruct::Transformer::StandardPattern, &block)
+  Destruct.destruct(obj, transformer, &block)
+end
