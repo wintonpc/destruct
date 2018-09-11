@@ -72,8 +72,7 @@ class Destruct
         end
       end
       g = generate
-      show_code(g.code) if $show_code
-      CompiledPattern.new(pat, g.proc, g.code)
+      CompiledPattern.new(pat, g.proc, g.code, @var_names)
     end
 
     def find_var_names(pat)
@@ -141,7 +140,6 @@ class Destruct
           end
         end
       end.elsif "#{s.x}.is_a?(Enumerable)" do
-
         en = get_temp("en")
         done = get_temp("done")
         stopped = get_temp("stopped")
@@ -159,7 +157,7 @@ class Destruct
             if is_closed
               splat_len = get_temp("splat_len")
               emit "#{splat_len} = #{s.x}.size - #{s.pat.size - 1}"
-              emit "#{splat_len}.times do "
+              emit "#{splat_len}.times do"
               emit "#{splat} << #{en}.next"
               emit "end"
               bind(s, s.pat[splat_index], splat)
@@ -300,12 +298,13 @@ class Destruct
   end
 
   class CompiledPattern
-    attr_reader :pat, :code
+    attr_reader :pat, :compiled, :code, :var_names
 
-    def initialize(pat, compiled, code)
+    def initialize(pat, compiled, code, var_names)
       @pat = pat
       @compiled = compiled
       @code = code
+      @var_names = var_names
     end
 
     def match(x, binding=nil)

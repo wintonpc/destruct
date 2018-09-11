@@ -3,6 +3,8 @@ require 'destruct'
 class Destruct
   describe Destruct do
     it 'test' do
+      # $show_code = true
+      e = ExprCache.get(->{ x })
       outer = 42
       r = Destruct.destruct([1, 3]) do
         case
@@ -14,7 +16,7 @@ class Destruct
           99
         end
       end
-      expect(r).to eql [1, 3, 42]
+      expect(r).to eql [1, 3, 42].inspect
       # lambda do |obj, binding|
       #   # injected params
       #   cp1 = Compiler.compile(Transformer::PatternBase.transform { [v, 2] })

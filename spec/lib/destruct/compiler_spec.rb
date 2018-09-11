@@ -100,7 +100,6 @@ class Destruct
       expect(e.c).to eql ::Destruct::Env::UNBOUND
     end
     it 'compiles arrays' do
-      $show_code = true
       cp = Compiler.compile([1, Var.new(:foo)])
       e = cp.match([1, 2])
       expect(e).to be_truthy
