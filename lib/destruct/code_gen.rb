@@ -30,21 +30,19 @@ class Destruct
       end
     end
 
-    def show_code_on_error(&emit_inner_code)
-      emit_begin emit_body: emit_inner_code, emit_rescues: (proc do
-        emit <<~RESCUE
-        rescue
-          ::Destruct::CodeGen.show_code(_code, _refs)
-          raise
-        RESCUE
-      end)
+    def show_code_on_error
+      emit_begin do
+        yield
+      end.rescue do
+        emit "::Destruct::CodeGen.show_code(_code, _refs)"
+        emit "raise"
+      end.end
     end
 
-    def emit_begin(emit_body:, emit_rescues: nil)
+    def emit_begin
       emit "begin"
-      emit_body.call
-      emit_rescues&.call
-      emit "end"
+      yield
+      Begin.new(self)
     end
 
     def emit_lambda(*args, &emit_body)
@@ -78,6 +76,27 @@ class Destruct
           yield
           emit "end"
         end
+        self
+      end
+
+      def end
+        @parent.instance_exec do
+          emit "end"
+        end
+      end
+    end
+
+    class Begin
+      def initialize(parent)
+        @parent = parent
+      end
+
+      def rescue(type_clause="")
+        @parent.instance_exec do
+          emit "rescue #{type_clause}"
+          yield
+        end
+        self
       end
 
       def end
