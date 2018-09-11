@@ -4,22 +4,21 @@ require 'destruct'
 
 class Destruct
   describe Destruct do
+    Outer = Struct.new(:o)
     it 'test' do
-      # $show_code = true
-      e = ExprCache.get(->{ x })
       outer = 42
       @outer = 43
       r = Destruct.destruct([1, 3]) do
         case
         when [v, 2]
-          [v, 2, outer, @outer, outer_method(@outer)].inspect
+          [v, 2, outer, @outer, outer_method(@outer), Outer.new(45)].inspect
         when [v, 3]
-          [v, 3, outer, @outer, outer_method(@outer)].inspect
+          [v, 3, outer, @outer, outer_method(@outer), Outer.new(45)].inspect
         else
           99
         end
       end
-      expect(r).to eql [1, 3, 42, 43, 44].inspect
+      expect(r).to eql [1, 3, 42, 43, 44, Outer.new(45)].inspect
       # lambda do |obj, binding|
       #   # injected params
       #   cp1 = Compiler.compile(Transformer::PatternBase.transform { [v, 2] })

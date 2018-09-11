@@ -32,8 +32,8 @@ class Destruct
 
     NOTHING = Object.new
 
-    def transform_in_binding(binding, &pat_proc)
-      transform(NOTHING, 0, binding, tag_unmatched: false, &pat_proc)
+    def transform_pattern_proc(&pat_proc)
+      transform(NOTHING, 0, pat_proc.binding, tag_unmatched: false, &pat_proc)
     end
 
     def transform(expr=NOTHING, iters=0, binding=nil, tag_unmatched: true, &pat_proc)

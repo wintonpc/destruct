@@ -21,7 +21,7 @@ class Destruct
   end
 
   def compile(pat_proc, tx)
-    case_expr = Transformer::Destruct.transform_in_binding(tag_unmatched: false, &pat_proc)
+    case_expr = Transformer::Destruct.transform_pattern_proc(&pat_proc)
     emit_lambda("_x", "_binding") do
       show_code_on_error do
         case_expr.whens.each do |w|
