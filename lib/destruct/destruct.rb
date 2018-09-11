@@ -21,7 +21,7 @@ class Destruct
   end
 
   def compile(pat_proc, tx)
-    case_expr = Transformer::Destruct.transform(tag_unmatched: false, &pat_proc)
+    case_expr = Transformer::Destruct.transform_in_binding(tag_unmatched: false, &pat_proc)
     emit_lambda("_x", "_binding") do
       show_code_on_error do
         case_expr.whens.each do |w|
@@ -32,8 +32,7 @@ class Destruct
           cp.var_names.each do |name|
             emit "#{name} = _env.#{name}"
           end
-          redirected = redirect(w.body)
-          emit Unparser.unparse(redirected)
+          emit Unparser.unparse(redirect(w.body))
         end
         if case_expr.else_body
           emit "else"
@@ -52,6 +51,9 @@ class Destruct
       node
     elsif node.type == :lvar || node.type == :ivar
       n(:send, n(:lvar, :_binding), :eval, n(:str, node.children[0].to_s))
+    elsif node.type == :send && node.children[0].nil? && node.children.size > 2
+      self_expr = n(:send, n(:lvar, :_binding), :eval, n(:str, "self"))
+      n(:send, self_expr, :send, n(:sym, node.children[1]), *node.children[2..-1].map { |c| redirect(c) })
     else
       node.updated(nil, node.children.map { |c| redirect(c) })
     end
