@@ -2,6 +2,8 @@ require 'stringio'
 
 class Destruct
   module CodeGen
+    GeneratedCode = Struct.new(:proc, :code)
+
     def emitted
       @emitted ||= StringIO.new
     end
@@ -20,7 +22,8 @@ class Destruct
       code = beautify_ruby(code)
       # show_code(code, refs, fancy: true, include_vm: false)
       begin
-        eval(code).call(code, refs, *refs.values)
+        result = eval(code).call(code, refs, *refs.values)
+        GeneratedCode.new(result, code)
       rescue SyntaxError
         show_code(code, refs, fancy: true, include_vm: false)
         raise
@@ -48,6 +51,40 @@ class Destruct
       emit "lambda do |#{args.join(", ")}|"
       emit_body.call
       emit "end"
+    end
+
+    def emit_if(cond)
+      emit "if #{cond}"
+      yield
+      If.new(self)
+    end
+
+    class If
+      def initialize(parent)
+        @parent = parent
+      end
+
+      def elsif(cond)
+        @parent.instance_exec do
+          emit "elsif #{cond}"
+          yield
+        end
+        self
+      end
+
+      def else
+        @parent.instance_exec do
+          emit "else"
+          yield
+          emit "end"
+        end
+      end
+
+      def end
+        @parent.instance_exec do
+          emit "end"
+        end
+      end
     end
 
     private def ref_args
@@ -87,7 +124,7 @@ class Destruct
 
     module_function
 
-    def show_code(code, refs, fancy: true, include_vm: false)
+    def show_code(code, refs=self.refs, fancy: true, include_vm: false)
       lines = number_lines(code)
       if fancy
         lines = lines

@@ -71,8 +71,8 @@ class Destruct
           emit env
         end
       end
-      compiled = generate
-      CompiledPattern.new(pat, compiled, emitted.string)
+      g = generate
+      CompiledPattern.new(pat, g.proc, g.code)
     end
 
     def find_var_names(pat)
@@ -114,77 +114,76 @@ class Destruct
       pre_splat_range = 0...(splat_index || s.pat.size)
 
       s.x = localize(nil, s.x)
-      emit "if #{s.x}.is_a?(Array)"
+      emit_if "#{s.x}.is_a?(Array)" do
 
-      cond = splat_index ? "#{s.x}.size >= #{s.pat.size - 1}" : "#{s.x}.size == #{s.pat.size}"
-      test(s, cond) do
+        cond = splat_index ? "#{s.x}.size >= #{s.pat.size - 1}" : "#{s.x}.size == #{s.pat.size}"
+        test(s, cond) do
 
-        pre_splat_range.each do |i|
-          item_pat = s.pat[i]
-          x = localize(item_pat, "#{s.x}[#{i}]")
+          pre_splat_range.each do |i|
+            item_pat = s.pat[i]
+            x = localize(item_pat, "#{s.x}[#{i}]")
+            match(Frame.new(item_pat, x, s.env, s))
+          end
+
+          if splat_index
+            splat_range = get_temp("splat_range")
+            post_splat_width = s.pat.size - splat_index - 1
+            emit "#{splat_range} = #{splat_index}...(#{s.x}.size#{post_splat_width > 0 ? "- #{post_splat_width}" : ""})"
+            bind(s, s.pat[splat_index], "#{s.x}[#{splat_range}]")
+
+            post_splat_pat_range = ((splat_index + 1)...s.pat.size)
+            post_splat_pat_range.each do |i|
+              item_pat = s.pat[i]
+              x = localize(item_pat, "#{s.x}[-#{s.pat.size - i}]")
+              match(Frame.new(item_pat, x, s.env, s))
+            end
+          end
+        end
+      end.elsif "#{s.x}.is_a?(Enumerable)" do
+
+        en = get_temp("en")
+        done = get_temp("done")
+        stopped = get_temp("stopped")
+        emit "#{en} = #{s.x}.each"
+        emit "#{done} = false"
+        emit "begin"
+
+        s.pat[0...(splat_index || s.pat.size)].each do |item_pat|
+          x = localize(item_pat, "#{en}.next")
           match(Frame.new(item_pat, x, s.env, s))
         end
 
         if splat_index
-          splat_range = get_temp("splat_range")
-          post_splat_width = s.pat.size - splat_index - 1
-          emit "#{splat_range} = #{splat_index}...(#{s.x}.size#{post_splat_width > 0 ? "- #{post_splat_width}" : ""})"
-          bind(s, s.pat[splat_index], "#{s.x}[#{splat_range}]")
+          splat = get_temp("splat")
+          emit "#{splat} = []"
+          if is_closed
+            splat_len = get_temp("splat_len")
+            emit "#{splat_len} = #{s.x}.size - #{s.pat.size - 1}"
+            emit "#{splat_len}.times do "
+            emit "#{splat} << #{en}.next"
+            emit "end"
+            bind(s, s.pat[splat_index], splat)
 
-          post_splat_pat_range = ((splat_index + 1)...s.pat.size)
-          post_splat_pat_range.each do |i|
-            item_pat = s.pat[i]
-            x = localize(item_pat, "#{s.x}[-#{s.pat.size - i}]")
-            match(Frame.new(item_pat, x, s.env, s))
+            s.pat[(splat_index+1)...(s.pat.size)].each do |item_pat|
+              x = localize(item_pat, "#{en}.next")
+              match(Frame.new(item_pat, x, s.env, s))
+            end
+          else
+            bind(s, s.pat[splat_index], "#{en}.new_from_here")
           end
         end
-      end
 
-      emit "elsif #{s.x}.is_a?(Enumerable)"
+        emit "#{done} = true"
+        emit "#{en}.next" if is_closed
+        emit "rescue StopIteration"
+        emit "#{stopped} = true"
+        test(s, done)
+        emit "end"
+        test(s, stopped) if is_closed
 
-      en = get_temp("en")
-      done = get_temp("done")
-      stopped = get_temp("stopped")
-      emit "#{en} = #{s.x}.each"
-      emit "#{done} = false"
-      emit "begin"
-
-      s.pat[0...(splat_index || s.pat.size)].each do |item_pat|
-        x = localize(item_pat, "#{en}.next")
-        match(Frame.new(item_pat, x, s.env, s))
-      end
-
-      if splat_index
-        splat = get_temp("splat")
-        emit "#{splat} = []"
-        if is_closed
-          splat_len = get_temp("splat_len")
-          emit "#{splat_len} = #{s.x}.size - #{s.pat.size - 1}"
-          emit "#{splat_len}.times do "
-          emit "#{splat} << #{en}.next"
-          emit "end"
-          bind(s, s.pat[splat_index], splat)
-
-          s.pat[(splat_index+1)...(s.pat.size)].each do |item_pat|
-            x = localize(item_pat, "#{en}.next")
-            match(Frame.new(item_pat, x, s.env, s))
-          end
-        else
-          bind(s, s.pat[splat_index], "#{en}.new_from_here")
-        end
-      end
-
-      emit "#{done} = true"
-      emit "#{en}.next" if is_closed
-      emit "rescue StopIteration"
-      emit "#{stopped} = true"
-      test(s, done)
-      emit "end"
-      test(s, stopped) if is_closed
-
-      emit "else"
-      test(s, "nil")
-      emit "end"
+        emit "else"
+        test(s, "nil")
+      end.end
     end
 
     def in_or(s)
