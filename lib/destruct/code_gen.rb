@@ -4,7 +4,7 @@ require 'stringio'
 
 class Destruct
   module CodeGen
-    GeneratedCode = Struct.new(:proc, :code)
+    GeneratedCode = Struct.new(:proc, :code, :filename)
 
     def emitted
       @emitted ||= StringIO.new
@@ -23,14 +23,13 @@ class Destruct
         end
       CODE
       code = beautify_ruby(code)
-      # show_code(code, refs, fancy: true, include_vm: false)
       begin
         result = eval(code, nil, filename).call(code, filename, refs, *refs.values)
-        gc = GeneratedCode.new(result, code)
-        show_code(gc.code) if $show_code
+        gc = GeneratedCode.new(result, code, filename)
+        show_code(gc) if $show_code
         gc
       rescue SyntaxError
-        show_code(code, refs, fancy: true, include_vm: false)
+        show_code(code, filename, refs, fancy: true, include_vm: false)
         raise
       end
     end
@@ -148,7 +147,12 @@ class Destruct
 
     module_function
 
-    def show_code(code, refs=self.refs, fancy: true, include_vm: false)
+    def show_code(code, filename="", refs=self.refs, fancy: true, include_vm: false)
+      if code.is_a?(GeneratedCode)
+        gc = code
+        code = gc.code
+        filename = gc.filename
+      end
       lines = number_lines(code)
       if fancy
         lines = lines
@@ -162,6 +166,8 @@ class Destruct
           line
         end
       end
+      puts
+      puts filename
       puts lines
       if include_vm
         pp RubyVM::InstructionSequence.compile(code).to_a

@@ -71,7 +71,7 @@ class Destruct
           emit env
         end
       end
-      g = generate("Matcher for: #{pat}")
+      g = generate("Matcher for: #{pat.inspect}")
       CompiledPattern.new(pat, g.proc, g.code, @var_names)
     end
 

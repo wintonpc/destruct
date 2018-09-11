@@ -44,8 +44,9 @@ class Destruct
         emit "end"
       end
     end
-    g = generate("Destruct for #{pat_proc}")
-    show_code(g.code, fancy: false)
+    filename = "Destruct for #{pat_proc}"
+    g = generate(filename)
+    show_code(g)
     g.proc
   end
 
