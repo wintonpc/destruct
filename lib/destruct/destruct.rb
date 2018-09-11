@@ -50,7 +50,7 @@ class Destruct
   private def redirect(node)
     if !node.is_a?(Parser::AST::Node)
       node
-    elsif node.type == :lvar
+    elsif node.type == :lvar || node.type == :ivar
       n(:send, n(:lvar, :_binding), :eval, n(:str, node.children[0].to_s))
     else
       node.updated(nil, node.children.map { |c| redirect(c) })
