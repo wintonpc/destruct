@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'unparser'
 require 'destruct/transformer/destruct'
 require_relative './code_gen'

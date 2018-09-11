@@ -195,22 +195,6 @@ Style/EvalWithLocation:
   Exclude:
     - 'lib/destruct/env.rb'
 
-# Offense count: 9
-# Cop supports --auto-correct.
-# Configuration parameters: EnforcedStyle.
-# SupportedStyles: when_needed, always, never
-Style/FrozenStringLiteralComment:
-  Exclude:
-    - 'lib/destruct/code_gen.rb'
-    - 'lib/destruct/destruct.rb'
-    - 'lib/destruct/transformer/destruct.rb'
-    - 'lib/destruct/transformer/pattern_base.rb'
-    - 'lib/destruct/transformer/ruby.rb'
-    - 'lib/destruct/transformer/standard_pattern.rb'
-    - 'spec/lib/destruct/compiler_spec.rb'
-    - 'spec/lib/destruct/destruct_spec.rb'
-    - 'spec/lib/destruct/performance_spec.rb'
-
 # Offense count: 1
 # Configuration parameters: AllowedVariables.
 Style/GlobalVars:
