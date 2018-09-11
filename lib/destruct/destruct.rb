@@ -12,34 +12,36 @@ class Destruct
       Thread.current[:destructs_by_proc] ||= {}
     end
 
-    def destruct(obj, transformer=Transformer::StandardPattern)
-      if true
-        block = Proc.new
-        d = destructs_by_proc.fetch(block.cached_source_location) do
-          destructs_by_proc[block.cached_source_location] = Destruct.new.compile(block, transformer)
-        end
-        d.(obj, block.binding)
+    def destruct(obj, transformer=Transformer::StandardPattern, &block)
+      key = block.cached_source_location
+      d = destructs_by_proc.fetch(key) do
+        destructs_by_proc[key] = Destruct.new.compile(block, transformer)
       end
+      d.(obj, block)
     end
   end
 
   def compile(pat_proc, tx)
     case_expr = Transformer::Destruct.transform_pattern_proc(&pat_proc)
-    emit_lambda("_x", "_binding") do
+    emit_lambda("_x", "_obj_with_binding") do
       show_code_on_error do
         case_expr.whens.each do |w|
           pat = tx.transform(w.pred)
           cp = Compiler.compile(pat)
           if_str = w == case_expr.whens.first ? "if" : "elsif"
-          emit "#{if_str} _env = #{get_ref(cp.compiled)}.(_x, _binding)"
+          emit "#{if_str} _env = #{get_ref(cp.compiled)}.(_x, _obj_with_binding)"
           cp.var_names.each do |name|
             emit "#{name} = _env.#{name}"
           end
-          emit Unparser.unparse(redirect(w.body))
+          redirected = redirect(w.body)
+          emit "_binding = _obj_with_binding.binding" if @needs_binding
+          emit Unparser.unparse(redirected)
         end
         if case_expr.else_body
           emit "else"
-          emit Unparser.unparse(case_expr.else_body)
+          redirected = redirect(case_expr.else_body)
+          emit "_binding = _obj_with_binding.binding" if @needs_binding
+          emit Unparser.unparse(redirected)
         end
         emit "end"
       end
@@ -56,6 +58,7 @@ class Destruct
     elsif node.type == :lvar || node.type == :ivar
       n(:send, n(:lvar, :_binding), :eval, n(:str, node.children[0].to_s))
     elsif node.type == :send && node.children[0].nil? && node.children.size > 2
+      @needs_binding = true
       self_expr = n(:send, n(:lvar, :_binding), :eval, n(:str, "self"))
       n(:send, self_expr, :send, n(:sym, node.children[1]), *node.children[2..-1].map { |c| redirect(c) })
     else

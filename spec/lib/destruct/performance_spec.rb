@@ -26,7 +26,6 @@ class Destruct
     end
 
     it 'destructuring is memory-efficient' do
-      $show_code = true
       a = [1, 2, 3, 4]
       destruct_once(a)
       report = MemoryProfiler.report do
@@ -35,7 +34,7 @@ class Destruct
         end
       end
 
-      report.pretty_print # at last check, this was allocating one 40 byte Env (appearing as <<Unknown>>)
+      report.pretty_print # at last check, this was allocating 176 bytes: one proc (the block), one array (proc source location), and one Env
     end
 
     it 'destructuring is time-efficient' do
