@@ -15,17 +15,17 @@ class Destruct
       emitted << "\n"
     end
 
-    def generate
+    def generate(filename='')
       code = <<~CODE
         # frozen_string_literal: true
-        lambda do |_code, _refs#{ref_args}|
+        lambda do |_code, _filename, _refs#{ref_args}|
           #{emitted.string}
         end
       CODE
       code = beautify_ruby(code)
       # show_code(code, refs, fancy: true, include_vm: false)
       begin
-        result = eval(code).call(code, refs, *refs.values)
+        result = eval(code, nil, filename).call(code, filename, refs, *refs.values)
         gc = GeneratedCode.new(result, code)
         show_code(gc.code) if $show_code
         gc
@@ -39,7 +39,7 @@ class Destruct
       emit_begin do
         yield
       end.rescue do
-        emit "::Destruct::CodeGen.show_code(_code, _refs, fancy: false)"
+        emit "::Destruct::CodeGen.show_code(_code, _filename, _refs, fancy: false)"
         emit "raise"
       end.end
     end

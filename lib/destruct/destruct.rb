@@ -12,11 +12,14 @@ class Destruct
       Thread.current[:destructs_by_proc] ||= {}
     end
 
-    def destruct(obj, transformer=Transformer::StandardPattern, &block)
-      d = destructs_by_proc.fetch(block.cached_source_location) do
-        destructs_by_proc[block.cached_source_location] = Destruct.new.compile(block, transformer)
+    def destruct(obj, transformer=Transformer::StandardPattern)
+      if true
+        block = Proc.new
+        d = destructs_by_proc.fetch(block.cached_source_location) do
+          destructs_by_proc[block.cached_source_location] = Destruct.new.compile(block, transformer)
+        end
+        d.(obj, block.binding)
       end
-      d.(obj, block.binding)
     end
   end
 
@@ -41,7 +44,7 @@ class Destruct
         emit "end"
       end
     end
-    g = generate
+    g = generate("Destruct for #{pat_proc}")
     show_code(g.code, fancy: false)
     g.proc
   end

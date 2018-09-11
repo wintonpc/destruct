@@ -26,6 +26,7 @@ class Destruct
     end
 
     it 'destructuring is memory-efficient' do
+      $show_code = true
       a = [1, 2, 3, 4]
       destruct_once(a)
       report = MemoryProfiler.report do
