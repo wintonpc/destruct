@@ -5,148 +5,132 @@ require 'destruct'
 class Destruct
   describe Compiler do
     it 'compiles literals' do
-      cp = Compiler.compile(1)
-      expect(cp.match(1)).to be_truthy
-      expect(cp.match(2)).to be_falsey
+      given_pattern 1
+      expect_success_on 1
+      expect_failure_on 2
 
-      cp = Compiler.compile("foo")
-      expect(cp.match("foo")).to be_truthy
-      expect(cp.match("bar")).to be_falsey
+      given_pattern "foo"
+      expect_success_on "foo"
+      expect_failure_on "bar"
     end
     it 'compiles vars' do
-      cp = Compiler.compile(Var.new(:foo))
-      e = cp.match(1)
-      expect(e).to be_truthy
-      expect(e[:foo]).to eql 1
+      given_pattern Var.new(:foo)
+      expect_success_on 1, foo: 1
 
-      cp = Compiler.compile([Var.new(:foo), Var.new(:bar)])
-      e = cp.match([1, 2])
-      expect(e).to be_truthy
-      expect(e[:foo]).to eql 1
-      expect(e[:bar]).to eql 2
+      given_pattern [Var.new(:foo), Var.new(:bar)]
+      expect_success_on [1, 2], foo: 1, bar: 2
 
-      cp = Compiler.compile([Var.new(:foo), Var.new(:foo)])
-      expect(cp.match([1, 1].each)).to be_truthy
-      expect(cp.match([1, 2].each)).to be_falsey
+      given_pattern [Var.new(:foo), Var.new(:foo)]
+      expect_success_on [1, 1]
+      expect_failure_on [1, 2]
     end
     it 'compiles plain objs' do
-      cp = Compiler.compile(Obj.new(Hash))
-      expect(cp.match({})).to be_truthy
-      expect(cp.match([])).to be_falsey
+      given_pattern Obj.new(Compiler)
+      expect_success_on Compiler.new
+      expect_failure_on 5
     end
     Foo = Struct.new(:a, :b)
     it 'compiles objs with field patterns' do
-      cp = Compiler.compile(Obj.new(Foo, a: 1, b: 2))
-      expect(cp.match([])).to be_falsey
-      expect(cp.match(Foo.new(1, 2))).to be_truthy
-      expect(cp.match(Foo.new(1, 3))).to be_falsey
+      given_pattern Obj.new(Foo, a: 1, b: 2)
+      expect_success_on Foo.new(1, 2)
+      expect_failure_on Foo.new(1, 3)
+      expect_failure_on []
     end
     it 'compiles objs with vars' do
-      cp = Compiler.compile(Obj.new(Foo, a: 1, b: Var.new(:bvar)))
-      e = cp.match(Foo.new(1, 2))
-      expect(e).to be_truthy
-      expect(e[:bvar]).to eql 2
+      given_pattern Obj.new(Foo, a: 1, b: Var.new(:bvar))
+      expect_success_on Foo.new(1, 2), bvar: 2
     end
     it 'compiles objs with deep vars' do
-      cp = Compiler.compile(Obj.new(Foo, a: 1, b: Obj.new(Foo, a: 1, b: Var.new(:bvar))))
-      e = cp.match(Foo.new(1, Foo.new(1, 2)))
-      expect(e).to be_truthy
-      expect(e[:bvar]).to eql 2
+      given_pattern Obj.new(Foo, a: 1, b: Obj.new(Foo, a: 1, b: Var.new(:bvar)))
+      expect_success_on Foo.new(1, Foo.new(1, 2)), bvar: 2
     end
     it 'compiles ORs' do
-      cp = Compiler.compile(Or.new(1, 2))
-      expect(cp.match(1)).to be_truthy
-      expect(cp.match(2)).to be_truthy
-      expect(cp.match(3)).to be_nil
+      given_pattern Or.new(1, 2)
+      expect_success_on 1
+      expect_success_on 2
+      expect_failure_on 3
     end
     it 'compiles deep ORs' do
-      cp = Compiler.compile(Or.new(Obj.new(Foo, a: 1), Obj.new(Foo, a: 2)))
-      expect(cp.match(Foo.new(1))).to be_truthy
-      expect(cp.match(Foo.new(2))).to be_truthy
-      expect(cp.match(Foo.new(3))).to be_nil
+      given_pattern Or.new(Obj.new(Foo, a: 1), Obj.new(Foo, a: 2))
+      expect_success_on Foo.new(1)
+      expect_success_on Foo.new(2)
+      expect_failure_on Foo.new(3)
     end
     it 'compiles ORs with arrays' do
-      cp = Compiler.compile(Or.new(Obj.new(Foo, a: [1, 2, 3]), Obj.new(Foo, a: 4)))
-      expect(cp.match(Foo.new(4))).to be_truthy
+      given_pattern Or.new(Obj.new(Foo, a: [1, 2, 3]), Obj.new(Foo, a: 4))
+      expect_success_on Foo.new(4)
     end
     it 'compiles nested ORs' do
-      cp = Compiler.compile(Or.new(Obj.new(Foo, a: 9, b: 1), Obj.new(Foo, a: 9, b: Or.new(2, 3))))
-      expect(cp.match(Foo.new(9, 1))).to be_truthy
-      expect(cp.match(Foo.new(9, 2))).to be_truthy
-      expect(cp.match(Foo.new(9, 3))).to be_truthy
-      expect(cp.match(Foo.new(9, 4))).to be_nil
+      given_pattern Or.new(Obj.new(Foo, a: 9, b: 1), Obj.new(Foo, a: 9, b: Or.new(2, 3)))
+      expect_success_on Foo.new(9, 1)
+      expect_success_on Foo.new(9, 2)
+      expect_success_on Foo.new(9, 3)
+      expect_failure_on Foo.new(9, 4)
     end
     it 'compiles nested ORs with Vars' do
-      cp = Compiler.compile(Or.new(Obj.new(Foo, a: 1), Obj.new(Foo, a: Or.new(2, 3), b: Var.new(:x))))
-      expect(cp.match(Foo.new(2, 9))[:x]).to eql 9
+      given_pattern Or.new(Obj.new(Foo, a: 1), Obj.new(Foo, a: Or.new(2, 3), b: Var.new(:x)))
+      expect_success_on Foo.new(2, 9), x: 9
     end
     it 'compiles ORs with Vars' do
-      cp = Compiler.compile([Var.new(:a), Or.new([1, Var.new(:b)], [2, Var.new(:c)])])
-      e = cp.match([3, [1, 7]])
-      expect(e.a).to eql 3
-      expect(e.b).to eql 7
-      expect(e.c).to eql ::Destruct::Env::UNBOUND
-      e = cp.match([3, [2, 8]])
-      expect(e.a).to eql 3
-      expect(e.b).to eql ::Destruct::Env::UNBOUND
-      expect(e.c).to eql 8
+      given_pattern [Var.new(:a), Or.new([1, Var.new(:b)], [2, Var.new(:c)])]
+      expect_success_on [3, [1, 7]],
+                        a: 3, b: 7, c: ::Destruct::Env::UNBOUND
+      expect_success_on [3, [2, 8]],
+                        a: 3, b: ::Destruct::Env::UNBOUND, c: 8
 
-      cp = Compiler.compile([Var.new(:a), Or.new([1, Var.new(:a)], [2, Var.new(:a)])])
-      expect(cp.match([3, [1, 3]])).to be_truthy
-      expect(cp.match([3, [1, 4]])).to be_falsey
+      given_pattern [Var.new(:a), Or.new([1, Var.new(:a)], [2, Var.new(:a)])]
+      expect_success_on [3, [1, 3]]
+      expect_failure_on [3, [1, 4]]
 
-      cp = Compiler.compile(Or.new([Var.new(:a), Or.new([1, Var.new(:b)], [2, Var.new(:c)])]))
-      e = cp.match([3, [1, 7]])
-      expect(e.a).to eql 3
-      expect(e.b).to eql 7
-      expect(e.c).to eql ::Destruct::Env::UNBOUND
+      given_pattern Or.new([Var.new(:a), Or.new([1, Var.new(:b)], [2, Var.new(:c)])])
+      expect_success_on [3, [1, 7]],
+                        a: 3, b: 7, c: ::Destruct::Env::UNBOUND
     end
     it 'compiles arrays' do
-      cp = Compiler.compile([1, Var.new(:foo)])
-      e = cp.match([1, 2])
-      expect(e).to be_truthy
-      expect(e[:foo]).to eql 2
-      expect(cp.match([2, 2])).to be_falsey
-      expect(cp.match([])).to be_falsey
-      expect(cp.match([1, 2, 3])).to be_falsey
-      expect(cp.match(Object.new)).to be_falsey
+      given_pattern [1, Var.new(:foo)]
+      expect_success_on [1, 2], foo: 2
+      expect_failure_on [2, 2]
+      expect_failure_on []
+      expect_failure_on [1, 2, 3]
+      expect_failure_on Object.new
     end
     it 'array edge cases' do
-      expect(Compiler.compile([]).match([])).to be_truthy
-      expect(Compiler.compile([1]).match([2])).to be_falsey
-      expect(Compiler.compile([1]).match([1, 2])).to be_falsey
-      expect(Compiler.compile([1]).match([8, 9])).to be_falsey
-      expect(Compiler.compile([1, 2]).match([1])).to be_falsey
-      expect(Compiler.compile([8, 9]).match([1])).to be_falsey
-      expect(Compiler.compile([1, 2]).match([1, 2])).to be_truthy
-      expect(Compiler.compile([1, 2]).match([8, 9])).to be_falsey
+      given pattern: [], expect_success_on: []
+      given pattern: [1], expect_failure_on: [2]
+      given pattern: [1], expect_failure_on: [1, 2]
+      given pattern: [1], expect_failure_on: [8, 9]
+      given pattern: [1, 2], expect_failure_on: [1]
+      given pattern: [8, 9], expect_failure_on: [1]
+      given pattern: [1, 2], expect_success_on: [1, 2]
+      given pattern: [1, 2], expect_failure_on: [8, 9]
     end
     it 'compiles nested arrays' do
-      cp = Compiler.compile([1, [2, [3, 4], 5], 6, 7])
-      expect(cp.match([1, [2, [3, 4], 5], 6, 7])).to be_truthy
+      given_pattern [1, [2, [3, 4], 5], 6, 7]
+      expect_success_on [1, [2, [3, 4], 5], 6, 7]
+      expect_failure_on [1, [2, [3, 9], 5], 6, 7]
     end
     it 'compiles splats' do
       # splat in middle
-      expect(Compiler.compile([1, Splat.new(:x), 4]).match([1, 2, 3, 4])[:x]).to eql [2, 3]
-      expect(Compiler.compile([1, Splat.new(:x), 4]).match([1, 2, 4])[:x]).to eql [2]
-      expect(Compiler.compile([1, Splat.new(:x), 4]).match([1, 4])[:x]).to eql []
-      expect(Compiler.compile([1, Splat.new(:x), 4]).match([1])).to be_falsey
+      given pattern: [1, Splat.new(:x), 4], expect_success_on: [1, 2, 3, 4], x: [2, 3]
+      given pattern: [1, Splat.new(:x), 4], expect_success_on: [1, 2, 4], x: [2]
+      given pattern: [1, Splat.new(:x), 4], expect_success_on: [1, 4], x: []
+      given pattern: [1, Splat.new(:x), 4], expect_failure_on: [1]
 
       # splat at front
-      expect(Compiler.compile([Splat.new(:x), 3]).match([1, 2, 3])[:x]).to eql [1, 2]
-      expect(Compiler.compile([Splat.new(:x), 3]).match([1, 3])[:x]).to eql [1]
-      expect(Compiler.compile([Splat.new(:x), 3]).match([3])[:x]).to eql []
-      expect(Compiler.compile([Splat.new(:x), 3]).match([])).to be_falsey
+      given pattern: [Splat.new(:x), 3], expect_success_on: [1, 2, 3], x: [1, 2]
+      given pattern: [Splat.new(:x), 3], expect_success_on: [1, 3], x: [1]
+      given pattern: [Splat.new(:x), 3], expect_success_on: [3], x: []
+      given pattern: [Splat.new(:x), 3], expect_failure_on: []
 
       # splat at end
-      expect(Compiler.compile([1, Splat.new(:x)]).match([1, 2, 3])[:x]).to eql [2, 3]
-      expect(Compiler.compile([1, Splat.new(:x)]).match([1, 2])[:x]).to eql [2]
-      expect(Compiler.compile([1, Splat.new(:x)]).match([1])[:x]).to eql []
-      expect(Compiler.compile([1, Splat.new(:x)]).match([])).to be_falsey
+      given pattern: [1, Splat.new(:x)], expect_success_on: [1, 2, 3], x: [2, 3]
+      given pattern: [1, Splat.new(:x)], expect_success_on: [1, 2], x: [2]
+      given pattern: [1, Splat.new(:x)], expect_success_on: [1], x: []
+      given pattern: [1, Splat.new(:x)], expect_failure_on: []
     end
     it 'compiles open-ended splat with enumerable' do
       en = (1..3).cycle
-      e = Compiler.compile([Var.new(:head), Splat.new(:tail)]).match(en)
+      e = compile([Var.new(:head), Splat.new(:tail)]).match(en)
       expect(e[:head]).to eql 1
       expect(e[:tail].take(3).to_a).to eql [2, 3, 1]
 
@@ -160,7 +144,7 @@ class Destruct
           i += 1
         end
       end
-      head_and_tail = Compiler.compile([Var.new(:head), Splat.new(:tail)])
+      head_and_tail = compile([Var.new(:head), Splat.new(:tail)])
       e = head_and_tail.match(tail)
       expect(e[:head]).to eql 0
       e = head_and_tail.match(e[:tail])
@@ -171,6 +155,40 @@ class Destruct
       expect(e[:tail]).to be_a WrappedEnumerator
       expect(e[:tail].instance_exec { @inner }).to be_an Enumerator
       expect(e[:tail].instance_exec { @inner }).to_not be_a WrappedEnumerator
+    end
+
+    def compile(pat)
+      Compiler.compile(pat)
+    end
+
+    def given_pattern(pat)
+      @pat = compile(pat)
+    end
+
+    def expect_match(x)
+      expect(@pat.match(x))
+    end
+
+    def expect_success_on(x, bindings={})
+      env = @pat.match(x)
+      expect(env).to be_truthy
+      bindings.each do |k, v|
+        expect(env[k]).to eql v
+      end
+    end
+
+    NOTHING = Object.new
+    def given(pattern:, expect_success_on: NOTHING, expect_failure_on: NOTHING, **bindings)
+      given_pattern pattern
+      if expect_success_on != NOTHING
+        expect_success_on expect_success_on, bindings
+      else
+        expect_failure_on expect_failure_on
+      end
+    end
+
+    def expect_failure_on(x)
+      expect(@pat.match(x)).to be_falsey
     end
   end
 end
