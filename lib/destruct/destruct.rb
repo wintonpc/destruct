@@ -29,7 +29,7 @@ class Destruct
           pat = tx.transform(w.pred)
           cp = Compiler.compile(pat)
           if_str = w == case_expr.whens.first ? "if" : "elsif"
-          emit "#{if_str} _env = #{get_ref(cp.compiled)}.(_x, _obj_with_binding)"
+          emit "#{if_str} _env = #{get_ref(cp.generated_code)}.proc.(_x, _obj_with_binding)"
           cp.var_names.each do |name|
             emit "#{name} = _env.#{name}"
           end
@@ -59,7 +59,7 @@ class Destruct
       n(:send, n(:lvar, :_binding), :eval, n(:str, node.children[0].to_s))
     elsif node.type == :send && node.children[0].nil? && node.children.size > 2
       @needs_binding = true
-      self_expr = n(:send, n(:lvar, :_binding), :eval, n(:str, "self"))
+      self_expr = n(:send, n(:lvar, :_binding), :receiver)
       n(:send, self_expr, :send, n(:sym, node.children[1]), *node.children[2..-1].map { |c| redirect(c) })
     else
       node.updated(nil, node.children.map { |c| redirect(c) })

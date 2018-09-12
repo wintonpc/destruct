@@ -72,7 +72,7 @@ class Destruct
         end
       end
       g = generate("Matcher for: #{pat.inspect}")
-      CompiledPattern.new(pat, g.proc, g.code, @var_names)
+      CompiledPattern.new(pat, g, @var_names)
     end
 
     def find_var_names(pat)
@@ -298,17 +298,16 @@ class Destruct
   end
 
   class CompiledPattern
-    attr_reader :pat, :compiled, :code, :var_names
+    attr_reader :pat, :generated_code, :var_names
 
-    def initialize(pat, compiled, code, var_names)
+    def initialize(pat, generated_code, var_names)
       @pat = pat
-      @compiled = compiled
-      @code = code
+      @generated_code = generated_code
       @var_names = var_names
     end
 
     def match(x, binding=nil)
-      @compiled.(x, binding)
+      @generated_code.proc.(x, binding)
     end
   end
 end

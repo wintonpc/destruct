@@ -5,6 +5,11 @@ require 'stringio'
 class Destruct
   module CodeGen
     GeneratedCode = Struct.new(:proc, :code, :filename)
+    class GeneratedCode
+      def inspect
+        "#<GeneratedCode: #{filename}>"
+      end
+    end
 
     def emitted
       @emitted ||= StringIO.new
@@ -147,11 +152,20 @@ class Destruct
 
     module_function
 
-    def show_code(code, filename="", refs=self.refs, fancy: true, include_vm: false)
+    def show_code(code, filename="", refs=self.refs, fancy: true, include_vm: false, seen: [])
       if code.is_a?(GeneratedCode)
         gc = code
         code = gc.code
         filename = gc.filename
+      end
+      return if seen.include?(code)
+      seen << code
+      refs.values.each do |v|
+        if v.is_a?(CompiledPattern)
+          show_code(v.generated_code, seen: seen)
+        elsif v.is_a?(GeneratedCode)
+          show_code(v, seen: seen)
+        end
       end
       lines = number_lines(code)
       if fancy

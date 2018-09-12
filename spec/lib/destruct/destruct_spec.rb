@@ -8,17 +8,18 @@ class Destruct
     it 'test' do
       outer = 42
       @outer = 43
-      r = Destruct.destruct([1, 3]) do
+      w = nil
+      r = Destruct.destruct([1, 4, 3]) do
         case
-        when [v, 2]
-          [v, 2, outer, @outer, outer_method(@outer), Outer.new(45)].inspect
-        when [v, 3]
-          [v, 3, outer, @outer, outer_method(@outer), Outer.new(45)].inspect
+        when [v, w, 2]
+          [v, w, 2, outer, @outer, outer_method(@outer), Outer.new(45)].inspect
+        when [v, w, 3]
+          [v, w, 3, outer, @outer, outer_method(@outer), Outer.new(45)].inspect
         else
           99
         end
       end
-      expect(r).to eql [1, 3, 42, 43, 44, Outer.new(45)].inspect
+      expect(r).to eql [1, 4, 3, 42, 43, 44, Outer.new(45)].inspect
       # lambda do |obj, binding|
       #   # injected params
       #   cp1 = Compiler.compile(Transformer::PatternBase.transform { [v, 2] })

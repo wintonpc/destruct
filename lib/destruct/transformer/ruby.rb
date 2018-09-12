@@ -44,6 +44,7 @@ class Destruct
       add_rule(n(:nil, [])) { nil }
       add_rule(n(:true, [])) { true }
       add_rule(n(:false, [])) { false }
+      add_rule(n(:lvar, [v(:name)])) { |name:| VarRef.new(name) }
       add_rule(n(:send, [nil, v(:name)])) { |name:| VarRef.new(name) }
       add_rule(n(:const, [nil, v(:name)])) { |name:| ConstRef.new(name.to_s) }
       add_rule(n(:array, v(:items))) { |items:| items }
