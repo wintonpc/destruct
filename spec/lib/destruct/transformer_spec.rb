@@ -20,24 +20,6 @@ class Destruct
       x_const = t.transform { Foo }
       expect(x_const).to be_a Transformer::ConstRef
       expect(x_const.fqn).to eql 'Foo'
-
-      x_case = t.transform do
-        case 1
-        when 2
-          3
-        when 4
-          5
-        else
-          6
-        end
-      end
-      expect(x_case).to be_a Transformer::Case
-      expect(x_case.value).to eql 1
-      expect(x_case.whens[0].pred).to eql 2
-      expect(x_case.whens[0].body).to eql 3
-      expect(x_case.whens[1].pred).to eql 4
-      expect(x_case.whens[1].body).to eql 5
-      expect(x_case.else_body).to eql 6
     end
     it 'Pattern' do
       t = Transformer::PatternBase
