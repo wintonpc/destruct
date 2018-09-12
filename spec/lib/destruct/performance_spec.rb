@@ -22,6 +22,7 @@ class Destruct
 
     it 'matching is time-efficient' do
       a = [1, 2, 3, 4]
+      match_once(a)
       time_it("matches") { 100_000.times.each { match_once(a) } } # should take a fraction of a second
     end
 
@@ -39,6 +40,7 @@ class Destruct
 
     it 'destructuring is time-efficient' do
       a = [1, 2, 3, 4]
+      destruct_once(a)
       time_it("destructs") { 100_000.times.each { destruct_once(a) } } # should take a fraction of a second
     end
 

@@ -4,6 +4,7 @@ require "pp"
 require_relative './types'
 require_relative './rbeautify'
 require_relative './code_gen'
+require "set"
 
 module Enumerable
   def rest
@@ -56,6 +57,10 @@ class Destruct
     end
 
     Frame = Struct.new(:pat, :x, :env, :parent, :type)
+
+    def initialize
+      @known_real_envs ||= Set.new
+    end
 
     def compile(pat)
       @var_names = find_var_names(pat)
@@ -114,8 +119,8 @@ class Destruct
       pre_splat_range = 0...(splat_index || s.pat.size)
 
       s.x = localize(nil, s.x)
+      known_real_envs_before = @known_real_envs.dup
       emit_if "#{s.x}.is_a?(Array)" do
-
         cond = splat_index ? "#{s.x}.size >= #{s.pat.size - 1}" : "#{s.x}.size == #{s.pat.size}"
         test(s, cond) do
 
@@ -140,6 +145,7 @@ class Destruct
           end
         end
       end.elsif "#{s.x}.is_a?(Enumerable)" do
+        @known_real_envs = known_real_envs_before
         en = get_temp("en")
         done = get_temp("done")
         stopped = get_temp("stopped")
@@ -204,6 +210,8 @@ class Destruct
         else
           emit update
         end
+      elsif cond == "nil" || cond == "false"
+        emit "return nil"
       else
         emit "#{cond} or return nil"
         yield if block_given?
@@ -231,12 +239,19 @@ class Destruct
           end
 
       do_it = proc do
-        emit "#{s.env} = _make_env.() if #{s.env} == true"
+        unless @known_real_envs.include?(s.env)
+          emit "#{s.env} = _make_env.() if #{s.env} == true"
+          @known_real_envs.add(s.env) unless in_or(s)
+        end
         emit "#{current_val} = #{s.env}.#{var_name}"
         emit_if "#{current_val} == :__unbound__" do
           emit "#{s.env}.#{var_name} = #{proposed_val}"
         end.elsif "#{current_val} != #{proposed_val}" do
-          emit "#{in_or(s) ? "#{s.env} = nil" : "return nil"}"
+          if in_or(s)
+            emit "#{s.env} = nil"
+          else
+            test(s, "nil")
+          end
         end.end
       end
 
@@ -245,6 +260,7 @@ class Destruct
       else
         do_it.()
       end
+
       test(s, "#{s.env}") if in_or(s)
     end
 
