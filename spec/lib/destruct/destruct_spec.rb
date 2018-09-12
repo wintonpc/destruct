@@ -37,7 +37,7 @@ class Destruct
     it 'with custom transformer' do
       t = Transformer.from(Transformer::PatternBase) do
         add_rule(->{ ~v }, v: Var) { |v:| Splat.new(v.name) }
-        add_rule(->{ klass[*field_pats] }, klass: [Class, Module]) do |klass:, field_pats:|
+        add_rule(->{ klass[*field_pats] }, klass: [Class, Module], field_pats: Var) do |klass:, field_pats:|
           Obj.new(klass, field_pats.map { |f| [f.name, f] }.to_h)
         end
       end

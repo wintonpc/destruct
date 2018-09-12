@@ -5,6 +5,7 @@ require 'destruct/types'
 
 class Destruct
   class Transformer
+    DEBUG = false
     LITERAL_TYPES = %i[int sym float str].freeze
     class NotApplicable < RuntimeError
     end
@@ -32,38 +33,44 @@ class Destruct
     NOTHING = Object.new
 
     def transform_pattern_proc(&pat_proc)
-      transform(NOTHING, 0, pat_proc.binding, tag_unmatched: false, &pat_proc)
+      transform(NOTHING, 0, pat_proc.binding, on_unmatched: :ignore, &pat_proc)
     end
 
-    def transform(expr=NOTHING, iters=0, binding=nil, tag_unmatched: true, &pat_proc)
+    def transform(expr=NOTHING, iters=0, binding=nil, on_unmatched: :raise, &pat_proc)
       if expr == NOTHING
         expr = ExprCache.get(pat_proc)
         binding = pat_proc.binding
       end
       if expr.is_a?(Array)
-        expr.map { |exp| transform(exp, iters, binding, tag_unmatched: tag_unmatched) }
+        expr.map { |exp| transform(exp, iters, binding, on_unmatched: on_unmatched) }
       elsif !expr.is_a?(Parser::AST::Node) && !expr.is_a?(Syntax)
         expr
       else
         @rules.each do |rule|
           begin
             if rule.pat.is_a?(Class) && rule.pat.ancestors.include?(Syntax) && expr.is_a?(rule.pat)
-              return transform(apply_template(rule, expr, binding: binding), iters + 1, binding, tag_unmatched: tag_unmatched)
+              return transform(apply_template(rule, expr, binding: binding), iters + 1, binding, on_unmatched: on_unmatched)
             elsif e = Compiler.compile(rule.pat).match(expr)
               args = {binding: binding}
               if e.is_a?(Env)
                 e.env_each do |k, v|
-                  args[k] = transform(v, iters, binding, tag_unmatched: tag_unmatched)
+                  args[k] = transform(v, iters, binding, on_unmatched: on_unmatched)
                 end
               end
-              return transform(apply_template(rule, **args), iters + 1, binding, tag_unmatched: tag_unmatched)
+              return transform(apply_template(rule, **args), iters + 1, binding, on_unmatched: on_unmatched)
             end
           rescue NotApplicable
             # continue to next rule
           end
         end
         # no rules matched
-        iters > 0 || !tag_unmatched ? expr : [:unmatched_expr, expr]
+        if on_unmatched == :ignore || iters > 0
+          expr
+        elsif on_unmatched == :raise
+          raise "Invalid pattern: #{Unparser.unparse(expr)}"
+        elsif on_unmatched == :tag
+          [:unmatched_expr, expr]
+        end
       end
     end
 
@@ -81,13 +88,16 @@ class Destruct
 
     def add_rule(pat_or_proc, constraints={}, &translate_block)
       translate =
-      if constraints.any?
-        proc do |**kws|
-          translate_block.(**kws)
-        end
-      else
-        translate_block
-      end
+          if constraints.any?
+            proc do |**kws|
+              constraints.each_pair do |var, const|
+                raise Transformer::NotApplicable unless Array(kws[var]).all? { |p| Array(const).any? { |type| p.is_a?(type) } }
+              end
+              translate_block.(**kws)
+            end
+          else
+            translate_block
+          end
       if pat_or_proc.is_a?(Proc)
         node = ExprCache.get(pat_or_proc)
         pat = node_to_pattern(node)
@@ -115,10 +125,10 @@ class Destruct
       cp = Compiler.compile(any(n(:send, [nil, v(:name)]), n(:lvar, [v(:name)])))
       e = cp.match(node)
       if e
-        puts "successfully matched var #{node}"
+        puts "successfully matched var #{node}" if DEBUG
         e[:name]
       else
-        puts "failed to match var #{node}"
+        puts "failed to match var #{node}" if DEBUG
         nil
       end
     end
@@ -127,10 +137,10 @@ class Destruct
       cp = Compiler.compile(n(:splat, [any(n(:send, [nil, v(:name)]), n(:lvar, [v(:name)]))]))
       e = cp.match(node)
       if e
-        puts "successfully matched splat #{node}"
+        puts "successfully matched splat #{node}" if DEBUG
         e[:name]
       else
-        puts "failed to match splat #{node}"
+        puts "failed to match splat #{node}" if DEBUG
         nil
       end
     end

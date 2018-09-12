@@ -100,8 +100,7 @@ class Destruct
       expect(e.a).to eql 1
       expect(e.b).to eql 2
 
-      r = t.transform { foo[a, b] }
-      expect(r[0]).to eql :unmatched_expr
+      expect { t.transform { foo[a, b] } }.to raise_error(/Invalid pattern/)
     end
     it 'hash-style object matches' do
       t = Transformer.from(Transformer::PatternBase) do
