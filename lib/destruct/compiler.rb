@@ -220,20 +220,19 @@ class Destruct
       current_val = get_temp("current_val")
       proposed_val = get_temp("proposed_val")
       require_outer_check = in_or(s) || val_could_be_unbound
-      emit <<~CODE
-        # bind #{var_name}
-      #{proposed_val} = #{val}
-      #{require_outer_check ? "if #{s.env} #{val_could_be_unbound ? "&& #{proposed_val} != :__unbound__" : ""}" : ""}
-      #{s.env} = _make_env.() if #{s.env} == true
-          #{current_val} = #{s.env}.#{var_name}
-          if #{current_val} == :__unbound__
-            #{s.env}.#{var_name} = #{proposed_val}
-          elsif #{current_val} != #{proposed_val}
-      #{s.env} = nil
-          end
-        #{require_outer_check ? "end" : ""}
-      CODE
-      test(s, "#{s.env}")
+
+      emit "# bind #{var_name}"
+      emit "#{proposed_val} = #{val}"
+      emit "#{require_outer_check ? "if #{s.env} #{val_could_be_unbound ? "&& #{proposed_val} != :__unbound__" : ""}" : ""}"
+      emit "#{s.env} = _make_env.() if #{s.env} == true"
+      emit "#{current_val} = #{s.env}.#{var_name}"
+      emit_if "#{current_val} == :__unbound__" do
+        emit "#{s.env}.#{var_name} = #{proposed_val}"
+      end.elsif "#{current_val} != #{proposed_val}" do
+        emit "#{in_or(s) ? "#{s.env} = nil" : "return nil"}"
+      end.end
+      emit "#{require_outer_check ? "end" : ""}"
+      test(s, "#{s.env}") if in_or(s)
     end
 
     def match_obj(s)
