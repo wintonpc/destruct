@@ -8,22 +8,18 @@ class Destruct
     Foo = Struct.new(:a, :b)
 
     it 'passes matches to the block' do
+      given_pattern { [1, ~foo] }
       given_rule(->{ ~v }, v: Var) { |v:| Splat.new(v.name) }
-      foo_splat = transform { ~foo }
-      expect(foo_splat).to be_a Splat
-      expect(foo_splat.name).to eql :foo
+      expect_success_on [1, 2, 3], foo: [2, 3]
     end
 
     it 'array-style object matches' do
+      given_pattern { Foo[a, b] }
       given_rule(->{ klass[*field_pats] }, klass: [Class, Module], field_pats: Var) do |klass:, field_pats:|
         Obj.new(klass, field_pats.map { |f| [f.name, f] }.to_h)
       end
-
-      given_pattern { Foo[a, b] }
-
       expect_success_on Foo.new(1, 2), a: 1, b: 2
-
-      expect { transform { foo[a, b] } }.to raise_error(/Invalid pattern: foo[a, b]/)
+      expect { transform { foo[a, b] } }.to raise_error("Invalid pattern: foo[a, b]")
     end
 
     def given_rule(*args, &block)
@@ -37,7 +33,7 @@ class Destruct
     end
 
     def given_pattern(&pat_proc)
-      @pattern = Compiler.compile(transform(&pat_proc))
+      @pat_proc = pat_proc
     end
 
     def match(x, pat_proc)
@@ -46,7 +42,7 @@ class Destruct
     end
 
     def expect_success_on(x, bindings={})
-      env = @pattern.match(x)
+      env = Compiler.compile(transform(&@pat_proc)).match(x)
       expect(env).to be_truthy
       bindings.each do |k, v|
         expect(env[k]).to eql v

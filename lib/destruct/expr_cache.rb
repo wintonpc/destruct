@@ -33,7 +33,7 @@ class Destruct
       end.map { |n| n.children[2] }
 
       if !try_to_use
-        @exprs_by_proc[p] = candidate_nodes.first
+        @exprs_by_proc[p] = candidate_nodes.reject { |n| contains_block?(n) }.first # reject is a hack to deal with more than one per line
       else
         tried_candidates = candidate_nodes.map do |n|
           begin
@@ -53,6 +53,16 @@ class Destruct
     end
 
     private
+
+    def contains_block?(node)
+      if !node.is_a?(Parser::AST::Node)
+        false
+      elsif node.type == :block
+        true
+      else
+        node.children.any? { |c| contains_block?(c) }
+      end
+    end
 
     def get_ast(file_path)
       @asts_by_file.fetch(file_path) do
