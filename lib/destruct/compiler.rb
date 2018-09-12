@@ -97,16 +97,6 @@ class Destruct
       end
     end
 
-    def match_hash(s)
-      s.type = :hash
-      test(s, "#{s.x}.is_a?(Hash)") do
-        s.pat.each do |field_name, field_pat|
-          x = localize(field_pat, "#{s.x}[#{field_name.inspect}]", field_name)
-          match(Frame.new(field_pat, x, s.env, s))
-        end
-      end
-    end
-
     def match_array(s)
       s.type = :array
       splat_count = s.pat.count { |p| p.is_a?(Splat) }
@@ -267,9 +257,20 @@ class Destruct
 
     def match_obj(s)
       s.type = :obj
-      test(s, "#{s.x}.is_a?(#{get_ref(s.pat.type)})") do
-        s.pat.fields.each do |field_name, field_pat|
-          x = localize(field_pat, "#{s.x}.#{field_name}", field_name)
+      match_hash_or_obj(s, get_ref(s.pat.type), s.pat.fields, proc { |field_name| "#{s.x}.#{field_name}" })
+    end
+
+    def match_hash(s)
+      s.type = :hash
+      match_hash_or_obj(s, "Hash", s.pat, proc { |field_name| "#{s.x}[#{field_name.inspect}]" })
+    end
+
+    def match_hash_or_obj(s, type_str, pairs, make_x_sub)
+      test(s, "#{s.x}.is_a?(#{type_str})") do
+        pairs
+            .sort_by { |(_, field_pat)| pattern_order(field_pat) }
+            .each do |field_name, field_pat|
+          x = localize(field_pat, make_x_sub.(field_name), field_name)
           match(Frame.new(field_pat, x, s.env, s))
         end
       end
