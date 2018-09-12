@@ -20,6 +20,14 @@ class Destruct
       x_const = t.transform { Foo }
       expect(x_const).to be_a Transformer::ConstRef
       expect(x_const.fqn).to eql 'Foo'
+
+      x_const = t.transform { Destruct::Foo }
+      expect(x_const).to be_a Transformer::ConstRef
+      expect(x_const.fqn).to eql 'Destruct::Foo'
+
+      x_const = t.transform { ::Destruct::Foo }
+      expect(x_const).to be_a Transformer::ConstRef
+      expect(x_const.fqn).to eql '::Destruct::Foo'
     end
     it 'Pattern' do
       t = Transformer::PatternBase

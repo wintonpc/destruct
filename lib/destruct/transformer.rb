@@ -145,7 +145,7 @@ class Destruct
       end
     end
 
-    def n(type, children)
+    def n(type, children=[])
       Obj.new(Parser::AST::Node, type: type, children: children)
     end
 

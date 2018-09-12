@@ -30,7 +30,8 @@ class Destruct
       add_rule(n(:pair, [v(:k), v(:v)])) { |k:, v:| [k, v] }
       add_rule(n(:lvar, [v(:name)])) { |name:| VarRef.new(name) }
       add_rule(n(:send, [nil, v(:name)])) { |name:| VarRef.new(name) }
-      add_rule(n(:const, [nil, v(:name)])) { |name:| ConstRef.new(name.to_s) }
+      add_rule(n(:const, [v(:parent), v(:name)])) { |parent:, name:| ConstRef.new([parent&.fqn, name].compact.join("::")) }
+      add_rule(n(:cbase)) { ConstRef.new("") }
     end
   end
 end
