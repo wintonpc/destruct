@@ -35,8 +35,9 @@ class Destruct
 
       x = get_temp("x")
       env = get_temp("env")
-      emit_lambda(x, "binding", "#{env}=true") do
+      emit_lambda(x, "binding") do
         show_code_on_error do
+          emit "#{env} = true"
           match(Frame.new(pat, x, env))
           emit env
         end
@@ -241,7 +242,7 @@ class Destruct
       var_name = var.is_a?(Var) ? var.name : var
       current_val = get_temp("current_val")
 
-      emit "# bind #{var_name}"
+      # emit "# bind #{var_name}"
       require_outer_check = in_or(s) || val_could_be_unbound
       proposed_val =
           if require_outer_check && val_could_be_unbound
@@ -257,8 +258,8 @@ class Destruct
           emit "#{s.env} = _make_env.() if #{s.env} == true"
           @known_real_envs.add(s.env) unless in_or(s)
         end
-        emit "#{current_val} = #{s.env}.#{var_name}"
         if @var_counts[var_name] > 1
+          emit "#{current_val} = #{s.env}.#{var_name}"
           emit_if "#{current_val} == :__unbound__" do
             emit "#{s.env}.#{var_name} = #{proposed_val}"
           end.elsif "#{current_val} != #{proposed_val}" do
