@@ -152,7 +152,8 @@ class Destruct
 
     module_function
 
-    def show_code(code, filename="", refs=self.refs, fancy: true, include_vm: false, seen: [])
+    def show_code(code, filename="", refs=(self.respond_to?(:refs) ? self.refs : {}),
+                  fancy: true, include_vm: false, seen: [])
       if code.is_a?(GeneratedCode)
         gc = code
         code = gc.code

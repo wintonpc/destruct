@@ -33,13 +33,13 @@ class Destruct
           cp.var_names.each do |name|
             emit "#{name} = _env.#{name}"
           end
-          redirected = redirect(w.body)
+          redirected = redirect(w.body, cp.var_names)
           emit "_binding = _obj_with_binding.binding" if @needs_binding
           emit Unparser.unparse(redirected)
         end
         if case_expr.else_body
           emit "else"
-          redirected = redirect(case_expr.else_body)
+          redirected = redirect(case_expr.else_body, [])
           emit "_binding = _obj_with_binding.binding" if @needs_binding
           emit Unparser.unparse(redirected)
         end
@@ -52,17 +52,17 @@ class Destruct
     g.proc
   end
 
-  private def redirect(node)
+  private def redirect(node, var_names)
     if !node.is_a?(Parser::AST::Node)
       node
-    elsif node.type == :lvar || node.type == :ivar
+    elsif (node.type == :lvar || node.type == :ivar) && !var_names.include?(node.children[0])
       n(:send, n(:lvar, :_binding), :eval, n(:str, node.children[0].to_s))
-    elsif node.type == :send && node.children[0].nil? && node.children.size > 2
+    elsif node.type == :send && node.children[0].nil? && !var_names.include?(node.children[1])
       @needs_binding = true
       self_expr = n(:send, n(:lvar, :_binding), :receiver)
-      n(:send, self_expr, :send, n(:sym, node.children[1]), *node.children[2..-1].map { |c| redirect(c) })
+      n(:send, self_expr, :send, n(:sym, node.children[1]), *node.children[2..-1].map { |c| redirect(c, var_names) })
     else
-      node.updated(nil, node.children.map { |c| redirect(c) })
+      node.updated(nil, node.children.map { |c| redirect(c, var_names) })
     end
   end
 

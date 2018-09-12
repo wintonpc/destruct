@@ -6,38 +6,32 @@ class Destruct
   describe Destruct do
     Outer = Struct.new(:o)
     it 'test' do
-      outer = 42
-      @outer = 43
-      w = nil
-      r = Destruct.destruct([1, 4, 3]) do
+      c = 42 # referenced lvar
+      @d = 43 # referenced ivar
+      w = nil # shadowed lvar
+      r = Destruct.destruct([1, 4, 5, 3]) do
         case
-        when [v, w, 2]
-          [v, w, 2, outer, @outer, outer_method(@outer), Outer.new(45)].inspect
-        when [v, w, 3]
-          [v, w, 3, outer, @outer, outer_method(@outer), Outer.new(45)].inspect
+        when [v, w, u, 2]
+          [v, w, u, 2, c, @d, a(@d), b, Outer.new(45)].inspect
+        when [v, w, u, 3]
+          [v, w, u, 3, c, @d, a(@d), b, Outer.new(45)].inspect
         else
           99
         end
       end
-      expect(r).to eql [1, 4, 3, 42, 43, 44, Outer.new(45)].inspect
-      # lambda do |obj, binding|
-      #   # injected params
-      #   cp1 = Compiler.compile(Transformer::PatternBase.transform { [v, 2] })
-      #   cp2 = Compiler.compile(Transformer::PatternBase.transform { [v, 3] })
-      #
-      #   # generated code
-      #   if e = cp1.match(obj)
-      #     [e.v, 2, binding.eval("outer")].inspect
-      #   elsif e = cp2.match(obj)
-      #     [e.v, 3, binding.eval("outer")].inspect
-      #   else
-      #     99
-      #   end
-      # end
+      expect(r).to eql [1, 4, 5, 3, 42, 43, 44, 46, Outer.new(45)].inspect
     end
 
-    def outer_method(v)
+    def a(v) # referenced method with args
       v + 1
+    end
+
+    def b # referenced method without args
+      46
+    end
+
+    def u # shadowed method
+      nil
     end
   end
 end
