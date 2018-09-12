@@ -27,7 +27,8 @@ class Destruct
     end
 
     def compile(pat)
-      @var_names = find_var_names(pat)
+      @var_counts = var_counts(pat)
+      @var_names = @var_counts.keys
       if @var_names.any?
         get_ref(::Destruct::Env.new_class(*@var_names).method(:new), "_make_env")
       end
@@ -44,20 +45,26 @@ class Destruct
       CompiledPattern.new(pat, g, @var_names)
     end
 
-    def find_var_names(pat)
+    def var_counts(pat)
+      find_var_names_non_uniq(pat).group_by(&:itself).map { |k, vs| [k, vs.size] }.to_h
+    end
+
+    def find_var_names_non_uniq(pat)
       if pat.is_a?(Obj)
-        pat.fields.values.flat_map(&method(:find_var_names))
+        pat.fields.values.flat_map(&method(:find_var_names_non_uniq))
       elsif pat.is_a?(Or)
-        pat.patterns.flat_map(&method(:find_var_names))
+        pat.patterns.flat_map(&method(:find_var_names_non_uniq))
+      elsif pat.is_a?(Let)
+        [pat.name, *find_var_names_non_uniq(pat.pattern)]
       elsif pat.is_a?(Var)
         [pat.name]
       elsif pat.is_a?(Hash)
-        pat.values.flat_map(&method(:find_var_names))
+        pat.values.flat_map(&method(:find_var_names_non_uniq))
       elsif pat.is_a?(Array)
-        pat.flat_map(&method(:find_var_names))
+        pat.flat_map(&method(:find_var_names_non_uniq))
       else
         []
-      end.uniq
+      end
     end
 
     def match(s)
@@ -67,6 +74,8 @@ class Destruct
         match_obj(s)
       elsif s.pat.is_a?(Or)
         match_or(s)
+      elsif s.pat.is_a?(Let)
+        match_let(s)
       elsif s.pat.is_a?(Var)
         match_var(s)
       elsif s.pat.is_a?(Hash)
@@ -82,6 +91,7 @@ class Destruct
       !(p.is_a?(Obj) ||
           p.is_a?(Or) ||
           p.is_a?(Var) ||
+          p.is_a?(Let) ||
           p.is_a?(Hash) ||
           p.is_a?(Array))
     end
@@ -199,6 +209,11 @@ class Destruct
         if block_given?
           emit "if (#{update})"
           yield
+
+          def match_var(s)
+            s.type = :var
+            bind(s, s.pat, s.x)
+          end
           emit "end"
         else
           emit update
@@ -213,6 +228,12 @@ class Destruct
 
     def match_var(s)
       s.type = :var
+      bind(s, s.pat, s.x)
+    end
+
+    def match_let(s)
+      s.type = :let
+      match(Frame.new(s.pat.pattern, s.x, s.env, s))
       bind(s, s.pat, s.x)
     end
 
@@ -237,15 +258,19 @@ class Destruct
           @known_real_envs.add(s.env) unless in_or(s)
         end
         emit "#{current_val} = #{s.env}.#{var_name}"
-        emit_if "#{current_val} == :__unbound__" do
+        if @var_counts[var_name] > 1
+          emit_if "#{current_val} == :__unbound__" do
+            emit "#{s.env}.#{var_name} = #{proposed_val}"
+          end.elsif "#{current_val} != #{proposed_val}" do
+            if in_or(s)
+              emit "#{s.env} = nil"
+            else
+              test(s, "nil")
+            end
+          end.end
+        else
           emit "#{s.env}.#{var_name} = #{proposed_val}"
-        end.elsif "#{current_val} != #{proposed_val}" do
-          if in_or(s)
-            emit "#{s.env} = nil"
-          else
-            test(s, "nil")
-          end
-        end.end
+        end
       end
 
       if require_outer_check

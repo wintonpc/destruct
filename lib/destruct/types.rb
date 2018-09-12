@@ -23,9 +23,16 @@ class Destruct
     alias_method :to_s, :inspect
   end
 
-  class KwSplat < Var
+  class Let < Var
+    attr_reader :pattern
+
+    def initialize(name, pattern)
+      super(name)
+      @pattern = pattern
+    end
+
     def inspect
-      "#<KwSplat: #{name}>"
+      "#<Let: #{name} = #{pattern}>"
     end
     alias_method :to_s, :inspect
   end
