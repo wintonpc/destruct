@@ -54,6 +54,7 @@ class Destruct
       if pat.is_a?(Obj)
         pat.fields.values.flat_map(&method(:find_var_names_non_uniq))
       elsif pat.is_a?(Or)
+        @has_or = true
         pat.patterns.flat_map(&method(:find_var_names_non_uniq))
       elsif pat.is_a?(Let)
         [pat.name, *find_var_names_non_uniq(pat.pattern)]
@@ -255,7 +256,7 @@ class Destruct
 
       do_it = proc do
         unless @known_real_envs.include?(s.env)
-          emit "#{s.env} = _make_env.() if #{s.env} == true"
+          emit "#{s.env} = _make_env.()#{@has_or ? " if #{s.env} == true" : ""}"
           @known_real_envs.add(s.env) unless in_or(s)
         end
         if @var_counts[var_name] > 1

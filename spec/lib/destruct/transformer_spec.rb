@@ -5,26 +5,26 @@ require 'time_it'
 
 class Destruct
   describe Transformer do
-    Foo = Struct.new(:a, :b)
+    TFoo = Struct.new(:a, :b)
     it 'passes matches to the block' do
       given_pattern { [1, ~foo] }
       given_rule(->{ ~v }, v: Var) { |v:| Splat.new(v.name) }
       expect_success_on [1, 2, 3], foo: [2, 3]
     end
     it 'array-style object matches' do
-      given_pattern { Foo[a, b] }
+      given_pattern { TFoo[a, b] }
       given_rule(->{ klass[*field_pats] }, klass: [Class, Module], field_pats: Var) do |klass:, field_pats:|
         Obj.new(klass, field_pats.map { |f| [f.name, f] }.to_h)
       end
-      expect_success_on Foo.new(1, 2), a: 1, b: 2
+      expect_success_on TFoo.new(1, 2), a: 1, b: 2
       expect { transform { foo[a, b] } }.to raise_error("Invalid pattern: foo[a, b]")
     end
     it 'hash-style object matches' do
-      given_pattern { Foo[a: x, b: y] }
+      given_pattern { TFoo[a: x, b: y] }
       given_rule(->{ klass[field_pats] }, klass: [Class, Module], field_pats: Hash) do |klass:, field_pats:|
         Obj.new(klass, field_pats)
       end
-      expect_success_on Foo.new(1, 2), x: 1, y: 2
+      expect_success_on TFoo.new(1, 2), x: 1, y: 2
     end
     it 'allows matched vars to be locals' do
       foo = nil
@@ -58,17 +58,17 @@ class Destruct
       expect(x_var).to be_a Transformer::VarRef
       expect(x_var.name).to eql :x
 
-      x_const = t.transform { Foo }
+      x_const = t.transform { TFoo }
       expect(x_const).to be_a Transformer::ConstRef
-      expect(x_const.fqn).to eql 'Foo'
+      expect(x_const.fqn).to eql 'TFoo'
 
-      x_const = t.transform { Destruct::Foo }
+      x_const = t.transform { Destruct::TFoo }
       expect(x_const).to be_a Transformer::ConstRef
-      expect(x_const.fqn).to eql 'Destruct::Foo'
+      expect(x_const.fqn).to eql 'Destruct::TFoo'
 
-      x_const = t.transform { ::Destruct::Foo }
+      x_const = t.transform { ::Destruct::TFoo }
       expect(x_const).to be_a Transformer::ConstRef
-      expect(x_const.fqn).to eql '::Destruct::Foo'
+      expect(x_const.fqn).to eql '::Destruct::TFoo'
     end
     it 'Pattern' do
       t = Transformer::PatternBase
@@ -76,8 +76,8 @@ class Destruct
       expect(x_var).to be_a Var
       expect(x_var.name).to eql :x
 
-      x_const = t.transform { Foo }
-      expect(x_const).to eql Foo
+      x_const = t.transform { TFoo }
+      expect(x_const).to eql TFoo
     end
     it 'metacircularish' do
       t = Transformer.from(Transformer::PatternBase) do

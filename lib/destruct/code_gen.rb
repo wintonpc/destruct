@@ -34,7 +34,7 @@ class Destruct
         show_code(gc) if $show_code
         gc
       rescue SyntaxError
-        show_code(code, filename, refs, fancy: true, include_vm: false)
+        show_code(code, filename, refs, fancy: false, include_vm: false)
         raise
       end
     end
@@ -153,7 +153,7 @@ class Destruct
     module_function
 
     def show_code(code, filename="", refs=(self.respond_to?(:refs) ? self.refs : {}),
-                  fancy: true, include_vm: false, seen: [])
+                  fancy: false, include_vm: false, seen: [])
       if code.is_a?(GeneratedCode)
         gc = code
         code = gc.code

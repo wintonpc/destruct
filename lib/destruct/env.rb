@@ -27,6 +27,7 @@ class Destruct
           def to_s
             "#<Env: #{var_names.map { |v| "#{v}=\#{#{v}}" }.join(", ")}>"
           end
+          alias_method :inspect, :to_s
         CODE
       end
     end

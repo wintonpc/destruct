@@ -29,20 +29,20 @@ class Destruct
       expect_success_on Compiler.new
       expect_failure_on 5
     end
-    Foo = Struct.new(:a, :b)
+    CFoo = Struct.new(:a, :b)
     it 'compiles objs with field patterns' do
-      given_pattern Obj.new(Foo, a: 1, b: 2)
-      expect_success_on Foo.new(1, 2)
-      expect_failure_on Foo.new(1, 3)
+      given_pattern Obj.new(CFoo, a: 1, b: 2)
+      expect_success_on CFoo.new(1, 2)
+      expect_failure_on CFoo.new(1, 3)
       expect_failure_on []
     end
     it 'compiles objs with vars' do
-      given_pattern Obj.new(Foo, a: 1, b: Var.new(:bvar))
-      expect_success_on Foo.new(1, 2), bvar: 2
+      given_pattern Obj.new(CFoo, a: 1, b: Var.new(:bvar))
+      expect_success_on CFoo.new(1, 2), bvar: 2
     end
     it 'compiles objs with deep vars' do
-      given_pattern Obj.new(Foo, a: 1, b: Obj.new(Foo, a: 1, b: Var.new(:bvar)))
-      expect_success_on Foo.new(1, Foo.new(1, 2)), bvar: 2
+      given_pattern Obj.new(CFoo, a: 1, b: Obj.new(CFoo, a: 1, b: Var.new(:bvar)))
+      expect_success_on CFoo.new(1, CFoo.new(1, 2)), bvar: 2
     end
     it 'compiles ORs' do
       given_pattern Or.new(1, 2)
@@ -51,25 +51,25 @@ class Destruct
       expect_failure_on 3
     end
     it 'compiles deep ORs' do
-      given_pattern Or.new(Obj.new(Foo, a: 1), Obj.new(Foo, a: 2))
-      expect_success_on Foo.new(1)
-      expect_success_on Foo.new(2)
-      expect_failure_on Foo.new(3)
+      given_pattern Or.new(Obj.new(CFoo, a: 1), Obj.new(CFoo, a: 2))
+      expect_success_on CFoo.new(1)
+      expect_success_on CFoo.new(2)
+      expect_failure_on CFoo.new(3)
     end
     it 'compiles ORs with arrays' do
-      given_pattern Or.new(Obj.new(Foo, a: [1, 2, 3]), Obj.new(Foo, a: 4))
-      expect_success_on Foo.new(4)
+      given_pattern Or.new(Obj.new(CFoo, a: [1, 2, 3]), Obj.new(CFoo, a: 4))
+      expect_success_on CFoo.new(4)
     end
     it 'compiles nested ORs' do
-      given_pattern Or.new(Obj.new(Foo, a: 9, b: 1), Obj.new(Foo, a: 9, b: Or.new(2, 3)))
-      expect_success_on Foo.new(9, 1)
-      expect_success_on Foo.new(9, 2)
-      expect_success_on Foo.new(9, 3)
-      expect_failure_on Foo.new(9, 4)
+      given_pattern Or.new(Obj.new(CFoo, a: 9, b: 1), Obj.new(CFoo, a: 9, b: Or.new(2, 3)))
+      expect_success_on CFoo.new(9, 1)
+      expect_success_on CFoo.new(9, 2)
+      expect_success_on CFoo.new(9, 3)
+      expect_failure_on CFoo.new(9, 4)
     end
     it 'compiles nested ORs with Vars' do
-      given_pattern Or.new(Obj.new(Foo, a: 1), Obj.new(Foo, a: Or.new(2, 3), b: Var.new(:x)))
-      expect_success_on Foo.new(2, 9), x: 9
+      given_pattern Or.new(Obj.new(CFoo, a: 1), Obj.new(CFoo, a: Or.new(2, 3), b: Var.new(:x)))
+      expect_success_on CFoo.new(2, 9), x: 9
     end
     it 'compiles ORs with Vars' do
       given_pattern [Var.new(:a), Or.new([1, Var.new(:b)], [2, Var.new(:c)])]
