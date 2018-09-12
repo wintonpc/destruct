@@ -34,6 +34,7 @@ class Destruct
       nil
     end
 
+    FBar = Struct.new(:a, :b)
     it 'with custom transformer' do
       t = Transformer.from(Transformer::PatternBase) do
         add_rule(->{ ~v }, v: Var) { |v:| Splat.new(v.name) }
@@ -43,22 +44,22 @@ class Destruct
       end
 
       inputs = [
-          Outer.new(5),
+          FBar.new(5, 6),
           [1, 2, 3]
       ]
 
       outputs = inputs.map do |inp|
         destruct(inp, t) do
           case
-          when Outer[o]
-            o
+          when FBar[a, b]
+            [a, b]
           when [1, ~rest]
             rest
           end
         end
       end
 
-      expect(outputs).to eql [5, [2, 3]]
+      expect(outputs).to eql [[5, 6], [2, 3]]
     end
   end
 end

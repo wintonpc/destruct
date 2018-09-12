@@ -39,10 +39,8 @@ class Destruct
       expect(x_const).to eql Foo
     end
     it 'passes matches to the block' do
-      t = Transformer.from(Transformer::Ruby) do
-        add_rule(->{ ~v }) do |v:|
-          Splat.new(v.name)
-        end
+      t = Transformer.from(Transformer::PatternBase) do
+        add_rule(->{ ~v }, v: Var) { |v:| Splat.new(v.name) }
       end
       foo_splat = t.transform { ~foo }
       expect(foo_splat).to be_a Splat
@@ -97,8 +95,7 @@ class Destruct
     end
     it 'array-style object matches' do
       t = Transformer.from(Transformer::PatternBase) do
-        add_rule(->{ klass[*field_pats] }) do |klass:, field_pats:|
-          raise Transformer::NotApplicable unless klass.is_a?(Class) || klass.is_a?(Module)
+        add_rule(->{ klass[*field_pats] }, klass: [Class, Module], field_pats: Var) do |klass:, field_pats:|
           Obj.new(klass, field_pats.map { |f| [f.name, f] }.to_h)
         end
       end
