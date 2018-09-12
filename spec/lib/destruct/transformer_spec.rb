@@ -6,6 +6,54 @@ require 'time_it'
 class Destruct
   describe Transformer do
     Foo = Struct.new(:a, :b)
+
+    it 'passes matches to the block' do
+      given_rule(->{ ~v }, v: Var) { |v:| Splat.new(v.name) }
+      foo_splat = transform { ~foo }
+      expect(foo_splat).to be_a Splat
+      expect(foo_splat.name).to eql :foo
+    end
+
+    it 'array-style object matches' do
+      given_rule(->{ klass[*field_pats] }, klass: [Class, Module], field_pats: Var) do |klass:, field_pats:|
+        Obj.new(klass, field_pats.map { |f| [f.name, f] }.to_h)
+      end
+
+      given_pattern { Foo[a, b] }
+
+      expect_success_on Foo.new(1, 2), a: 1, b: 2
+
+      expect { transform { foo[a, b] } }.to raise_error(/Invalid pattern: foo[a, b]/)
+    end
+
+    def given_rule(*args, &block)
+      @transformer = Transformer.from(Transformer::PatternBase) do
+        add_rule(*args, &block)
+      end
+    end
+
+    def transform(&pat_proc)
+      @transformer.transform(&pat_proc)
+    end
+
+    def given_pattern(&pat_proc)
+      @pattern = Compiler.compile(transform(&pat_proc))
+    end
+
+    def match(x, pat_proc)
+      cp = Compiler.compile(transform(&pat_proc))
+      cp.match(x)
+    end
+
+    def expect_success_on(x, bindings={})
+      env = @pattern.match(x)
+      expect(env).to be_truthy
+      bindings.each do |k, v|
+        expect(env[k]).to eql v
+      end
+    end
+
+
     it 'Ruby' do
       t = Transformer::Ruby
       expect(t.transform { 1 }).to eql 1
@@ -37,14 +85,6 @@ class Destruct
 
       x_const = t.transform { Foo }
       expect(x_const).to eql Foo
-    end
-    it 'passes matches to the block' do
-      t = Transformer.from(Transformer::PatternBase) do
-        add_rule(->{ ~v }, v: Var) { |v:| Splat.new(v.name) }
-      end
-      foo_splat = t.transform { ~foo }
-      expect(foo_splat).to be_a Splat
-      expect(foo_splat.name).to eql :foo
     end
     it 'allows matched vars to be locals' do
       t = Transformer.from(Transformer::Ruby) do
@@ -92,20 +132,6 @@ class Destruct
       x = ExprCache.get(->{ asdf })
       e = cp.match(x)
       expect(e.var_name).to eql :asdf
-    end
-    it 'array-style object matches' do
-      t = Transformer.from(Transformer::PatternBase) do
-        add_rule(->{ klass[*field_pats] }, klass: [Class, Module], field_pats: Var) do |klass:, field_pats:|
-          Obj.new(klass, field_pats.map { |f| [f.name, f] }.to_h)
-        end
-      end
-
-      cp = Compiler.compile(t.transform { Foo[a, b] })
-      e = cp.match(Foo.new(1, 2))
-      expect(e.a).to eql 1
-      expect(e.b).to eql 2
-
-      expect { t.transform { foo[a, b] } }.to raise_error(/Invalid pattern/)
     end
     it 'hash-style object matches' do
       t = Transformer.from(Transformer::PatternBase) do
