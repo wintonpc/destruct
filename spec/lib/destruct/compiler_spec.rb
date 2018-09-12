@@ -105,6 +105,7 @@ class Destruct
       given pattern: [1, 2], expect_failure_on: [8, 9]
     end
     it 'compiles nested arrays' do
+      $show_code = true
       given_pattern [1, [2, [3, 4], 5], 6, 7]
       expect_success_on [1, [2, [3, 4], 5], 6, 7]
       expect_failure_on [1, [2, [3, 9], 5], 6, 7]

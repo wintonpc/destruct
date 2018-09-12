@@ -108,6 +108,26 @@ class Destruct
       end
     end
 
+    def is_literal?(p)
+      !(p.is_a?(Obj) ||
+          p.is_a?(Or) ||
+          p.is_a?(Var) ||
+          p.is_a?(Array))
+    end
+
+    def pattern_order(p)
+      # check the cheapest or most likely to fail first
+      if is_literal?(p)
+        0
+      elsif p.is_a?(Or)
+        2
+      elsif p.is_a?(Var)
+        3
+      else
+        1
+      end
+    end
+
     def match_array(s)
       s.type = :array
       splat_count = s.pat.count { |p| p.is_a?(Splat) }
@@ -124,8 +144,10 @@ class Destruct
         cond = splat_index ? "#{s.x}.size >= #{s.pat.size - 1}" : "#{s.x}.size == #{s.pat.size}"
         test(s, cond) do
 
-          pre_splat_range.each do |i|
-            item_pat = s.pat[i]
+          pre_splat_range
+              .map { |i| [s.pat[i], i] }
+              .sort_by { |(item_pat, i)| [pattern_order(item_pat), i] }
+              .each do |item_pat, i|
             x = localize(item_pat, "#{s.x}[#{i}]")
             match(Frame.new(item_pat, x, s.env, s))
           end
