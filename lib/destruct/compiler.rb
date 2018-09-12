@@ -218,11 +218,18 @@ class Destruct
     def bind(s, var, val, val_could_be_unbound=false)
       var_name = var.is_a?(Var) ? var.name : var
       current_val = get_temp("current_val")
-      proposed_val = get_temp("proposed_val")
-      require_outer_check = in_or(s) || val_could_be_unbound
 
       emit "# bind #{var_name}"
-      emit "#{proposed_val} = #{val}"
+      require_outer_check = in_or(s) || val_could_be_unbound
+      proposed_val =
+          if require_outer_check && val_could_be_unbound
+            pv = get_temp("proposed_val")
+            emit "#{pv} = #{val}"
+            pv
+          else
+            val
+          end
+
       emit "#{require_outer_check ? "if #{s.env} #{val_could_be_unbound ? "&& #{proposed_val} != :__unbound__" : ""}" : ""}"
       emit "#{s.env} = _make_env.() if #{s.env} == true"
       emit "#{current_val} = #{s.env}.#{var_name}"
