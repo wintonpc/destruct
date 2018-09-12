@@ -61,7 +61,9 @@ class Destruct
     end
 
     def match(s)
-      if s.pat.is_a?(Obj)
+      if s.pat == Any
+        # do nothing
+      elsif s.pat.is_a?(Obj)
         match_obj(s)
       elsif s.pat.is_a?(Or)
         match_or(s)

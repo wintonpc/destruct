@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 class Destruct
+  Any = Object.new
+
   class Var
     attr_reader :name
 

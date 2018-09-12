@@ -90,6 +90,13 @@ class Destruct
       given_pattern({a: Var.new(:foo)})
       expect_success_on({a: 1}, foo: 1)
     end
+    it 'compiles wildcards' do
+      given_pattern([Any, Any])
+      expect_success_on [1, 2]
+      expect_success_on [1, 1]
+      expect_failure_on [1]
+      expect_failure_on [1, 2, 3]
+    end
     it 'compiles arrays' do
       given_pattern [1, Var.new(:foo)]
       expect_success_on [1, 2], foo: 2

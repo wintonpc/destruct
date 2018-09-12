@@ -35,8 +35,16 @@ class Destruct
     end
     it 'translates stuff with hashes' do
       given_pattern { {a: 1, b: [1, foo]} }
-      given_rule(->{ ~v }, v: Var) { |v:| Splat.new(v.name) }
       expect_success_on({a: 1, b: [1, 2]}, foo: 2)
+    end
+    it 'translates underscores' do
+      given_pattern { [_, a] }
+      given_rule(->{ v }, v: Var) do |v:|
+        raise Transformer::NotApplicable unless v.name == "_"
+        Any
+      end
+      expect_success_on [1, 2], a: 2
+      expect_success_on [3, 4], a: 4
     end
 
     it 'Ruby' do
@@ -147,6 +155,7 @@ class Destruct
     end
 
     def expect_success_on(x, bindings={})
+      @transformer ||= Transformer::PatternBase
       env = Compiler.compile(transform(&@pat_proc)).match(x)
       expect(env).to be_truthy
       bindings.each do |k, v|

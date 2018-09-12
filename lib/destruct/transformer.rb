@@ -54,7 +54,8 @@ class Destruct
               args = {binding: binding}
               if e.is_a?(Env)
                 e.env_each do |k, v|
-                  args[k] = transform(v, iters, binding, on_unmatched: on_unmatched)
+                  val = v == expr ? v : transform(v, iters, binding, on_unmatched: on_unmatched) # don't try to transform if we know we won't get anywhere (prevent stack overflow); template might guard by raising NotApplicable
+                  args[k] = val
                 end
               end
               return transform(apply_template(rule, **args), iters + 1, binding, on_unmatched: on_unmatched)
