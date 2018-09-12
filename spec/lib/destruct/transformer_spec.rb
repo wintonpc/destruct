@@ -33,6 +33,11 @@ class Destruct
       given_rule(->{ ~v }, v: Var) { |v:| Splat.new(v.name) }
       expect_success_on [1, 2, 3], foo: [2, 3]
     end
+    it 'translates stuff with hashes' do
+      given_pattern { {a: 1, b: [1, foo]} }
+      given_rule(->{ ~v }, v: Var) { |v:| Splat.new(v.name) }
+      expect_success_on({a: 1, b: [1, 2]}, foo: 2)
+    end
 
     it 'Ruby' do
       t = Transformer::Ruby
@@ -65,19 +70,6 @@ class Destruct
 
       x_const = t.transform { Foo }
       expect(x_const).to eql Foo
-    end
-    it 'translates stuff with hashes' do
-      time_it("test") do
-        t = Transformer.from(Transformer::Ruby) do
-          v = nil
-          add_rule(->{ ~v }) do |v:|
-            Splat.new(v.name)
-          end
-        end
-        r = t.transform { {a: 1, b: [1, ~foo]} }
-        expect(r).to be_a Hash
-        expect(r[:b].last).to be_a Splat
-      end
     end
     it 'metacircularish' do
       t = Transformer.from(Transformer::PatternBase) do

@@ -51,6 +51,8 @@ class Destruct
         pat.patterns.flat_map(&method(:find_var_names))
       elsif pat.is_a?(Var)
         [pat.name]
+      elsif pat.is_a?(Hash)
+        pat.values.flat_map(&method(:find_var_names))
       elsif pat.is_a?(Array)
         pat.flat_map(&method(:find_var_names))
       else
@@ -65,6 +67,8 @@ class Destruct
         match_or(s)
       elsif s.pat.is_a?(Var)
         match_var(s)
+      elsif s.pat.is_a?(Hash)
+        match_hash(s)
       elsif s.pat.is_a?(Array)
         match_array(s)
       else
@@ -76,6 +80,7 @@ class Destruct
       !(p.is_a?(Obj) ||
           p.is_a?(Or) ||
           p.is_a?(Var) ||
+          p.is_a?(Hash) ||
           p.is_a?(Array))
     end
 
@@ -89,6 +94,16 @@ class Destruct
         3
       else
         1
+      end
+    end
+
+    def match_hash(s)
+      s.type = :hash
+      test(s, "#{s.x}.is_a?(Hash)") do
+        s.pat.each do |field_name, field_pat|
+          x = localize(field_pat, "#{s.x}[#{field_name.inspect}]", field_name)
+          match(Frame.new(field_pat, x, s.env, s))
+        end
       end
     end
 

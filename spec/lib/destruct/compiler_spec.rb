@@ -86,6 +86,10 @@ class Destruct
       expect_success_on [3, [1, 7]],
                         a: 3, b: 7, c: ::Destruct::Env::UNBOUND
     end
+    it 'compiles hashes' do
+      given_pattern({a: Var.new(:foo)})
+      expect_success_on({a: 1}, foo: 1)
+    end
     it 'compiles arrays' do
       given_pattern [1, Var.new(:foo)]
       expect_success_on [1, 2], foo: 2
