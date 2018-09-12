@@ -4,6 +4,12 @@ require 'unparser'
 require 'destruct/transformer/destruct'
 require_relative './code_gen'
 
+class Proc
+  def cached_source_location
+    @cached_source_location ||= source_location # don't allocate a new array every time
+  end
+end
+
 class Destruct
   include CodeGen
 

@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require 'destructure'
 require 'active_support/core_ext/object/deep_dup'
 require 'destruct/types'
 
