@@ -32,7 +32,7 @@ class Destruct
     emit_lambda("_x", "_obj_with_binding") do
       show_code_on_error do
         case_expr.whens.each do |w|
-          pat = tx.transform(w.pred)
+          pat = tx.transform(w.pred, 0, pat_proc.binding)
           cp = Compiler.compile(pat)
           if_str = w == case_expr.whens.first ? "if" : "elsif"
           emit "#{if_str} _env = #{get_ref(cp.generated_code)}.proc.(_x, _obj_with_binding)"

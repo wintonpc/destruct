@@ -79,7 +79,15 @@ class Destruct
       end
     end
 
-    def add_rule(pat_or_proc, &translate)
+    def add_rule(pat_or_proc, constraints={}, &translate_block)
+      translate =
+      if constraints.any?
+        proc do |**kws|
+          translate_block.(**kws)
+        end
+      else
+        translate_block
+      end
       if pat_or_proc.is_a?(Proc)
         node = ExprCache.get(pat_or_proc)
         pat = node_to_pattern(node)

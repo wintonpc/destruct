@@ -6,42 +6,6 @@ require_relative './rbeautify'
 require_relative './code_gen'
 require "set"
 
-module Enumerable
-  def rest
-    result = []
-    while true
-      result << self.next
-    end
-  rescue StopIteration
-    result
-  end
-
-  def new_from_here
-    orig = self
-    WrappedEnumerator.new(orig) do |y|
-      while true
-        y << orig.next
-      end
-    end
-  end
-end
-
-class WrappedEnumerator < Enumerator
-  def initialize(inner, &block)
-    super(&block)
-    @inner = inner
-  end
-
-  def new_from_here
-    orig = @inner
-    WrappedEnumerator.new(orig) do |y|
-      while true
-        y << orig.next
-      end
-    end
-  end
-end
-
 class Destruct
   class Compiler
     include CodeGen
@@ -358,6 +322,42 @@ class Destruct
 
     def match(x, binding=nil)
       @generated_code.proc.(x, binding)
+    end
+  end
+end
+
+module Enumerable
+  def rest
+    result = []
+    while true
+      result << self.next
+    end
+  rescue StopIteration
+    result
+  end
+
+  def new_from_here
+    orig = self
+    WrappedEnumerator.new(orig) do |y|
+      while true
+        y << orig.next
+      end
+    end
+  end
+end
+
+class WrappedEnumerator < Enumerator
+  def initialize(inner, &block)
+    super(&block)
+    @inner = inner
+  end
+
+  def new_from_here
+    orig = @inner
+    WrappedEnumerator.new(orig) do |y|
+      while true
+        y << orig.next
+      end
     end
   end
 end
