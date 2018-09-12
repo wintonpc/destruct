@@ -11,18 +11,21 @@ class Destruct
     def inspect
       "#<Var: #{name}>"
     end
+    alias_method :to_s, :inspect
   end
 
   class Splat < Var
     def inspect
       "#<Splat: #{name}>"
     end
+    alias_method :to_s, :inspect
   end
 
   class KwSplat < Var
     def inspect
       "#<KwSplat: #{name}>"
     end
+    alias_method :to_s, :inspect
   end
 
   class Obj
@@ -39,6 +42,7 @@ class Destruct
     def inspect
       "#<Obj: #{@type}[#{fields.map { |(k, v)| "#{k}: #{v}"}.join(", ")}]>"
     end
+    alias_method :to_s, :inspect
   end
 
   class Or
@@ -51,6 +55,7 @@ class Destruct
     def inspect
       "#<Or: #{patterns.map(&:inspect).join(", ")}>"
     end
+    alias_method :to_s, :inspect
 
     private
 
