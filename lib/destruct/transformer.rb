@@ -91,7 +91,7 @@ class Destruct
           if constraints.any?
             proc do |**kws|
               constraints.each_pair do |var, const|
-                raise Transformer::NotApplicable unless Array(kws[var]).all? { |p| Array(const).any? { |type| p.is_a?(type) } }
+                raise Transformer::NotApplicable unless as_array(kws[var]).all? { |p| as_array(const).any? { |type| p.is_a?(type) } }
               end
               translate_block.(**kws)
             end
@@ -108,6 +108,14 @@ class Destruct
     end
 
     private
+
+    def as_array(x)
+      if x.is_a?(Hash)
+        [x]
+      else
+        Array(x)
+      end
+    end
 
     def node_to_pattern(node)
       if !node.is_a?(Parser::AST::Node)

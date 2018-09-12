@@ -6,13 +6,11 @@ require 'time_it'
 class Destruct
   describe Transformer do
     Foo = Struct.new(:a, :b)
-
     it 'passes matches to the block' do
       given_pattern { [1, ~foo] }
       given_rule(->{ ~v }, v: Var) { |v:| Splat.new(v.name) }
       expect_success_on [1, 2, 3], foo: [2, 3]
     end
-
     it 'array-style object matches' do
       given_pattern { Foo[a, b] }
       given_rule(->{ klass[*field_pats] }, klass: [Class, Module], field_pats: Var) do |klass:, field_pats:|
@@ -21,34 +19,20 @@ class Destruct
       expect_success_on Foo.new(1, 2), a: 1, b: 2
       expect { transform { foo[a, b] } }.to raise_error("Invalid pattern: foo[a, b]")
     end
-
-    def given_rule(*args, &block)
-      @transformer = Transformer.from(Transformer::PatternBase) do
-        add_rule(*args, &block)
+    it 'hash-style object matches' do
+      given_pattern { Foo[a: x, b: y] }
+      given_rule(->{ klass[field_pats] }, klass: [Class, Module], field_pats: Hash) do |klass:, field_pats:|
+        Obj.new(klass, field_pats)
       end
+      expect_success_on Foo.new(1, 2), x: 1, y: 2
     end
-
-    def transform(&pat_proc)
-      @transformer.transform(&pat_proc)
+    it 'allows matched vars to be locals' do
+      foo = nil
+      v = nil
+      given_pattern { [1, ~foo] }
+      given_rule(->{ ~v }, v: Var) { |v:| Splat.new(v.name) }
+      expect_success_on [1, 2, 3], foo: [2, 3]
     end
-
-    def given_pattern(&pat_proc)
-      @pat_proc = pat_proc
-    end
-
-    def match(x, pat_proc)
-      cp = Compiler.compile(transform(&pat_proc))
-      cp.match(x)
-    end
-
-    def expect_success_on(x, bindings={})
-      env = Compiler.compile(transform(&@pat_proc)).match(x)
-      expect(env).to be_truthy
-      bindings.each do |k, v|
-        expect(env[k]).to eql v
-      end
-    end
-
 
     it 'Ruby' do
       t = Transformer::Ruby
@@ -82,28 +66,6 @@ class Destruct
       x_const = t.transform { Foo }
       expect(x_const).to eql Foo
     end
-    it 'allows matched vars to be locals' do
-      t = Transformer.from(Transformer::Ruby) do
-        v = nil
-        add_rule(->{ ~v }) do |v:|
-          Splat.new(v.name)
-        end
-      end
-      foo_splat = t.transform { ~foo }
-      expect(foo_splat).to be_a Splat
-      expect(foo_splat.name).to eql :foo
-    end
-    it 'translates more complex rules' do
-      t = Transformer.from(Transformer::Ruby) do
-        v = nil
-        add_rule(->{ ~v }) do |v:|
-          Splat.new(v.name)
-        end
-      end
-      r = t.transform { [1, ~foo] }
-      expect(r[1]).to be_a Splat
-      expect(r[1].name).to eql :foo
-    end
     it 'translates stuff with hashes' do
       time_it("test") do
         t = Transformer.from(Transformer::Ruby) do
@@ -128,19 +90,6 @@ class Destruct
       x = ExprCache.get(->{ asdf })
       e = cp.match(x)
       expect(e.var_name).to eql :asdf
-    end
-    it 'hash-style object matches' do
-      t = Transformer.from(Transformer::PatternBase) do
-        add_rule(->{ klass[fields] }) do |klass:, fields:|
-          raise Transformer::NotApplicable unless klass.is_a?(Class) || klass.is_a?(Module)
-          Obj.new(klass, fields)
-        end
-      end
-
-      cp = Compiler.compile(t.transform { Foo[a: x, b: y] })
-      e = cp.match(Foo.new(1, 2))
-      expect(e.x).to eql 1
-      expect(e.y).to eql 2
     end
     # it 'test' do
     #   r1 = ExprCache.get(->{c[fs]})
@@ -185,5 +134,32 @@ class Destruct
     #   #
     #   # r
     # end
+
+    def given_rule(*args, &block)
+      @transformer = Transformer.from(Transformer::PatternBase) do
+        add_rule(*args, &block)
+      end
+    end
+
+    def transform(&pat_proc)
+      @transformer.transform(&pat_proc)
+    end
+
+    def given_pattern(&pat_proc)
+      @pat_proc = pat_proc
+    end
+
+    def match(x, pat_proc)
+      cp = Compiler.compile(transform(&pat_proc))
+      cp.match(x)
+    end
+
+    def expect_success_on(x, bindings={})
+      env = Compiler.compile(transform(&@pat_proc)).match(x)
+      expect(env).to be_truthy
+      bindings.each do |k, v|
+        expect(env[k]).to eql v
+      end
+    end
   end
 end
