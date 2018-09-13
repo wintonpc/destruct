@@ -124,6 +124,12 @@ class Destruct
       expect_failure_on [1, 2]
       expect_success_on [1, 1], a: 1
     end
+    it 'compiles unquoted compiled patterns' do
+      given_pattern [Var.new(:a), Unquote.new("outer")]
+      given_binding binding
+      outer = Compiler.compile(Var.new(:b))
+      expect_success_on [1, 2], a: 1, b: 2
+    end
     it 'compiles arrays' do
       given_pattern [1, Var.new(:foo)]
       expect_success_on [1, 2], foo: 2

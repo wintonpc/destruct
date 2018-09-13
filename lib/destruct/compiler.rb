@@ -12,7 +12,11 @@ class Destruct
 
     class << self
       def compile(pat)
-        Compiler.new.compile(pat)
+        if pat.is_a?(CompiledPattern)
+          pat
+        else
+          Compiler.new.compile(pat)
+        end
       end
 
       def match(pat, x)
