@@ -243,14 +243,13 @@ class Destruct
       bind(s, s.pat, s.x)
     end
 
-    def bind(s, var, val, val_could_be_unbound=false)
+    def bind(s, var, val, val_could_be_unbound_sentinel=false)
       var_name = var.is_a?(Var) ? var.name : var
-      current_val = get_temp("current_val")
 
       # emit "# bind #{var_name}"
-      require_outer_check = in_or(s) || val_could_be_unbound
       proposed_val =
-          if require_outer_check && val_could_be_unbound
+          if val_could_be_unbound_sentinel
+            # we'll want this in a local because the additional `if` clause below will need the value a second time.
             pv = get_temp("proposed_val")
             emit "#{pv} = #{val}"
             pv
@@ -260,11 +259,13 @@ class Destruct
 
       do_it = proc do
         unless @known_real_envs.include?(s.env)
+          # no need to ensure the env is real (i.e., an Env, not `true`) if it's already been ensured
           emit "#{s.env} = _make_env.()#{@has_or ? " if #{s.env} == true" : ""}"
           @known_real_envs.add(s.env) unless in_or(s)
         end
+        current_val = "#{s.env}.#{var_name}"
         if @var_counts[var_name] > 1
-          emit "#{current_val} = #{s.env}.#{var_name}"
+          # if the pattern binds the var in two places, we'll have to check if it's already bound
           emit_if "#{current_val} == :__unbound__" do
             emit "#{s.env}.#{var_name} = #{proposed_val}"
           end.elsif "#{current_val} != #{proposed_val}" do
@@ -275,12 +276,15 @@ class Destruct
             end
           end.end
         else
-          emit "#{s.env}.#{var_name} = #{proposed_val}"
+          # otherwise, this is the only place we'll attempt to bind this var, so just do it
+          emit "#{current_val} = #{proposed_val}"
         end
       end
 
-      if require_outer_check
-        emit_if("#{s.env} #{val_could_be_unbound ? "&& #{proposed_val} != :__unbound__" : ""}", &do_it).end
+      if in_or(s)
+        emit_if("#{s.env}", &do_it).end
+      elsif val_could_be_unbound_sentinel
+        emit_if("#{s.env} && #{proposed_val} != :__unbound__", &do_it).end
       else
         do_it.()
       end
@@ -329,7 +333,6 @@ class Destruct
         end
       end
       closers.each(&:call)
-      # emit "#{s.env} = ::Destruct::Env.merge!(#{s.env}, #{or_env})"
       merge(s, or_env)
       emit "#{s.env} or return nil" if !in_or(s.parent)
     end
