@@ -2,6 +2,7 @@
 
 require 'active_support/core_ext/object/deep_dup'
 require 'destruct/types'
+require_relative './compiler'
 
 class Destruct
   class Transformer

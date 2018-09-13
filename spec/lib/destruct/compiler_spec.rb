@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'destruct'
+require 'securerandom'
 
 class Destruct
   describe Compiler do
@@ -139,12 +140,14 @@ class Destruct
       compiled_pats = []
       Compiler.on_compile { |pat| compiled_pats << pat }
 
+      var_name = "x#{SecureRandom.hex(6)}".to_sym
+
       5.times do
-        outer = Var.new(:b)
-        expect_success_on [1, 2], a: 1, b: 2
+        outer = Var.new(var_name)
+        expect_success_on [1, 2], a: 1, var_name => 2
       end
 
-      expect(compiled_pats.count { |p| p == Var.new(:b) }).to eql 1
+      expect(compiled_pats.count { |p| p == Var.new(var_name) }).to eql 1
     end
     it 'compiles arrays' do
       given_pattern [1, Var.new(:foo)]

@@ -15,10 +15,18 @@ class Destruct
         if pat.is_a?(CompiledPattern)
           pat
         else
-          cp = Compiler.new.compile(pat)
-          on_compile_handlers.each { |h| h.(pat) }
-          cp
+          compiled_patterns.fetch(pat) do
+            compiled_patterns[pat] = begin
+              cp = Compiler.new.compile(pat)
+              on_compile_handlers.each { |h| h.(pat) }
+              cp
+            end
+          end
         end
+      end
+
+      def compiled_patterns
+        Thread.current[:destruct_compiled_patterns] ||= {}
       end
 
       def match(pat, x)
