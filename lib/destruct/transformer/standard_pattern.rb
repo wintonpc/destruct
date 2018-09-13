@@ -17,6 +17,9 @@ class Destruct
         Any
       end
       add_rule(->{ !expr }) { |expr:| Unquote.new(unparse(expr)) }
+      add_rule(->{ name = pat }, name: Symbol) do |name:, pat:|
+        Let.new(name, pat)
+      end
     end
   end
 end

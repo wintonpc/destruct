@@ -6,7 +6,7 @@ require_relative './compiler'
 
 class Destruct
   class Transformer
-    DEBUG = false
+    DEBUG = true
     LITERAL_TYPES = %i[int sym float str].freeze
     class NotApplicable < RuntimeError
     end
@@ -16,6 +16,12 @@ class Destruct
     end
 
     Code = Struct.new(:code)
+    class Code
+      def to_s
+        "#<Code: #{code}>"
+      end
+      alias_method :inspect, :to_s
+    end
 
     def initialize(initial_rules=[])
       @rules = initial_rules
@@ -64,7 +70,7 @@ class Destruct
         @rules.each do |rule|
           begin
             if rule.pat.is_a?(Class) && rule.pat.ancestors.include?(Syntax) && expr.is_a?(rule.pat)
-              return transform(apply_template(rule, expr, binding: binding), iters + 1, binding, depth: depth, on_unmatched: on_unmatched)
+              return log(expr, transform(apply_template(rule, expr, binding: binding), iters + 1, binding, depth: depth, on_unmatched: on_unmatched))
             elsif e = Compiler.compile(rule.pat).match(expr)
               args = {binding: binding}
               if e.is_a?(Env)
@@ -73,13 +79,14 @@ class Destruct
                   args[k] = val
                 end
               end
-              return transform(apply_template(rule, **args), iters + 1, binding, depth: depth, on_unmatched: on_unmatched)
+              return log(expr, transform(apply_template(rule, **args), iters + 1, binding, depth: depth, on_unmatched: on_unmatched))
             end
           rescue NotApplicable
             # continue to next rule
           end
         end
         # no rules matched
+        result =
         if on_unmatched == :ignore || iters > 0
           expr
         elsif on_unmatched == :code
@@ -93,7 +100,13 @@ class Destruct
         elsif on_unmatched == :tag
           [:unmatched_expr, expr]
         end
+        log(expr, result)
       end
+    end
+
+    def log(expr, result)
+      puts "TX: #{expr.to_s.gsub("\n", " ")}\n => #{result.to_s.gsub("\n", " ")}" if DEBUG && expr != result
+      result
     end
 
     def apply_template(rule, *args, **kws)
@@ -144,13 +157,14 @@ class Destruct
     def node_to_pattern(node)
       if !node.is_a?(Parser::AST::Node)
         node
-      elsif name = try_read_var(node)
-        Var.new(name)
-      elsif name = try_read_splat(node)
-        Splat.new(name)
       else
-        n(node.type, node.children.map { |c| node_to_pattern(c) })
+        try_read_var(node) || try_read_splat(node) || try_read_lvasgn(node) ||
+            just_node_to_pattern(node)
       end
+    end
+
+    def just_node_to_pattern(node)
+      n(node.type, node.children.map { |c| node_to_pattern(c) })
     end
 
     def try_read_var(node)
@@ -158,7 +172,7 @@ class Destruct
       e = cp.match(node)
       if e
         puts "successfully matched var #{node}" if DEBUG
-        e[:name]
+        Var.new(e[:name])
       else
         puts "failed to match var #{node}" if DEBUG
         nil
@@ -170,9 +184,21 @@ class Destruct
       e = cp.match(node)
       if e
         puts "successfully matched splat #{node}" if DEBUG
-        e[:name]
+        Splat.new(e[:name])
       else
         puts "failed to match splat #{node}" if DEBUG
+        nil
+      end
+    end
+
+    def try_read_lvasgn(node)
+      cp = Compiler.compile(n(:lvasgn, [v(:lvar), v(:expr)]))
+      e = cp.match(node)
+      if e
+        puts "successfully matched lvasgn #{node}" if DEBUG
+        just_node_to_pattern(node.updated(nil, [Var.new(e[:lvar]), node_to_pattern(e[:expr])]))
+      else
+        puts "failed to match lvasgn #{node}" if DEBUG
         nil
       end
     end

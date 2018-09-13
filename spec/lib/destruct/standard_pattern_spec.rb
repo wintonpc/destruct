@@ -59,6 +59,10 @@ class Destruct
         given_pattern { [1, !p3.pat] }
         expect_success_on [1, 2], a: 2
       end
+      it 'let' do
+        given_pattern { [1, a = [2, b]] }
+        expect_success_on [1, [2, 3]], a: [2, 3], b: 3
+      end
     end
   end
 end
