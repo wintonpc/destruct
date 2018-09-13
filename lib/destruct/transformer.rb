@@ -38,6 +38,8 @@ class Destruct
         x.code
       elsif x.is_a?(Parser::AST::Node)
         Unparser.unparse(x)
+      elsif x.is_a?(Var)
+        x.name.to_s
       else
         x
       end

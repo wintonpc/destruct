@@ -1,4 +1,5 @@
 require 'destruct'
+require 'ostruct'
 require_relative './transformer_helpers'
 
 class Destruct
@@ -41,9 +42,21 @@ class Destruct
         expect_success_on [1, 2, 3]
       end
       it 'unquote' do
+        given_binding binding
         h = {sub_pat: Var.new(:a)}
         given_pattern { [1, !h[:sub_pat]] }
-        given_binding binding
+        expect_success_on [1, 2], a: 2
+
+        p1 = Var.new(:a)
+        given_pattern { [1, !p1] }
+        expect_success_on [1, 2], a: 2
+
+        @p2 = Var.new(:a)
+        given_pattern { [1, !@p2] }
+        expect_success_on [1, 2], a: 2
+
+        p3 = OpenStruct.new(pat: Var.new(:a))
+        given_pattern { [1, !p3.pat] }
         expect_success_on [1, 2], a: 2
       end
     end

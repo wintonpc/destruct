@@ -132,7 +132,6 @@ class Destruct
       expect_success_on [1, 2], a: 1, b: 2
     end
     it 'caches compiled unquoted patterns' do
-      $show_code = true
       given_pattern [Var.new(:a), Unquote.new("outer")]
       given_binding binding
       outer = nil

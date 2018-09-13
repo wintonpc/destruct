@@ -16,9 +16,7 @@ class Destruct
         raise Transformer::NotApplicable unless v.name == :_
         Any
       end
-      add_rule(->{ !v }) do |v:|
-        Unquote.new(unparse(v))
-      end
+      add_rule(->{ !expr }) { |expr:| Unquote.new(unparse(expr)) }
     end
   end
 end
