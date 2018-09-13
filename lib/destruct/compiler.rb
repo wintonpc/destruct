@@ -96,6 +96,7 @@ class Destruct
           p.is_a?(Or) ||
           p.is_a?(Var) ||
           p.is_a?(Let) ||
+          p.is_a?(Unquote) ||
           p.is_a?(Hash) ||
           p.is_a?(Array))
     end
@@ -108,6 +109,8 @@ class Destruct
         2
       elsif p.is_a?(Var)
         3
+      elsif p.is_a?(Unquote)
+        4
       else
         1
       end
@@ -238,7 +241,7 @@ class Destruct
     def match_unquote(s)
       temp_env = get_temp("env")
       emit "#{temp_env} = ::Destruct::Compiler.compile(_binding.eval('#{s.pat.code_expr}')).match(#{s.x})"
-      merge(s, temp_env)
+      merge(s, temp_env, dynamic: true)
     end
 
     def match_let(s)
@@ -338,18 +341,19 @@ class Destruct
       emit "#{s.env} or return nil" if !in_or(s.parent)
     end
 
-    def merge(s, other_env)
-      emit <<~CODE
-        if #{s.env}.nil? || #{other_env}.nil?
-          #{s.env} = nil
-        elsif #{s.env} == true
-          #{s.env} = #{other_env}
-        elsif #{other_env} != true
-      CODE
-      @var_names.each do |var_name|
-        bind(s, var_name, "#{other_env}.#{var_name}", true)
-      end
-      emit "end"
+    def merge(s, other_env, dynamic: false)
+      emit_if("#{s.env}.nil? || #{other_env}.nil?") do
+        emit "#{s.env} = nil"
+      end.elsif("#{s.env} == true") do
+        emit "#{s.env} = #{other_env}"
+      end.elsif("#{other_env} != true") do
+        if dynamic
+        else
+          @var_names.each do |var_name|
+            bind(s, var_name, "#{other_env}.#{var_name}", true)
+          end
+        end
+      end.end
     end
 
     private

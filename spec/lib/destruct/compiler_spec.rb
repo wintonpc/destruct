@@ -102,15 +102,24 @@ class Destruct
       expect_success_on [1, 2], a: [1, 2], b: 1, c: 2
       expect_failure_on [1, 2, 3]
     end
-    it 'compiles unquotes' do
-      outer = 5
+    it 'compiles unquoted values' do
       given_pattern [1, Unquote.new("outer")]
       given_binding binding
+      outer = 5
       expect_success_on [1, 5]
       expect_failure_on [1, 6]
+
+      # handles changes in the binding
       outer = 6
       expect_failure_on [1, 5]
       expect_success_on [1, 6]
+    end
+    it 'compiles unquoted patterns' do
+      $show_code = true
+      given_pattern [Var.new(:a), Unquote.new("outer")]
+      given_binding binding
+      outer = Var.new(:b)
+      expect_success_on [1, 2], a: 1, b: 2
     end
     it 'compiles arrays' do
       given_pattern [1, Var.new(:foo)]
