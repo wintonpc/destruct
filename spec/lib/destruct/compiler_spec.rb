@@ -98,9 +98,19 @@ class Destruct
       expect_failure_on [1, 2, 3]
     end
     it 'compiles lets' do
-      # $show_code = true
       given_pattern(Let.new(:a, [Var.new(:b), Var.new(:c)]))
       expect_success_on [1, 2], a: [1, 2], b: 1, c: 2
+      expect_failure_on [1, 2, 3]
+    end
+    it 'compiles unquotes' do
+      outer = 5
+      given_pattern [1, Unquote.new("outer")]
+      given_binding binding
+      expect_success_on [1, 5]
+      expect_failure_on [1, 6]
+      outer = 6
+      expect_failure_on [1, 5]
+      expect_success_on [1, 6]
     end
     it 'compiles arrays' do
       given_pattern [1, Var.new(:foo)]
@@ -181,12 +191,16 @@ class Destruct
       @pat = compile(pat)
     end
 
+    def given_binding(binding)
+      @binding = binding
+    end
+
     def expect_match(x)
       expect(@pat.match(x))
     end
 
     def expect_success_on(x, bindings={})
-      env = @pat.match(x)
+      env = @pat.match(x, @binding)
       expect(env).to be_truthy
       bindings.each do |k, v|
         expect(env[k]).to eql v
@@ -204,7 +218,7 @@ class Destruct
     end
 
     def expect_failure_on(x)
-      expect(@pat.match(x)).to be_falsey
+      expect(@pat.match(x, @binding)).to be_falsey
     end
   end
 end

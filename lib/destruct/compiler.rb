@@ -35,7 +35,7 @@ class Destruct
 
       x = get_temp("x")
       env = get_temp("env")
-      emit_lambda(x, "binding") do
+      emit_lambda(x, "_binding") do
         show_code_on_error do
           emit "#{env} = true"
           match(Frame.new(pat, x, env))
@@ -80,6 +80,8 @@ class Destruct
         match_let(s)
       elsif s.pat.is_a?(Var)
         match_var(s)
+      elsif s.pat.is_a?(Unquote)
+        match_unquote(s)
       elsif s.pat.is_a?(Hash)
         match_hash(s)
       elsif s.pat.is_a?(Array)
@@ -231,6 +233,12 @@ class Destruct
     def match_var(s)
       s.type = :var
       bind(s, s.pat, s.x)
+    end
+
+    def match_unquote(s)
+      temp_env = get_temp("env")
+      emit "#{temp_env} = ::Destruct::Compiler.compile(_binding.eval('#{s.pat.code_expr}')).match(#{s.x})"
+      merge(s, temp_env)
     end
 
     def match_let(s)

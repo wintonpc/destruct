@@ -37,6 +37,19 @@ class Destruct
     alias_method :to_s, :inspect
   end
 
+  class Unquote
+    attr_reader :code_expr
+
+    def initialize(code_expr)
+      @code_expr = code_expr
+    end
+
+    def inspect
+      "#<Unquote: #{code_expr}>"
+    end
+    alias_method :to_s, :inspect
+  end
+
   class Obj
     attr_reader :type, :fields
 
