@@ -212,18 +212,11 @@ class Destruct
       # emit "puts \"line #{emitted_line_count + 8}: \#{#{cond.inspect}}\""
       # emit "puts \"test: \#{#{cond.inspect}}\""
       if in_or(s)
-        update = "#{s.env} = (#{cond}) ? #{s.env} : nil if #{s.env}"
+        emit "#{s.env} = (#{cond}) ? #{s.env} : nil if #{s.env}"
         if block_given?
-          emit "if (#{update})"
-          yield
-
-          def match_var(s)
-            s.type = :var
-            bind(s, s.pat, s.x)
-          end
-          emit "end"
-        else
-          emit update
+          emit_if s.env do
+            yield
+          end.end
         end
       elsif cond == "nil" || cond == "false"
         emit "return nil"
