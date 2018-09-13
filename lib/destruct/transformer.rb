@@ -15,6 +15,8 @@ class Destruct
     class Syntax
     end
 
+    Code = Struct.new(:code)
+
     def initialize(initial_rules=[])
       @rules = initial_rules
     end
@@ -31,35 +33,45 @@ class Destruct
       @rules.dup
     end
 
+    def unparse(x)
+      if x.is_a?(Code)
+        x.code
+      elsif x.is_a?(Parser::AST::Node)
+        Unparser.unparse(x)
+      else
+        x
+      end
+    end
+
     NOTHING = Object.new
 
     def transform_pattern_proc(&pat_proc)
       transform(NOTHING, 0, pat_proc.binding, on_unmatched: :ignore, &pat_proc)
     end
 
-    def transform(expr=NOTHING, iters=0, binding=nil, on_unmatched: :raise, &pat_proc)
+    def transform(expr=NOTHING, iters=0, binding=nil, depth: 0, on_unmatched: :code, &pat_proc)
       if expr == NOTHING
         expr = ExprCache.get(pat_proc)
         binding = pat_proc.binding
       end
       if expr.is_a?(Array)
-        expr.map { |exp| transform(exp, iters, binding, on_unmatched: on_unmatched) }
+        expr.map { |exp| transform(exp, iters, binding, depth: depth + 1, on_unmatched: on_unmatched) }
       elsif !expr.is_a?(Parser::AST::Node) && !expr.is_a?(Syntax)
         expr
       else
         @rules.each do |rule|
           begin
             if rule.pat.is_a?(Class) && rule.pat.ancestors.include?(Syntax) && expr.is_a?(rule.pat)
-              return transform(apply_template(rule, expr, binding: binding), iters + 1, binding, on_unmatched: on_unmatched)
+              return transform(apply_template(rule, expr, binding: binding), iters + 1, binding, depth: depth, on_unmatched: on_unmatched)
             elsif e = Compiler.compile(rule.pat).match(expr)
               args = {binding: binding}
               if e.is_a?(Env)
                 e.env_each do |k, v|
-                  val = v == expr ? v : transform(v, iters, binding, on_unmatched: on_unmatched) # don't try to transform if we know we won't get anywhere (prevent stack overflow); template might guard by raising NotApplicable
+                  val = v == expr ? v : transform(v, iters, binding, depth: depth + 1, on_unmatched: on_unmatched) # don't try to transform if we know we won't get anywhere (prevent stack overflow); template might guard by raising NotApplicable
                   args[k] = val
                 end
               end
-              return transform(apply_template(rule, **args), iters + 1, binding, on_unmatched: on_unmatched)
+              return transform(apply_template(rule, **args), iters + 1, binding, depth: depth, on_unmatched: on_unmatched)
             end
           rescue NotApplicable
             # continue to next rule
@@ -68,6 +80,12 @@ class Destruct
         # no rules matched
         if on_unmatched == :ignore || iters > 0
           expr
+        elsif on_unmatched == :code
+          if depth == 0
+            raise "Invalid pattern: #{Unparser.unparse(expr)}"
+          else
+            Code.new(Unparser.unparse(expr))
+          end
         elsif on_unmatched == :raise
           raise "Invalid pattern: #{Unparser.unparse(expr)}"
         elsif on_unmatched == :tag

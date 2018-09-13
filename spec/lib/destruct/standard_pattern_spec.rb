@@ -36,6 +36,16 @@ class Destruct
         given_pattern { {a: x, b: y} }
         expect_success_on({a: 1, b: 2}, x: 1, y: 2)
       end
+      it 'wildcard' do
+        given_pattern { [1, _, _] }
+        expect_success_on [1, 2, 3]
+      end
+      it 'unquote' do
+        h = {sub_pat: Var.new(:a)}
+        given_pattern { [1, !h[:sub_pat]] }
+        given_binding binding
+        expect_success_on [1, 2], a: 2
+      end
     end
   end
 end

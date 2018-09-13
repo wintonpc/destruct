@@ -43,7 +43,7 @@ class Destruct
     it 'translates underscores' do
       given_pattern { [_, a] }
       given_rule(->{ v }, v: Var) do |v:|
-        raise Transformer::NotApplicable unless v.name == "_"
+        raise Transformer::NotApplicable unless v.name == :_
         Any
       end
       expect_success_on [1, 2], a: 2

@@ -21,9 +21,13 @@ class Destruct
       cp.match(x)
     end
 
+    def given_binding(binding)
+      @binding = binding
+    end
+
     def expect_success_on(x, bindings={})
       @transformer ||= Transformer::PatternBase
-      env = Compiler.compile(transform(&@pat_proc)).match(x)
+      env = Compiler.compile(transform(&@pat_proc)).match(x, @binding)
       expect(env).to be_truthy
       bindings.each do |k, v|
         expect(env[k]).to eql v
@@ -32,7 +36,7 @@ class Destruct
 
     def expect_failure_on(x)
       @transformer ||= Transformer::PatternBase
-      env = Compiler.compile(transform(&@pat_proc)).match(x)
+      env = Compiler.compile(transform(&@pat_proc)).match(x, @binding)
       expect(env).to be_falsey
     end
   end

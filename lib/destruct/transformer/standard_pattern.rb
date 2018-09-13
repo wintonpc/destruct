@@ -12,6 +12,13 @@ class Destruct
       add_rule(->{ klass[field_pats] }, klass: [Class, Module], field_pats: Hash) do |klass:, field_pats:|
         Obj.new(klass, field_pats)
       end
+      add_rule(->{ v }, v: [Var, VarRef]) do |v:|
+        raise Transformer::NotApplicable unless v.name == :_
+        Any
+      end
+      add_rule(->{ !v }) do |v:|
+        Unquote.new(unparse(v))
+      end
     end
   end
 end
