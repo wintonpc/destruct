@@ -9,9 +9,10 @@ class Destruct
     UNBOUND = :__unbound__
 
     def method_missing(name, *args, &block)
+      name = name.to_s
       if name.to_s[-1] == '='
         @extras ||= {}
-        @extras[name] = args[0]
+        @extras[name[0..-2]] = args[0]
       else
         if @extras.nil?
           ::Destruct::Env::UNBOUND
@@ -24,6 +25,11 @@ class Destruct
     # deprecated
     def [](var_name)
       self.send(var_name)
+    end
+
+    # only for dynamic binding
+    def []=(var_name, value)
+      self.send(:"#{var_name}=", value)
     end
 
     def to_s

@@ -348,6 +348,17 @@ class Destruct
         emit "#{s.env} = #{other_env}"
       end.elsif("#{other_env} != true") do
         if dynamic
+          emit "#{other_env}.env_each do |k, v|"
+          emit_if("#{s.env}[k] == :__unbound__") do
+            emit "#{s.env}[k] = v"
+          end.elsif("#{s.env}[k] != v") do
+            if in_or(s)
+              emit "#{s.env} = nil"
+            else
+              test(s, "nil")
+            end
+          end.end
+          emit "end"
         else
           @var_names.each do |var_name|
             bind(s, var_name, "#{other_env}.#{var_name}", true)
