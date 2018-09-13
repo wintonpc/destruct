@@ -6,7 +6,7 @@ require_relative './compiler'
 
 class Destruct
   class Transformer
-    DEBUG = true
+    DEBUG = false
     LITERAL_TYPES = %i[int sym float str].freeze
     class NotApplicable < RuntimeError
     end
