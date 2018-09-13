@@ -120,6 +120,10 @@ class Destruct
       given_binding binding
       outer = Var.new(:b)
       expect_success_on [1, 2], a: 1, b: 2
+
+      outer = Var.new(:a)
+      expect_failure_on [1, 2]
+      expect_success_on [1, 1], a: 1
     end
     it 'compiles arrays' do
       given_pattern [1, Var.new(:foo)]
