@@ -3,11 +3,15 @@
 class Destruct
   Any = Object.new
 
-  class Var
-    attr_reader :name
+  module Binder
+  end
 
-    def initialize(name = nil)
-      @name = name
+  Var = Struct.new(:name)
+  class Var
+    include Binder
+
+    def initialize(name)
+      self.name = name
     end
 
     def inspect
@@ -16,19 +20,27 @@ class Destruct
     alias_method :to_s, :inspect
   end
 
-  class Splat < Var
+  Splat = Struct.new(:name)
+  class Splat
+    include Binder
+
+    def initialize(name)
+      self.name = name
+    end
+
     def inspect
       "#<Splat: #{name}>"
     end
     alias_method :to_s, :inspect
   end
 
-  class Let < Var
-    attr_reader :pattern
+  Let = Struct.new(:name, :pattern)
+  class Let
+    include Binder
 
     def initialize(name, pattern)
-      super(name)
-      @pattern = pattern
+      self.name = name
+      self.pattern = pattern
     end
 
     def inspect
@@ -37,41 +49,34 @@ class Destruct
     alias_method :to_s, :inspect
   end
 
+  Unquote = Struct.new(:code_expr)
   class Unquote
-    attr_reader :code_expr
-
-    def initialize(code_expr)
-      @code_expr = code_expr
-    end
-
     def inspect
       "#<Unquote: #{code_expr}>"
     end
     alias_method :to_s, :inspect
   end
 
+  Obj = Struct.new(:type, :fields)
   class Obj
-    attr_reader :type, :fields
-
     def initialize(type, fields={})
       unless type.is_a?(Class) || type.is_a?(Module)
         raise "Obj type must be a Class or a Module, was: #{type}"
       end
-      @type = type
-      @fields = fields
+      self.type = type
+      self.fields = fields
     end
 
     def inspect
-      "#<Obj: #{@type}[#{fields.map { |(k, v)| "#{k}: #{v}"}.join(", ")}]>"
+      "#<Obj: #{type}[#{fields.map { |(k, v)| "#{k}: #{v}"}.join(", ")}]>"
     end
     alias_method :to_s, :inspect
   end
 
+  Or = Struct.new(:patterns)
   class Or
-    attr_reader :patterns
-
     def initialize(*patterns)
-      @patterns = flatten(patterns)
+      self.patterns = flatten(patterns)
     end
 
     def inspect

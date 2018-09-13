@@ -130,6 +130,22 @@ class Destruct
       outer = Compiler.compile(Var.new(:b))
       expect_success_on [1, 2], a: 1, b: 2
     end
+    it 'caches compiled unquoted patterns' do
+      $show_code = true
+      given_pattern [Var.new(:a), Unquote.new("outer")]
+      given_binding binding
+      outer = nil
+
+      compiled_pats = []
+      Compiler.on_compile { |pat| compiled_pats << pat }
+
+      5.times do
+        outer = Var.new(:b)
+        expect_success_on [1, 2], a: 1, b: 2
+      end
+
+      expect(compiled_pats.count { |p| p == Var.new(:b) }).to eql 1
+    end
     it 'compiles arrays' do
       given_pattern [1, Var.new(:foo)]
       expect_success_on [1, 2], foo: 2

@@ -15,12 +15,22 @@ class Destruct
         if pat.is_a?(CompiledPattern)
           pat
         else
-          Compiler.new.compile(pat)
+          cp = Compiler.new.compile(pat)
+          on_compile_handlers.each { |h| h.(pat) }
+          cp
         end
       end
 
       def match(pat, x)
         compile(pat).match(x)
+      end
+
+      def on_compile(&block)
+        on_compile_handlers << block
+      end
+
+      private def on_compile_handlers
+        @on_compile_handlers ||= []
       end
     end
 
@@ -62,7 +72,7 @@ class Destruct
         pat.patterns.flat_map(&method(:find_var_names_non_uniq))
       elsif pat.is_a?(Let)
         [pat.name, *find_var_names_non_uniq(pat.pattern)]
-      elsif pat.is_a?(Var)
+      elsif pat.is_a?(Binder)
         [pat.name]
       elsif pat.is_a?(Hash)
         pat.values.flat_map(&method(:find_var_names_non_uniq))
@@ -98,8 +108,7 @@ class Destruct
     def is_literal?(p)
       !(p.is_a?(Obj) ||
           p.is_a?(Or) ||
-          p.is_a?(Var) ||
-          p.is_a?(Let) ||
+          p.is_a?(Binder) ||
           p.is_a?(Unquote) ||
           p.is_a?(Hash) ||
           p.is_a?(Array))
@@ -111,7 +120,7 @@ class Destruct
         0
       elsif p.is_a?(Or)
         2
-      elsif p.is_a?(Var)
+      elsif p.is_a?(Binder)
         3
       elsif p.is_a?(Unquote)
         4
@@ -248,7 +257,7 @@ class Destruct
     end
 
     def bind(s, var, val, val_could_be_unbound_sentinel=false)
-      var_name = var.is_a?(Var) ? var.name : var
+      var_name = var.is_a?(Binder) ? var.name : var
 
       # emit "# bind #{var_name}"
       proposed_val =
