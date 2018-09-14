@@ -7,14 +7,25 @@ require_relative './compiler'
 class Destruct
   class Transformer
     DEBUG = true
-    Rec = Struct.new(:input, :output, :subs)
+    Rec = Struct.new(:input, :output, :subs, :rule)
 
     class << self
       def transform(x, rule_set, binding)
         txr = Transformer.new(rule_set, binding)
         result = txr.transform(x)
-        dump_rec(txr.last_rec) if DEBUG
+        if DEBUG
+          dump_rules(rule_set.rules)
+          puts "\nTransformations:"
+          dump_rec(txr.rec)
+        end
         result
+      end
+
+      def dump_rules(rules)
+        puts "Rules:"
+        rules.each do |rule|
+          puts "  #{rule}"
+        end
       end
 
       def dump_rec(rec, depth=0)
@@ -22,7 +33,7 @@ class Destruct
         indent = "│  " * depth
         puts "#{indent}┌ #{format(rec.input)}"
         rec.subs.each { |s| dump_rec(s, depth + 1) }
-        puts "#{indent}└ #{format(rec.output)}"
+        puts "#{indent}└ #{format(rec.output).ljust(80 - (depth * 3), "…")}………………#{rec.rule&.pat || "(no rule matched)"}"
       end
 
       def format(x)
@@ -34,7 +45,7 @@ class Destruct
       end
     end
 
-    attr_reader :last_rec
+    attr_reader :rec
 
     def initialize(rule_set, binding)
       @rules = rule_set.rules
@@ -45,16 +56,21 @@ class Destruct
     def push_rec(input)
       parent = @rec_stack.last
       current = Rec.new(input, nil, [])
+      @rec ||= current
       @rec_stack.push(current)
       parent.subs << current if parent
     end
 
-    def pop_rec(output)
-      current = @rec_stack.last
+    def pop_rec(output, rule=nil)
+      current = current_rec
       current.output = output
+      current.rule = rule
       @rec_stack.pop
-      @last_rec = current
       output
+    end
+
+    def current_rec
+      @rec_stack.last
     end
 
     def transform(x)
@@ -67,7 +83,7 @@ class Destruct
         @rules.each do |rule|
           begin
             if rule.pat.is_a?(Class) && x.is_a?(rule.pat)
-              return pop_rec(transform(apply_template(rule, x, binding: @binding)))
+              return transform(pop_rec(apply_template(rule, x, binding: @binding), rule))
             elsif e = Compiler.compile(rule.pat).match(x)
               args = {binding: @binding}
               if e.is_a?(Env)
@@ -76,7 +92,8 @@ class Destruct
                   args[k] = val
                 end
               end
-              return pop_rec(transform(apply_template(rule, **args)))
+              applied = pop_rec(apply_template(rule, **args), rule)
+              return transform(applied)
             end
           rescue NotApplicable
             # continue to next rule
@@ -111,7 +128,17 @@ class Destruct
     class NotApplicable < RuntimeError
     end
 
-    Rule = Struct.new(:pat, :template)
+    Rule = Struct.new(:pat, :template, :constraints)
+    class Rule
+      def to_s
+        s = "#{pat}"
+        if constraints&.any?
+          s += " where #{constraints}"
+        end
+        s
+      end
+      alias_method :inspect, :to_s
+    end
 
     Code = Struct.new(:code)
     class Code

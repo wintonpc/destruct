@@ -36,9 +36,9 @@ class Destruct
       if pat_or_proc.is_a?(Proc)
         node = ExprCache.get(pat_or_proc)
         pat = node_to_pattern(node)
-        rules << Transformer::Rule.new(pat, translate)
+        rules << Transformer::Rule.new(pat, translate, constraints)
       else
-        rules << Transformer::Rule.new(pat_or_proc, translate)
+        rules << Transformer::Rule.new(pat_or_proc, translate, constraints)
       end
     end
 

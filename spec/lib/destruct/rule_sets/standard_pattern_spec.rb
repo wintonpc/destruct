@@ -4,7 +4,7 @@ require_relative '../transformer_helpers'
 
 class Destruct
   module RuleSets
-    module StandardPatternSpecs
+    module StdPatSpecs
       Bar = Struct.new(:a, :b)
       describe StandardPattern do
         include TransformerHelpers
