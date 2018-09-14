@@ -2,11 +2,13 @@
 
 require_relative '../transformer'
 require_relative '../rule_set'
+require_relative './helpers'
 
 class Destruct
   module RuleSets
     class Ruby
       include RuleSet
+      include Helpers
 
       def initialize
         add_rule(n(any(:int, :sym, :float, :str), [v(:value)])) { |value:| value }
@@ -36,24 +38,6 @@ class Destruct
         def initialize(fqn)
           @fqn = fqn
         end
-      end
-
-      private
-
-      def n(type, children=[])
-        Obj.new(Parser::AST::Node, type: type, children: children)
-      end
-
-      def v(name)
-        Var.new(name)
-      end
-
-      def s(name)
-        Splat.new(name)
-      end
-
-      def any(*alt_patterns)
-        Or.new(*alt_patterns)
       end
 
       # def m(type, *children)

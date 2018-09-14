@@ -9,7 +9,7 @@ class Destruct
     end
 
     def transform(&pat_proc)
-      @transformer.transform(&pat_proc)
+      @rule_set.transform(&pat_proc)
     end
 
     def given_pattern(&pat_proc)
@@ -26,7 +26,7 @@ class Destruct
     end
 
     def expect_success_on(x, bindings={})
-      @transformer ||= Transformer::PatternBase
+      @rule_set ||= RuleSets::PatternBase
       env = Compiler.compile(transform(&@pat_proc)).match(x, @binding)
       expect(env).to be_truthy
       bindings.each do |k, v|
@@ -35,7 +35,7 @@ class Destruct
     end
 
     def expect_failure_on(x)
-      @transformer ||= Transformer::PatternBase
+      @rule_set ||= RuleSets::PatternBase
       env = Compiler.compile(transform(&@pat_proc)).match(x, @binding)
       expect(env).to be_falsey
     end

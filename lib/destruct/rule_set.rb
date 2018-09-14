@@ -1,13 +1,17 @@
 require_relative './transformer'
+require_relative './rule_sets/helpers'
 
 class Destruct
   module RuleSet
+    DEBUG = false
+
     def rules
       @rules ||= []
     end
 
     def self.included(base)
       base.extend(ClassMethods)
+      base.include(RuleSets::Helpers)
     end
 
     module ClassMethods
@@ -15,7 +19,9 @@ class Destruct
         x = x != NOTHING ? x : x_proc
         x = x.is_a?(Proc) ? ExprCache.get(x) : x
         binding ||= x_proc&.binding
-        Transformer.transform(x == NOTHING ? x_proc : x, instance, binding)
+        result = Transformer.transform(x == NOTHING ? x_proc : x, instance, binding)
+        instance.validate(result) if instance.respond_to?(:validate)
+        result
       end
 
       def instance
@@ -59,10 +65,10 @@ class Destruct
     end
 
     def as_array(x)
-      if x.is_a?(Hash) || x.is_a?(Struct) || x.is_a?(Parser::AST::Node)
-        [x]
+      if x.is_a?(Array)
+        x
       else
-        Array(x)
+        [x]
       end
     end
 

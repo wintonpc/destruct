@@ -7,28 +7,67 @@ require_relative './compiler'
 class Destruct
   class Transformer
     DEBUG = true
+    Rec = Struct.new(:input, :output, :subs)
 
     class << self
       def transform(x, rule_set, binding)
-        Transformer.new(rule_set, binding).transform(x)
+        txr = Transformer.new(rule_set, binding)
+        result = txr.transform(x)
+        dump_rec(txr.last_rec) if DEBUG
+        result
+      end
+
+      def dump_rec(rec, depth=0)
+        return if rec.input == rec.output && rec.subs.none?
+        indent = "│  " * depth
+        puts "#{indent}┌ #{format(rec.input)}"
+        rec.subs.each { |s| dump_rec(s, depth + 1) }
+        puts "#{indent}└ #{format(rec.output)}"
+      end
+
+      def format(x)
+        if x.is_a?(Parser::AST::Node)
+          x.to_s.gsub(/\s+/, " ")
+        else
+          x.inspect
+        end
       end
     end
+
+    attr_reader :last_rec
 
     def initialize(rule_set, binding)
       @rules = rule_set.rules
       @binding = binding
+      @rec_stack = []
+    end
+
+    def push_rec(input)
+      parent = @rec_stack.last
+      current = Rec.new(input, nil, [])
+      @rec_stack.push(current)
+      parent.subs << current if parent
+    end
+
+    def pop_rec(output)
+      current = @rec_stack.last
+      current.output = output
+      @rec_stack.pop
+      @last_rec = current
+      output
     end
 
     def transform(x)
+      push_rec(x)
       if x.is_a?(Array)
-        x.map { |v| transform(v) }
+        pop_rec(x.map { |v| transform(v) })
       elsif x.is_a?(Hash)
-        x.map { |k, v| [transform(k), transform(v)] }.to_h
+        pop_rec(x.map { |k, v| [transform(k), transform(v)] }.to_h)
       else
         @rules.each do |rule|
           begin
             if rule.pat.is_a?(Class) && x.is_a?(rule.pat)
-              return transform(apply_template(rule, x, binding: @binding))
+              return pop_rec(transform(apply_template(rule, x, binding: @binding)))
             elsif e = Compiler.compile(rule.pat).match(x)
               args = {binding: @binding}
               if e.is_a?(Env)
@@ -37,14 +76,17 @@ class Destruct
                   args[k] = val
                 end
               end
-              return transform(apply_template(rule, **args))
+              return pop_rec(transform(apply_template(rule, **args)))
             end
           rescue NotApplicable
             # continue to next rule
           end
         end
-        x
+        pop_rec(x)
       end
+    rescue
+      pop_rec("<error>")
+      raise
     end
 
     def log(expr, result)
@@ -122,15 +164,17 @@ class Destruct
         end
       end
 
-      def unparse(x)
-        if x.is_a?(Code)
-          x.code
-        elsif x.is_a?(Parser::AST::Node)
-          Unparser.unparse(x)
-        elsif x.is_a?(Var)
-          x.name.to_s
-        else
-          x
+      class << self
+        def unparse(x)
+          if x.is_a?(Code)
+            x.code
+          elsif x.is_a?(Parser::AST::Node)
+            Unparser.unparse(x)
+          elsif x.is_a?(Var)
+            x.name.to_s
+          else
+            x
+          end
         end
       end
     end
