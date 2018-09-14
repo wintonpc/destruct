@@ -8,12 +8,7 @@ class Destruct
     class Ruby
       include RuleSet
 
-      module Syntax
-      end
-
       class VarRef
-        include Syntax
-
         attr_reader :name
 
         def initialize(name)
@@ -22,8 +17,6 @@ class Destruct
       end
 
       class ConstRef
-        include Syntax
-
         attr_reader :fqn
 
         def initialize(fqn)
@@ -31,21 +24,7 @@ class Destruct
         end
       end
 
-      class << self
-        def transform(x=NOTHING, binding: nil, &x_proc)
-          x = x != NOTHING ? x : x_proc
-          x = x.is_a?(Proc) ? ExprCache.get(x) : x
-          binding ||= x_proc&.binding
-          Transformer.transform(x == NOTHING ? x_proc : x, instance, binding)
-        end
-
-        def instance
-          @instance ||= new
-        end
-      end
-
       def initialize
-        super
         add_rule(n(any(:int, :sym, :float, :str), [v(:value)])) { |value:| value }
         add_rule(n(:nil, [])) { nil }
         add_rule(n(:true, [])) { true }

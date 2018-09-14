@@ -2,36 +2,52 @@ require_relative './transformer'
 
 class Destruct
   module RuleSet
-    Rule = Transformer::Rule
-
-    def initialize
-      @rules = []
-    end
-
     def rules
-      @rules.dup
+      @rules ||= []
     end
+
+    def self.included(base)
+      base.extend(ClassMethods)
+    end
+
+    module ClassMethods
+      def transform(x=NOTHING, binding: nil, &x_proc)
+        x = x != NOTHING ? x : x_proc
+        x = x.is_a?(Proc) ? ExprCache.get(x) : x
+        binding ||= x_proc&.binding
+        Transformer.transform(x == NOTHING ? x_proc : x, instance, binding)
+      end
+
+      def instance
+        @instance ||= new
+      end
+    end
+
+    private
 
     def add_rule(pat_or_proc, constraints={}, &translate_block)
-      translate =
-          if constraints.any?
-            proc do |**kws|
-              constraints.each_pair do |var, const|
-                unless as_array(kws[var]).all? { |p| as_array(const).any? { |type| p.is_a?(type) } }
-                  raise Transformer::NotApplicable
-                end
-              end
-              translate_block.(**kws)
-            end
-          else
-            translate_block
-          end
+      translate = wrap_translate(translate_block, constraints)
       if pat_or_proc.is_a?(Proc)
         node = ExprCache.get(pat_or_proc)
         pat = node_to_pattern(node)
-        @rules.unshift(Rule.new(pat, translate))
+        rules << Transformer::Rule.new(pat, translate)
       else
-        @rules.unshift(Rule.new(pat_or_proc, translate))
+        rules << Transformer::Rule.new(pat_or_proc, translate)
+      end
+    end
+
+    def wrap_translate(translate_block, constraints)
+      if constraints.any?
+        proc do |**kws|
+          constraints.each_pair do |var, const|
+            unless as_array(kws[var]).all? { |p| as_array(const).any? { |type| p.is_a?(type) } }
+              raise Transformer::NotApplicable
+            end
+          end
+          translate_block.(**kws)
+        end
+      else
+        translate_block
       end
     end
 
