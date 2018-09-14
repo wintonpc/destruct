@@ -14,6 +14,7 @@ class Destruct
         txr = Transformer.new(rule_set, binding)
         result = txr.transform(x)
         if DEBUG
+          puts "\nRules:"
           dump_rules(rule_set.rules)
           puts "\nTransformations:"
           dump_rec(txr.rec)
@@ -22,7 +23,6 @@ class Destruct
       end
 
       def dump_rules(rules)
-        puts "Rules:"
         rules.each do |rule|
           puts "  #{rule}"
         end
