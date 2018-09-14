@@ -33,7 +33,12 @@ class Destruct
       end.map { |n| n.children[2] }
 
       if !try_to_use
-        @exprs_by_proc[p] = candidate_nodes.reject { |n| contains_block?(n) }.first # reject is a hack to deal with more than one per line
+        @exprs_by_proc[p] =
+            if candidate_nodes.size > 1
+              candidate_nodes.reject { |n| contains_block?(n) }.first # hack to deal with more than one per line
+            else
+              candidate_nodes.first
+            end
       else
         tried_candidates = candidate_nodes.map do |n|
           begin

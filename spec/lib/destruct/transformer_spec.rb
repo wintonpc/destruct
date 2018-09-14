@@ -94,6 +94,30 @@ class Destruct
       e = cp.match(x)
       expect(e.var_name).to eql :asdf
     end
+    it 'transforms recursively' do
+      t = Transformer.from(Transformer::StandardPattern) do
+        add_rule(->{ n(type, children) }) do |type:, children:|
+          quote { ::Parser::AST::Node[type: !type, children: !children] }
+        end
+      end
+      pat = t.transform { n(:send, [nil, var_name]) }
+      cp = Compiler.compile(pat)
+      x = ExprCache.get(->{ asdf })
+      e = cp.match(x)
+      expect(e.var_name).to eql :asdf
+    end
+    it 'quote' do
+      a = quote { 1 }
+      r = quote { [!a, 2] }
+      expect(r.type).to eql :array
+      expect(r.children.map { |c| c.children[0] }).to eql [1, 2]
+
+      r = quote do
+        [!(quote { 1 }), 2]
+      end
+      expect(r.type).to eql :array
+      expect(r.children.map { |c| c.children[0] }).to eql [1, 2]
+    end
     # it 'test' do
     #   r1 = ExprCache.get(->{c[fs]})
     #   r2 = ExprCache.get(->{c[*fs]})

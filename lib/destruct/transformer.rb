@@ -51,6 +51,22 @@ class Destruct
       end
     end
 
+    def quote(&block)
+      quo(ExprCache.get(block), block.binding, block.source_location[0])
+    end
+
+    def quo(n, binding, file)
+      if !n.is_a?(Parser::AST::Node)
+        n
+      elsif n.type == :send && n.children[1] == :!
+        expr = n.children[0]
+        line = expr.location.line
+        binding.eval(Unparser.unparse(expr), file, line)
+      else
+        n.updated(nil, n.children.map { |c| quo(c, binding, file) })
+      end
+    end
+
     NOTHING = Object.new
 
     def transform_pattern_proc(&pat_proc)
@@ -87,19 +103,19 @@ class Destruct
         end
         # no rules matched
         result =
-        if on_unmatched == :ignore || iters > 0
-          expr
-        elsif on_unmatched == :code
-          if depth == 0
-            raise "Invalid pattern: #{Unparser.unparse(expr)}"
-          else
-            Code.new(Unparser.unparse(expr))
-          end
-        elsif on_unmatched == :raise
-          raise "Invalid pattern: #{Unparser.unparse(expr)}"
-        elsif on_unmatched == :tag
-          [:unmatched_expr, expr]
-        end
+            if on_unmatched == :ignore || iters > 0
+              expr
+            elsif on_unmatched == :code
+              if depth == 0
+                raise "Invalid pattern: #{Unparser.unparse(expr)}"
+              else
+                Code.new(Unparser.unparse(expr))
+              end
+            elsif on_unmatched == :raise
+              raise "Invalid pattern: #{Unparser.unparse(expr)}"
+            elsif on_unmatched == :tag
+              [:unmatched_expr, expr]
+            end
         log(expr, result)
       end
     end
@@ -147,7 +163,7 @@ class Destruct
     private
 
     def as_array(x)
-      if x.is_a?(Hash) || x.is_a?(Struct)
+      if x.is_a?(Hash) || x.is_a?(Struct) || x.is_a?(Parser::AST::Node)
         [x]
       else
         Array(x)
@@ -219,4 +235,8 @@ class Destruct
       Or.new(*alt_patterns)
     end
   end
+end
+
+def quote(&block)
+  Destruct::Transformer::Identity.quote(&block)
 end
