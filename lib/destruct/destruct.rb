@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require 'unparser'
-require 'destruct/transformer/destruct'
+require_relative 'rule_sets/destruct'
 require_relative './code_gen'
 
 class Proc
@@ -12,6 +12,8 @@ end
 
 class Destruct
   include CodeGen
+
+  NOTHING = Object.new
 
   class << self
     def destructs_by_proc
