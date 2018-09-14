@@ -8,6 +8,20 @@ class Destruct
     class Ruby
       include RuleSet
 
+      def initialize
+        add_rule(n(any(:int, :sym, :float, :str), [v(:value)])) { |value:| value }
+        add_rule(n(:nil, [])) { nil }
+        add_rule(n(:true, [])) { true }
+        add_rule(n(:false, [])) { false }
+        add_rule(n(:array, v(:items))) { |items:| items }
+        add_rule(n(:hash, v(:pairs))) { |pairs:| pairs.to_h }
+        add_rule(n(:pair, [v(:k), v(:v)])) { |k:, v:| [k, v] }
+        add_rule(n(:lvar, [v(:name)])) { |name:| VarRef.new(name) }
+        add_rule(n(:send, [nil, v(:name)])) { |name:| VarRef.new(name) }
+        add_rule(n(:const, [v(:parent), v(:name)]), parent: ConstRef) { |parent:, name:| ConstRef.new([parent&.fqn, name].compact.join("::")) }
+        add_rule(n(:cbase)) { ConstRef.new("") }
+      end
+
       class VarRef
         attr_reader :name
 
@@ -22,20 +36,6 @@ class Destruct
         def initialize(fqn)
           @fqn = fqn
         end
-      end
-
-      def initialize
-        add_rule(n(any(:int, :sym, :float, :str), [v(:value)])) { |value:| value }
-        add_rule(n(:nil, [])) { nil }
-        add_rule(n(:true, [])) { true }
-        add_rule(n(:false, [])) { false }
-        add_rule(n(:array, v(:items))) { |items:| items }
-        add_rule(n(:hash, v(:pairs))) { |pairs:| pairs.to_h }
-        add_rule(n(:pair, [v(:k), v(:v)])) { |k:, v:| [k, v] }
-        add_rule(n(:lvar, [v(:name)])) { |name:| VarRef.new(name) }
-        add_rule(n(:send, [nil, v(:name)])) { |name:| VarRef.new(name) }
-        add_rule(n(:const, [v(:parent), v(:name)]), parent: ConstRef) { |parent:, name:| ConstRef.new([parent&.fqn, name].compact.join("::")) }
-        add_rule(n(:cbase)) { ConstRef.new("") }
       end
 
       private
