@@ -8,6 +8,27 @@ class Destruct
   class Transformer
     DEBUG = true
     Rec = Struct.new(:input, :output, :subs, :is_recurse, :rule)
+    class NotApplicable < RuntimeError; end
+
+    Rule = Struct.new(:pat, :template, :constraints)
+    class Rule
+      def to_s
+        s = "#{pat}"
+        if constraints&.any?
+          s += " where #{constraints}"
+        end
+        s
+      end
+      alias_method :inspect, :to_s
+    end
+
+    Code = Struct.new(:code)
+    class Code
+      def to_s
+        "#<Code: #{code}>"
+      end
+      alias_method :inspect, :to_s
+    end
 
     class << self
       def transform(x, rule_set, binding)
@@ -45,6 +66,18 @@ class Destruct
           "{#{x.map { |k, v| "#{k}: #{format(v)}" }.join(", ")}}"
         else
           x.inspect
+        end
+      end
+
+      def unparse(x)
+        if x.is_a?(Code)
+          x.code
+        elsif x.is_a?(Parser::AST::Node)
+          Unparser.unparse(x)
+        elsif x.is_a?(Var)
+          x.name.to_s
+        else
+          x
         end
       end
     end
@@ -120,11 +153,6 @@ class Destruct
       raise
     end
 
-    def log(expr, result)
-      puts "TX: #{expr.to_s.gsub("\n", " ").gsub(/\s{2,}/, " ")}\n => #{result.to_s.gsub("\n", " ").gsub(/\s{2,}/, " ")}" if DEBUG && expr != result
-      result
-    end
-
     def apply_template(rule, *args, **kws)
       if kws.any?
         if !rule.template.parameters.include?([:key, :binding]) && !rule.template.parameters.include?([:keyreq, :binding])
@@ -136,94 +164,9 @@ class Destruct
         rule.template.(*args)
       end
     end
-
-
-    LITERAL_TYPES = %i[int sym float str].freeze
-    class NotApplicable < RuntimeError
-    end
-
-    Rule = Struct.new(:pat, :template, :constraints)
-    class Rule
-      def to_s
-        s = "#{pat}"
-        if constraints&.any?
-          s += " where #{constraints}"
-        end
-        s
-      end
-      alias_method :inspect, :to_s
-    end
-
-    Code = Struct.new(:code)
-    class Code
-      def to_s
-        "#<Code: #{code}>"
-      end
-      alias_method :inspect, :to_s
-    end
-
-    def self.from(base, &add_rules)
-      t = new(base.rules)
-      t.instance_exec(&add_rules) if add_rules
-      t
-    end
-
-    def transform_pattern_proc(*args, &block)
-      Context.new(@rules).transform_pattern_proc(*args, &block)
-    end
-
-    module Methods
-      def n(type, children=[])
-        Obj.new(Parser::AST::Node, type: type, children: children)
-      end
-
-      def v(name)
-        Var.new(name)
-      end
-
-      def s(name)
-        Splat.new(name)
-      end
-
-      def any(*alt_patterns)
-        Or.new(*alt_patterns)
-      end
-
-      def quote(&block)
-        quo(ExprCache.get(block), block.binding, block.source_location[0])
-      end
-
-      def quo(n, binding, file)
-        if !n.is_a?(Parser::AST::Node)
-          n
-        elsif n.type == :send && n.children[1] == :!
-          expr = n.children[0]
-          line = expr.location.line
-          binding.eval(Unparser.unparse(expr), file, line)
-        else
-          n.updated(nil, n.children.map { |c| quo(c, binding, file) })
-        end
-      end
-    end
-
-    class << self
-      def unparse(x)
-        if x.is_a?(Code)
-          x.code
-        elsif x.is_a?(Parser::AST::Node)
-          Unparser.unparse(x)
-        elsif x.is_a?(Var)
-          x.name.to_s
-        else
-          x
-        end
-      end
-    end
-
-    include Methods
   end
 end
 
 def quote(&block)
-  Destruct::Transformer::Identity.quote(&block)
+  Destruct::Transformer.quote(&block)
 end

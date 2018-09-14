@@ -80,6 +80,6 @@ class Destruct
   end
 end
 
-def destruct(obj, transformer=Destruct::Transformer::StandardPattern, &block)
+def destruct(obj, transformer=Destruct::RuleSets::StandardPattern, &block)
   Destruct.destruct(obj, transformer, &block)
 end
