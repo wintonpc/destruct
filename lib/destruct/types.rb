@@ -1,7 +1,9 @@
 # frozen_string_literal: true
 
+require_relative './util'
+
 class Destruct
-  Any = Object.new
+  Any = make_singleton("#<Any>")
 
   module Binder
   end

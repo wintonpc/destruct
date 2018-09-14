@@ -243,7 +243,6 @@ class Destruct
       end
     end
 
-    NOTHING = Object.new
     def given(pattern:, expect_success_on: NOTHING, expect_failure_on: NOTHING, **bindings)
       given_pattern pattern
       if expect_success_on != NOTHING

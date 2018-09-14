@@ -3,6 +3,7 @@
 require 'unparser'
 require_relative 'rule_sets/destruct'
 require_relative './code_gen'
+require_relative './util'
 
 class Proc
   def cached_source_location
@@ -13,7 +14,7 @@ end
 class Destruct
   include CodeGen
 
-  NOTHING = Object.new
+  NOTHING = make_singleton("#<NOTHING>")
 
   class << self
     def destructs_by_proc

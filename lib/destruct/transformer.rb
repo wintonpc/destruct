@@ -7,7 +7,7 @@ require_relative './compiler'
 class Destruct
   class Transformer
     DEBUG = true
-    Rec = Struct.new(:input, :output, :subs, :rule)
+    Rec = Struct.new(:input, :output, :subs, :is_recurse, :rule)
 
     class << self
       def transform(x, rule_set, binding)
@@ -29,7 +29,7 @@ class Destruct
       end
 
       def dump_rec(rec, depth=0)
-        return if rec.input == rec.output && rec.subs.none?
+        return if rec.input == rec.output && (rec.subs.none? || rec.is_recurse)
         indent = "│  " * depth
         puts "#{indent}┌ #{format(rec.input)}"
         rec.subs.each { |s| dump_rec(s, depth + 1) }
@@ -39,6 +39,10 @@ class Destruct
       def format(x)
         if x.is_a?(Parser::AST::Node)
           x.to_s.gsub(/\s+/, " ")
+        elsif x.is_a?(Array)
+          "[#{x.map { |v| format(v) }.join(", ")}]"
+        elsif x.is_a?(Hash)
+          "{#{x.map { |k, v| "#{k}: #{format(v)}" }.join(", ")}}"
         else
           x.inspect
         end
@@ -64,9 +68,18 @@ class Destruct
     def pop_rec(output, rule=nil)
       current = current_rec
       current.output = output
+      current.is_recurse = @recursing
       current.rule = rule
       @rec_stack.pop
       output
+    end
+
+    def recursing
+      last = @recursing
+      @recursing = true
+      yield
+    ensure
+      @recursing = last
     end
 
     def current_rec
@@ -83,7 +96,8 @@ class Destruct
         @rules.each do |rule|
           begin
             if rule.pat.is_a?(Class) && x.is_a?(rule.pat)
-              return transform(pop_rec(apply_template(rule, x, binding: @binding), rule))
+              applied = pop_rec(apply_template(rule, x, binding: @binding), rule)
+              return recursing { transform(applied) }
             elsif e = Compiler.compile(rule.pat).match(x)
               args = {binding: @binding}
               if e.is_a?(Env)
@@ -93,7 +107,7 @@ class Destruct
                 end
               end
               applied = pop_rec(apply_template(rule, **args), rule)
-              return transform(applied)
+              return recursing { transform(applied) }
             end
           rescue NotApplicable
             # continue to next rule
@@ -190,39 +204,23 @@ class Destruct
           n.updated(nil, n.children.map { |c| quo(c, binding, file) })
         end
       end
+    end
 
-      class << self
-        def unparse(x)
-          if x.is_a?(Code)
-            x.code
-          elsif x.is_a?(Parser::AST::Node)
-            Unparser.unparse(x)
-          elsif x.is_a?(Var)
-            x.name.to_s
-          else
-            x
-          end
+    class << self
+      def unparse(x)
+        if x.is_a?(Code)
+          x.code
+        elsif x.is_a?(Parser::AST::Node)
+          Unparser.unparse(x)
+        elsif x.is_a?(Var)
+          x.name.to_s
+        else
+          x
         end
       end
     end
 
     include Methods
-
-    class Context
-      include Methods
-
-      def initialize(rules=[])
-        @rules = rules
-      end
-
-      NOTHING = Object.new
-
-      def transform_pattern_proc(&pat_proc)
-        transform(NOTHING, 0, pat_proc.binding, on_unmatched: :ignore, &pat_proc)
-      end
-
-
-    end
   end
 end
 
