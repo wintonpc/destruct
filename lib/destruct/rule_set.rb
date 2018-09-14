@@ -36,6 +36,13 @@ class Destruct
       end
     end
 
+    def add_rule_set(rule_set)
+      if rule_set.is_a?(Class)
+        rule_set = rule_set.instance
+      end
+      rule_set.rules.each { |r| rules << r }
+    end
+
     def wrap_translate(translate_block, constraints)
       if constraints.any?
         proc do |**kws|

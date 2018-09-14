@@ -1,12 +1,17 @@
-# # frozen_string_literal: true
-#
-# require_relative './ruby'
-#
-# class Destruct
-#   class Transformer
-#     PatternBase = Transformer.from(Ruby) do
-#       add_rule(VarRef) { |ref| Var.new(ref.name) }
-#       add_rule(ConstRef) { |ref, binding:| binding.eval(ref.fqn) }
-#     end
-#   end
-# end
+# frozen_string_literal: true
+
+require_relative './ruby'
+
+class Destruct
+  module RuleSets
+    class PatternBase
+      include RuleSet
+
+      def initialize
+        add_rule(Ruby::VarRef) { |ref| Var.new(ref.name) }
+        add_rule(Ruby::ConstRef) { |ref, binding:| binding.eval(ref.fqn) }
+        add_rule_set(Ruby)
+      end
+    end
+  end
+end
