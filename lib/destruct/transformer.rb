@@ -73,29 +73,29 @@ class Destruct
       transform(NOTHING, 0, pat_proc.binding, on_unmatched: :ignore, &pat_proc)
     end
 
-    def transform(expr=NOTHING, iters=0, binding=nil, depth: 0, on_unmatched: :code, &pat_proc)
+    def transform(expr=NOTHING, iters=0, binding=nil, depth: 0, on_unmatched: :code, process_non_nodes: false, &pat_proc)
       if expr == NOTHING
         expr = ExprCache.get(pat_proc)
         binding = pat_proc.binding
       end
       if expr.is_a?(Array)
-        expr.map { |exp| transform(exp, iters, binding, depth: depth + 1, on_unmatched: on_unmatched) }
-      elsif !expr.is_a?(Parser::AST::Node) && !expr.is_a?(Syntax)
+        expr.map { |exp| transform(exp, iters, binding, depth: depth + 1, on_unmatched: on_unmatched, process_non_nodes: process_non_nodes) }
+      elsif !process_non_nodes && !expr.is_a?(Parser::AST::Node) && !expr.is_a?(Syntax)
         expr
       else
         @rules.each do |rule|
           begin
-            if rule.pat.is_a?(Class) && rule.pat.ancestors.include?(Syntax) && expr.is_a?(rule.pat)
-              return log(expr, transform(apply_template(rule, expr, binding: binding), iters + 1, binding, depth: depth, on_unmatched: on_unmatched))
+            if rule.pat.is_a?(Class) && expr.is_a?(rule.pat) # && rule.pat.ancestors.include?(Syntax)
+              return log(expr, transform(apply_template(rule, expr, binding: binding), iters + 1, binding, depth: depth, on_unmatched: on_unmatched, process_non_nodes: process_non_nodes))
             elsif e = Compiler.compile(rule.pat).match(expr)
               args = {binding: binding}
               if e.is_a?(Env)
                 e.env_each do |k, v|
-                  val = v == expr ? v : transform(v, iters, binding, depth: depth + 1, on_unmatched: on_unmatched) # don't try to transform if we know we won't get anywhere (prevent stack overflow); template might guard by raising NotApplicable
+                  val = v == expr ? v : transform(v, iters, binding, depth: depth + 1, on_unmatched: on_unmatched, process_non_nodes: process_non_nodes) # don't try to transform if we know we won't get anywhere (prevent stack overflow); template might guard by raising NotApplicable
                   args[k] = val
                 end
               end
-              return log(expr, transform(apply_template(rule, **args), iters + 1, binding, depth: depth, on_unmatched: on_unmatched))
+              return log(expr, transform(apply_template(rule, **args), iters + 1, binding, depth: depth, on_unmatched: on_unmatched, process_non_nodes: process_non_nodes))
             end
           rescue NotApplicable
             # continue to next rule
@@ -121,7 +121,7 @@ class Destruct
     end
 
     def log(expr, result)
-      puts "TX: #{expr.to_s.gsub("\n", " ")}\n => #{result.to_s.gsub("\n", " ")}" if DEBUG && expr != result
+      puts "TX: #{expr.to_s.gsub("\n", " ").gsub(/\s{2,}/, " ")}\n => #{result.to_s.gsub("\n", " ").gsub(/\s{2,}/, " ")}" if DEBUG && expr != result
       result
     end
 
