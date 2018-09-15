@@ -10,7 +10,7 @@ class Destruct
       include RuleSet
       include Helpers
 
-      ATOMIC_TYPES = %i[int float sym str const].freeze
+      ATOMIC_TYPES = %i[int float sym str const lvar].freeze
 
       def initialize
         add_rule(Parser::AST::Node) do |n, transform:|

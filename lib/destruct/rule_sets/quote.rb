@@ -11,8 +11,9 @@ class Destruct
       include RuleSet
 
       def initialize
-        add_rule_set(RubyInverse)
         add_rule(->{ !expr }) { |expr:, binding:| binding.eval(unparse(expr)) }
+        add_rule_set(RubyInverse)
+        add_rule_set(UnpackAst)
       end
 
       def validate(x)

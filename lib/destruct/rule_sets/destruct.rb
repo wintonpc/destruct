@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require_relative '../transformer'
-
 class Destruct
   module RuleSets
     class Destruct
