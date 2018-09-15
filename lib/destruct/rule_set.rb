@@ -60,14 +60,26 @@ class Destruct
       if constraints.any?
         proc do |**kws|
           constraints.each_pair do |var, const|
-            unless as_array(kws[var]).all? { |p| as_array(const).any? { |type| p.is_a?(type) } }
-              raise Transformer::NotApplicable
-            end
+            raise Transformer::NotApplicable unless RuleSet.validate_constraint(kws[var], const)
           end
           translate_block.(**kws)
         end
       else
         translate_block
+      end
+    end
+
+    def self.validate_constraint(x, c)
+      if c.is_a?(Module)
+        x.is_a?(c)
+      elsif c.is_a?(Array) && c.size == 1
+        return false unless x.is_a?(Array) || x.is_a?(Hash)
+        vs = x.is_a?(Array) ? x : x.values
+        vs.all? { |v| validate_constraint(v, c[0]) }
+      elsif c.is_a?(Array)
+        c.any? { |c| validate_constraint(x, c) }
+      elsif c.respond_to?(:call)
+        c.(x)
       end
     end
 
