@@ -3,6 +3,7 @@
 require_relative '../transformer'
 require_relative '../rule_set'
 require_relative './helpers'
+require_relative './unpack_ast'
 
 class Destruct
   module RuleSets
@@ -18,13 +19,10 @@ class Destruct
         add_rule(true) { n(:true) }
         add_rule(false) { n(:false) }
         add_rule(Array) { |items| n(:array, *items) }
-        add_rule(Hash) { |h| n(:hash, *h.map { |k, v| n(:pair, transform(k), transform(v)) }) }
+        add_rule(Hash) { |h, transform:| n(:hash, *h.map { |k, v| n(:pair, transform.(k), transform.(v)) }) }
         add_rule(Module) { |m| m.name.split("::").map(&:to_sym).reduce(n(:cbase)) { |base, name| n(:const, base, name) } }
-        # add_rule(n(:const, [v(:parent), v(:name)]), parent: ConstRef) { |parent:, name:| ConstRef.new([parent&.fqn, name].compact.join("::")) }
-        # add_rule(n(:cbase)) { ConstRef.new("") }
+        add_rule_set(UnpackAst)
       end
-
-      Pair = Struct.new(:k, :v)
 
       def n(type, *children)
         ::Parser::AST::Node.new(type, children)

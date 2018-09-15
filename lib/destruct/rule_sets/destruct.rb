@@ -18,6 +18,7 @@ class Destruct
           end
         end
         add_rule(n(:when, [v(:pred), v(:body)])) { |pred:, body:| CaseClause.new(pred, body) }
+        add_rule_set(UnpackEnumerables)
       end
 
       class Case

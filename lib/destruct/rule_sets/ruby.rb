@@ -3,6 +3,7 @@
 require_relative '../transformer'
 require_relative '../rule_set'
 require_relative './helpers'
+require_relative './unpack_enumerables'
 
 class Destruct
   module RuleSets
@@ -22,6 +23,7 @@ class Destruct
         add_rule(n(:send, [nil, v(:name)])) { |name:| VarRef.new(name) }
         add_rule(n(:const, [v(:parent), v(:name)]), parent: [ConstRef, NilClass]) { |parent:, name:| ConstRef.new([parent&.fqn, name].compact.join("::")) }
         add_rule(n(:cbase)) { ConstRef.new("") }
+        add_rule_set(UnpackEnumerables)
       end
 
       class VarRef
