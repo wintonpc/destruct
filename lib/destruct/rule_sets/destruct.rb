@@ -27,6 +27,11 @@ class Destruct
           @whens = whens
           @else_body = else_body
         end
+
+        def to_s
+          "#<Case: #{value.inspect} #{whens.inspect} #{else_body.inspect}}"
+        end
+        alias_method :inspect, :to_s
       end
 
       class CaseClause
@@ -36,6 +41,11 @@ class Destruct
           @pred = pred
           @body = body
         end
+
+        def to_s
+          "#<CaseClause: #{pred.inspect.gsub(/\s+/, " ")} #{body.inspect.gsub(/\s+/, " ")}"
+        end
+        alias_method :inspect, :to_s
       end
     end
   end
