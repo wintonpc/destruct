@@ -19,6 +19,7 @@ class Destruct
         add_rule(false) { n(:false) }
         add_rule(Array) { |items| n(:array, *items) }
         add_rule(Hash) { |h| n(:hash, *h.map { |k, v| n(:pair, transform(k), transform(v)) }) }
+        add_rule(Module) { |m| m.name.split("::").map(&:to_sym).reduce(n(:cbase)) { |base, name| n(:const, base, name) } }
         # add_rule(n(:const, [v(:parent), v(:name)]), parent: ConstRef) { |parent:, name:| ConstRef.new([parent&.fqn, name].compact.join("::")) }
         # add_rule(n(:cbase)) { ConstRef.new("") }
       end

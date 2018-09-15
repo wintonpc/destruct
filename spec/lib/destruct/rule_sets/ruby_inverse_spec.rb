@@ -39,9 +39,14 @@ class Destruct
       expect(n.children.map { |c| c.children[0].children[0] }).to eql [:a, :b]
       expect(n.children.map { |c| c.children[1].children[0] }).to eql [1, 2]
 
-      # n = tx(RuleSets)
-      # expect(n.type).to eql :hash
-      # expect(n.children.map(&:type)).to eql [:pair, :pair]
+      n = tx(RuleSets)
+      expect(n.type).to eql :const
+      expect(n.children[1]).to eql :RuleSets
+      base = n.children[0]
+      expect(n.type).to eql :const
+      expect(base.children[1]).to eql :Destruct
+      base = base.children[0]
+      expect(base.type).to eql :cbase
     end
 
     def tx(pat)

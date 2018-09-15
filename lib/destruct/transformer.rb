@@ -14,7 +14,7 @@ class Destruct
     Rule = Struct.new(:pat, :template, :constraints)
     class Rule
       def to_s
-        s = "#{pat}"
+        s = "#{pat.inspect}"
         if constraints&.any?
           s += " where #{constraints}"
         end
