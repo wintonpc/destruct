@@ -15,9 +15,9 @@ class Destruct
         add_rule(Float) { |value| n(:float, value) }
         add_rule(String) { |value| n(:str, value) }
         add_rule(nil) { n(:nil) }
-        # add_rule(n(:true, [])) { true }
-        # add_rule(n(:false, [])) { false }
-        # add_rule(n(:array, v(:items))) { |items:| items }
+        add_rule(true) { n(:true) }
+        add_rule(false) { n(:false) }
+        add_rule(Array) { |items| n(:array, *items) }
         # add_rule(n(:hash, v(:pairs))) { |pairs:| pairs.to_h }
         # add_rule(n(:pair, [v(:k), v(:v)])) { |k:, v:| [k, v] }
         # add_rule(n(:lvar, [v(:name)])) { |name:| VarRef.new(name) }

@@ -56,13 +56,13 @@ class Destruct
       def dump_rec(rec, depth=0, width: nil, f: $stdout)
         return if rec.input == rec.output && (rec.subs.none? || rec.is_recurse)
         indent = "│  " * depth
-        f.puts "#{indent}┌ #{format(rec.input)}"
-        rec.subs.each { |s| dump_rec(s, depth + 1, width: width, f: f) }
         if width
-          f.puts "#{indent}└ #{(format(rec.output) + " ").ljust(width - (depth * 3), "…")}……… #{rec.rule&.pat || "(no rule matched)"}"
+          f.puts "#{indent}┌ #{(format(rec.input) + " ").ljust(width - (depth * 3), "…")}……… #{rec.rule&.pat || "(no rule matched)"}"
         else
-          f.puts "#{indent}└ #{format(rec.output)}"
+          f.puts "#{indent}┌ #{format(rec.input)}"
         end
+        rec.subs.each { |s| dump_rec(s, depth + 1, width: width, f: f) }
+        f.puts "#{indent}└ #{format(rec.output)}"
       end
 
       def format(x)
@@ -129,36 +129,49 @@ class Destruct
 
     def transform(x)
       push_rec(x)
-      if x.is_a?(Array)
-        pop_rec(x.map { |v| transform(v) })
-      elsif x.is_a?(Hash)
-        pop_rec(x.map { |k, v| [transform(k), transform(v)] }.to_h)
-      else
-        @rules.each do |rule|
-          begin
-            if rule.pat.is_a?(Class) && x.is_a?(rule.pat)
-              applied = pop_rec(apply_template(rule, x, binding: @binding), rule)
-              return recursing { transform(applied) }
-            elsif e = Compiler.compile(rule.pat).match(x)
-              args = {binding: @binding}
-              if e.is_a?(Env)
-                e.env_each do |k, v|
-                  val = v == x ? v : transform(v) # don't try to transform if we know we won't get anywhere (prevent stack overflow); template might guard by raising NotApplicable
-                  args[k] = val
-                end
-              end
-              applied = pop_rec(apply_template(rule, **args), rule)
-              return recursing { transform(applied) }
+      @rules.each do |rule|
+        begin
+          if rule.pat.is_a?(Class) && x.is_a?(rule.pat)
+            if (rule.pat.ancestors & [Array, Hash]).any?
+              x = transform_array_or_hash(x)
             end
-          rescue NotApplicable
-            # continue to next rule
+            applied = pop_rec(apply_template(rule, x, binding: @binding), rule)
+            return recursing { transform(applied) }
+          elsif e = Compiler.compile(rule.pat).match(x)
+            args = {binding: @binding}
+            if e.is_a?(Env)
+              e.env_each do |k, v|
+                val = v == x ? v : transform(v) # don't try to transform if we know we won't get anywhere (prevent stack overflow); template might guard by raising NotApplicable
+                args[k] = val
+              end
+            end
+            applied = pop_rec(apply_template(rule, **args), rule)
+            return recursing { transform(applied) }
           end
+        rescue NotApplicable
+          # continue to next rule
         end
-        pop_rec(x)
       end
-    rescue
-      pop_rec("<error>")
+
+      # no rule matched
+      pop_rec(transform_array_or_hash(x))
+    rescue => e
+      begin
+        pop_rec("<error>")
+      rescue
+        # eat it
+      end
       raise
+    end
+
+    def transform_array_or_hash(x)
+      if x.is_a?(Array)
+        x.map { |v| transform(v) }
+      elsif x.is_a?(Hash)
+        x.map { |k, v| [transform(k), transform(v)] }.to_h
+      else
+        x
+      end
     end
 
     def apply_template(rule, *args, **kws)

@@ -34,6 +34,10 @@ class Destruct
 
     private
 
+    # @param pat_or_proc [Object] One of:
+    #   an AST-matching destruct pattern,
+    #   a proc containing syntax to be converted into an AST-matching destruct pattern, or
+    #   a class
     def add_rule(pat_or_proc, constraints={}, &translate_block)
       translate = wrap_translate(translate_block, constraints)
       if pat_or_proc.is_a?(Proc)
