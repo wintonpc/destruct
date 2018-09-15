@@ -21,10 +21,13 @@ class Destruct
       Thread.current[:destructs_by_proc] ||= {}
     end
 
-    def destruct(obj, transformer=Transformer::StandardPattern, &block)
+    def destruct(obj, rule_set=Destruct::RuleSets::StandardPattern, &block)
+      if rule_set.is_a?(Class)
+        rule_set = rule_set.instance
+      end
       key = block.cached_source_location
       d = destructs_by_proc.fetch(key) do
-        destructs_by_proc[key] = Destruct.new.compile(block, transformer)
+        destructs_by_proc[key] = Destruct.new.compile(block, rule_set)
       end
       d.(obj, block)
     end
@@ -80,6 +83,6 @@ class Destruct
   end
 end
 
-def destruct(obj, transformer=Destruct::RuleSets::StandardPattern, &block)
-  Destruct.destruct(obj, transformer, &block)
+def destruct(obj, rule_set=Destruct::RuleSets::StandardPattern, &block)
+  Destruct.destruct(obj, rule_set, &block)
 end
