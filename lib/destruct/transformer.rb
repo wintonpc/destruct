@@ -57,7 +57,7 @@ class Destruct
         return if rec.input == rec.output && (rec.subs.none? || rec.is_recurse)
         indent = "│  " * depth
         if width
-          f.puts "#{indent}┌ #{(format(rec.input) + " ").ljust(width - (depth * 3), "…")}……… #{rec.rule&.pat || "(no rule matched)"}"
+          f.puts "#{indent}┌ #{(format(rec.input) + "  ").ljust(width - (depth * 3), "┈")}┈┈┈ #{rec.rule&.pat || "(no rule matched)"}"
         else
           f.puts "#{indent}┌ #{format(rec.input)}"
         end
