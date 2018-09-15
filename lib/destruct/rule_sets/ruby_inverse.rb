@@ -18,6 +18,7 @@ class Destruct
         add_rule(true) { n(:true) }
         add_rule(false) { n(:false) }
         add_rule(Array) { |items| n(:array, *items) }
+        add_rule(Hash) { |h| n(:hash, *h.map { |k, v| n(:pair, transform(k), transform(v)) }) }
         # add_rule(n(:hash, v(:pairs))) { |pairs:| pairs.to_h }
         # add_rule(n(:pair, [v(:k), v(:v)])) { |k:, v:| [k, v] }
         # add_rule(n(:lvar, [v(:name)])) { |name:| VarRef.new(name) }
@@ -25,6 +26,8 @@ class Destruct
         # add_rule(n(:const, [v(:parent), v(:name)]), parent: ConstRef) { |parent:, name:| ConstRef.new([parent&.fqn, name].compact.join("::")) }
         # add_rule(n(:cbase)) { ConstRef.new("") }
       end
+
+      Pair = Struct.new(:k, :v)
 
       def n(type, *children)
         ::Parser::AST::Node.new(type, children)

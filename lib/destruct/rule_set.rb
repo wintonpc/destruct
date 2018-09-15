@@ -15,21 +15,26 @@ class Destruct
     end
 
     module ClassMethods
-      def transform(x=NOTHING, binding: nil, &x_proc)
-        if x != NOTHING && x_proc
-          raise "Pass either x or a block but not both"
-        end
-        x = x != NOTHING ? x : x_proc
-        x = x.is_a?(Proc) ? ExprCache.get(x) : x
-        binding ||= x_proc&.binding
-        result = Transformer.transform(x == NOTHING ? x_proc : x, instance, binding)
-        instance.validate(result) if instance.respond_to?(:validate)
-        result
+      def transform(x=NOTHING, binding: nil, **hash_arg, &x_proc)
+        instance.transform(x, binding: binding, **hash_arg, &x_proc)
       end
 
       def instance
         @instance ||= new
       end
+    end
+
+    def transform(x=NOTHING, binding: nil, **hash_arg, &x_proc)
+      if x != NOTHING && x_proc
+        raise "Pass either x or a block but not both"
+      end
+      x = x == NOTHING && x_proc.nil? ? hash_arg : x # ruby interprets a hash arg as keywords rather than a value for x
+      x = x != NOTHING ? x : x_proc
+      x = x.is_a?(Proc) ? ExprCache.get(x) : x
+      binding ||= x_proc&.binding
+      result = Transformer.transform(x == NOTHING ? x_proc : x, self, binding)
+      self.validate(result) if self.respond_to?(:validate)
+      result
     end
 
     private

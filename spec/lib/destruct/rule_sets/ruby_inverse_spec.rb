@@ -31,6 +31,11 @@ class Destruct
       n = tx([1, 2])
       expect(n.type).to eql :array
       expect(n.children.map(&:type)).to eql [:int, :int]
+      expect(n.children.map { |c| c.children[0] }).to eql [1, 2]
+
+      n = tx({a: 1, b: 2})
+      expect(n.type).to eql :hash
+      expect(n.children.map(&:type)).to eql [:pair, :pair]
     end
 
     def tx(pat)
