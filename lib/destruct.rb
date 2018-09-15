@@ -1,12 +1,1 @@
-require_relative './destruct/destruct'
-require_relative './destruct/env'
-require_relative './destruct/types'
-require_relative './destruct/expr_cache'
-require_relative './destruct/transformer'
-require_relative './destruct/rule_set'
-require_relative './destruct/util'
-require_relative './destruct/rule_sets/ruby'
-require_relative './destruct/rule_sets/pattern_base'
-require_relative './destruct/rule_sets/standard_pattern'
-require_relative './destruct/rule_sets/destruct'
-require_relative './destruct/compiler'
+Dir.glob(File.expand_path('./destruct/**/*.rb', __dir__)).each { |rb| require_relative(rb) }

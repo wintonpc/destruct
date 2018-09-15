@@ -3,8 +3,12 @@ require 'destruct'
 class Destruct
   module TransformerHelpers
     def given_rule(*args, &block)
-      @transformer = Transformer.from(Transformer::PatternBase) do
-        add_rule(*args, &block)
+      @rule_set = Class.new do
+        include RuleSet
+        define_method(:initialize) do
+          add_rule(*args, &block)
+          add_rule_set(RuleSets::PatternBase)
+        end
       end
     end
 

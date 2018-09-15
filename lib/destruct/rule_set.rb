@@ -16,6 +16,9 @@ class Destruct
 
     module ClassMethods
       def transform(x=NOTHING, binding: nil, &x_proc)
+        if x != NOTHING && x_proc
+          raise "Pass either x or a block but not both"
+        end
         x = x != NOTHING ? x : x_proc
         x = x.is_a?(Proc) ? ExprCache.get(x) : x
         binding ||= x_proc&.binding

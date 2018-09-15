@@ -16,8 +16,7 @@ class Destruct
               raise "Invalid pattern: #{x}"
             end
             x.values.each { |v| validate(v) }
-          elsif !(x.is_a?(Binder) || x.is_a?(Unquote) || x.is_a?(Numeric) || x.is_a?(String) ||
-              x.is_a?(Module) || x == Any)
+          elsif !(x.is_a?(Binder) || x.is_a?(Unquote) || x.is_a?(Module) || x == Any || x.primitive?)
             raise "Invalid pattern: #{x}"
           end
         end

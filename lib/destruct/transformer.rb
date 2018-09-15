@@ -2,6 +2,7 @@
 
 require 'active_support/core_ext/object/deep_dup'
 require 'destruct/types'
+require 'stringio'
 require_relative './compiler'
 
 class Destruct
@@ -38,7 +39,10 @@ class Destruct
           puts "\nRules:"
           dump_rules(rule_set.rules)
           puts "\nTransformations:"
-          dump_rec(txr.rec)
+          tmp = StringIO.new
+          dump_rec(txr.rec, f: tmp)
+          w = tmp.string.lines.map(&:size).max
+          dump_rec(txr.rec, width: w)
         end
         result
       end
@@ -49,12 +53,16 @@ class Destruct
         end
       end
 
-      def dump_rec(rec, depth=0)
+      def dump_rec(rec, depth=0, width: nil, f: $stdout)
         return if rec.input == rec.output && (rec.subs.none? || rec.is_recurse)
         indent = "│  " * depth
-        puts "#{indent}┌ #{format(rec.input)}"
-        rec.subs.each { |s| dump_rec(s, depth + 1) }
-        puts "#{indent}└ #{format(rec.output).ljust(80 - (depth * 3), "…")}………………#{rec.rule&.pat || "(no rule matched)"}"
+        f.puts "#{indent}┌ #{format(rec.input)}"
+        rec.subs.each { |s| dump_rec(s, depth + 1, width: width, f: f) }
+        if width
+          f.puts "#{indent}└ #{(format(rec.output) + " ").ljust(width - (depth * 3), "…")}……… #{rec.rule&.pat || "(no rule matched)"}"
+        else
+          f.puts "#{indent}└ #{format(rec.output)}"
+        end
       end
 
       def format(x)
