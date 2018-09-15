@@ -7,9 +7,13 @@ class Destruct
         include RuleSet
         define_method(:initialize) do
           add_rule(*args, &block)
-          add_rule_set(RuleSets::PatternBase)
+          add_rule_set(@base_rule_set || RuleSets::PatternBase)
         end
       end
+    end
+
+    def given_base_rule_set(rule_set)
+      @base_rule_set = rule_set
     end
 
     def transform(&pat_proc)
