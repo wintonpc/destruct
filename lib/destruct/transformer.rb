@@ -136,17 +136,17 @@ class Destruct
       @rules.each do |rule|
         begin
           if rule.pat.is_a?(Class) && x.is_a?(rule.pat)
-            applied = pop_rec(apply_template(rule, x, binding: @binding), rule)
+            applied = pop_rec(apply_template(rule, [x]), rule)
             return continue_transforming(x, applied)
           elsif e = Compiler.compile(rule.pat).match(x)
-            args = {binding: @binding}
+            args = {}
             if e.is_a?(Env)
               e.env_each do |k, v|
-                val = v == x ? v : transform(v) # don't try to transform if we know we won't get anywhere (prevent stack overflow); template might guard by raising NotApplicable
+                val = v.transformer_eql?(x) ? v : transform(v) # don't try to transform if we know we won't get anywhere (prevent stack overflow); template might guard by raising NotApplicable
                 args[k] = val
               end
             end
-            applied = pop_rec(apply_template(rule, **args), rule)
+            applied = pop_rec(apply_template(rule, [], args), rule)
             return continue_transforming(x, applied)
           end
         rescue NotApplicable
@@ -155,7 +155,7 @@ class Destruct
       end
 
       # no rule matched
-      pop_rec(transform_array_or_hash(x))
+      pop_rec(x)
     rescue => e
       begin
         pop_rec("<error>")
@@ -173,26 +173,14 @@ class Destruct
       end
     end
 
-    def transform_array_or_hash(x)
-      # if x.is_a?(Array)
-      #   x.map { |v| transform(v) }
-      # elsif x.is_a?(Hash)
-      #   x.map { |k, v| [transform(k), transform(v)] }.to_h
-      # else
-      #   x
-      # end
-      x
-    end
-
-    def apply_template(rule, *args, **kws)
+    def apply_template(rule, args=[], kws={})
+      if rule.template.parameters.include?([:key, :binding]) || rule.template.parameters.include?([:keyreq, :binding])
+        kws[:binding] = @binding
+      end
+      if rule.template.parameters.include?([:key, :transform]) || rule.template.parameters.include?([:keyreq, :transform])
+        kws[:transform] = method(:transform)
+      end
       if kws.any?
-        if !rule.template.parameters.include?([:key, :binding]) && !rule.template.parameters.include?([:keyreq, :binding])
-          kws = kws.dup
-          kws.delete(:binding)
-        end
-        if rule.template.parameters.include?([:key, :transform]) || rule.template.parameters.include?([:keyreq, :transform])
-          kws[:transform] = method(:transform)
-        end
         rule.template.(*args, **kws)
       else
         rule.template.(*args)

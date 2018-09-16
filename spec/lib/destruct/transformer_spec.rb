@@ -46,6 +46,10 @@ class Destruct
       expect(r.type).to eql :array
       expect(r.children.map { |c| c.children[0] }).to eql [1, 2, 3]
 
+      # s = quote { a(b) }
+      # r = quote { 1 + !s }
+      # expect(r.to_s1).to eql ExprCache.get(->{1 + a(b)}).to_s1
+
       # quote/unquote/quote is currently broken
       # r = quote do
       #   [!(quote { 1 }), 2]

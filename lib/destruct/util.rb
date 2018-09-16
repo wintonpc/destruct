@@ -10,3 +10,13 @@ class Object
     is_a?(Numeric) || is_a?(String) || is_a?(Symbol) || self == true || self == false || self == nil
   end
 end
+
+module Parser
+  module AST
+    class Node
+      def to_s1
+        to_s.gsub(/\s+/, " ")
+      end
+    end
+  end
+end
