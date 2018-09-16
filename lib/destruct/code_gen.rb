@@ -117,7 +117,8 @@ class Destruct
 
     private def ref_args
       return "" if refs.none?
-      ", \n#{refs.map { |k, v| "#{k.to_s.ljust(8)}, # #{v.inspect}" }.join("\n")}\n"
+      width = refs.keys.map(&:to_s).map(&:size).max
+      ", \n#{refs.map { |k, v| "#{k.to_s.ljust(width)}, # #{v.inspect}" }.join("\n")}\n"
     end
 
     def beautify_ruby(code)

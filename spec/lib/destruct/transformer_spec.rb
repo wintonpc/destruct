@@ -29,9 +29,12 @@ class Destruct
     end
     # broken
     # it 'transforms recursively' do
+    #   given_base_rule_set RuleSets::StandardPattern
     #   given_pattern { n(:send, [nil, var_name]) }
     #   given_rule(->{ n(type, children) }) do |type:, children:|
-    #     quote { ::Parser::AST::Node[type: !type, children: !children] }
+    #     r = quote { ::Parser::AST::Node[type: !type, children: !children] }
+    #     p = Class.new { include RuleSet }.new.send(:node_to_pattern, r)
+    #     p
     #   end
     #   expect_success_on ExprCache.get(->{ asdf }), var_name: :asdf
     # end

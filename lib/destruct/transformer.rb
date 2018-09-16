@@ -10,7 +10,13 @@ class Destruct
     DEBUG = true
     Rec = Struct.new(:input, :output, :subs, :is_recurse, :rule)
     class NotApplicable < RuntimeError; end
-    class Accept < RuntimeError; end
+    class Accept < RuntimeError
+      attr_reader :result
+
+      def initialize(result=nil)
+        @result = result
+      end
+    end
 
     Rule = Struct.new(:pat, :template, :constraints)
     class Rule
@@ -189,8 +195,8 @@ class Destruct
         else
           rule.template.(*args)
         end
-      rescue Accept
-        x
+      rescue Accept => accept
+        accept.result || x
       end
     end
 

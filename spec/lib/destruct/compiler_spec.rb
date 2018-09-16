@@ -148,6 +148,13 @@ class Destruct
 
       expect(compiled_pats.count { |p| p == Var.new(var_name) }).to eql 1
     end
+    it 'compiles regexes' do
+      given_pattern [Var.new(:a), /hello (?<name>\w+)/]
+      expect_success_on [1, "hello alice"], a: 1, name: "alice"
+
+      given_pattern [/hello (?<name>\w+)/, Var.new(:a)]
+      expect_success_on ["hello alice", 1], a: 1, name: "alice"
+    end
     it 'compiles arrays' do
       given_pattern [1, Var.new(:foo)]
       expect_success_on [1, 2], foo: 2

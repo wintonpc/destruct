@@ -3,7 +3,6 @@
 require_relative '../transformer'
 require_relative '../rule_set'
 require_relative './helpers'
-require_relative './ruby_inverse'
 
 class Destruct
   module RuleSets
@@ -11,12 +10,12 @@ class Destruct
       include RuleSet
 
       def initialize
-        add_rule(->{ !expr }) do |expr:, binding:|
-          value = binding.eval(unparse(expr))
+        add_rule(->{ !expr }) do |raw_expr:, binding:|
+          value = binding.eval(unparse(raw_expr))
           if value.is_a?(Parser::AST::Node)
             value
           else
-            RubyInverse.transform(value)
+            PatternInverse.transform(value)
           end
         end
         add_rule_set(UnpackAst)

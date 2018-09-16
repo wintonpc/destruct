@@ -9,16 +9,28 @@ class Destruct
     UNBOUND = :__unbound__
 
     def method_missing(name, *args, &block)
-      name = name.to_s
-      if name.to_s[-1] == '='
+      name_str = name.to_s
+      if name_str[-1] == '='
         @extras ||= {}
-        @extras[name[0..-2]] = args[0]
+        @extras[name_str[0..-2].to_sym] = args[0]
       else
         if @extras.nil?
           ::Destruct::Env::UNBOUND
         else
           @extras.fetch(name) { ::Destruct::Env::UNBOUND }
         end
+      end
+    end
+
+    def initialize(match_data=nil)
+      if match_data
+        @extras = match_data.names.map { |n| [n.to_sym, match_data[n]] }.to_h
+      end
+    end
+
+    def env_each
+      if @extras
+        @extras.each_pair { |k, v| yield(k, v) }
       end
     end
 

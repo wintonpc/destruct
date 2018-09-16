@@ -108,6 +108,8 @@ class Destruct
         match_hash(s)
       elsif s.pat.is_a?(Array)
         match_array(s)
+      elsif s.pat.is_a?(Regexp)
+        match_regexp(s)
       else
         match_literal(s)
       end
@@ -126,7 +128,7 @@ class Destruct
       # check the cheapest or most likely to fail first
       if is_literal?(p)
         0
-      elsif p.is_a?(Or)
+      elsif p.is_a?(Or) || p.is_a?(Regexp)
         2
       elsif p.is_a?(Binder)
         3
@@ -224,6 +226,16 @@ class Destruct
       !s.nil? && (s.type == :or || in_or(s.parent))
     end
 
+    def match_regexp(s)
+      s.type = :regexp
+      m = get_temp("m")
+      match_env = get_temp("env")
+      emit "#{m} = #{get_ref(s.pat)}.match(#{s.x})"
+      emit "#{match_env} = ::Destruct::Env.new(#{m}) if #{m}"
+      test(s, match_env)
+      merge(s, match_env, dynamic: true)
+    end
+
     def match_literal(s)
       s.type = :literal
       test(s, "#{s.x} == #{s.pat.inspect}")
@@ -231,7 +243,7 @@ class Destruct
 
     def test(s, cond)
       # emit "puts \"line #{emitted_line_count + 8}: \#{#{cond.inspect}}\""
-      # emit "puts \"test: \#{#{cond.inspect}}\""
+      emit "puts \"test: \#{#{cond.inspect}}\"" if $show_tests
       if in_or(s)
         emit "#{s.env} = (#{cond}) ? #{s.env} : nil if #{s.env}"
         if block_given?
@@ -281,7 +293,7 @@ class Destruct
       do_it = proc do
         unless @known_real_envs.include?(s.env)
           # no need to ensure the env is real (i.e., an Env, not `true`) if it's already been ensured
-          emit "#{s.env} = _make_env.()#{@has_or ? " if #{s.env} == true" : ""}"
+          emit "#{s.env} = _make_env.() if #{s.env} == true"
           @known_real_envs.add(s.env) unless in_or(s)
         end
         current_val = "#{s.env}.#{var_name}"
@@ -359,6 +371,8 @@ class Destruct
     end
 
     def merge(s, other_env, dynamic: false)
+      @known_real_envs.include?(s.env)
+
       emit_if("#{s.env}.nil? || #{other_env}.nil?") do
         emit "#{s.env} = nil"
       end.elsif("#{s.env} == true") do
