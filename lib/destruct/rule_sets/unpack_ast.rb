@@ -16,14 +16,17 @@ class Destruct
         add_rule(n(:send, [nil, v(:meth), s(:args)])) do |raw_meth:, args:|
           m(:send, nil, raw_meth, *args)
         end
-        add_rule(n(:send, [v(:recv), v(:meth), s(:args)])) do |recv:, raw_meth:, args:|
-          m(:send, recv, raw_meth, *args)
+        add_rule(n(:send, [v(:recv), v(:meth), s(:args)])) do |recv:, raw_meth:, raw_args:, transform:|
+          m(:send, recv, raw_meth, *raw_args.map { |a| transform.(a) })
         end
         add_rule(n(any(:int, :float, :sym, :str, :lvar), any)) do
           raise Transformer::Accept
         end
-        add_rule(n(:array, [s(:items)])) do |raw_items:, transform:|
+        add_rule(n(:array, v(:items))) do |raw_items:, transform:|
           m(:array, *raw_items.map(&transform))
+        end
+        add_rule(n(:hash, v(:pairs))) do |raw_pairs:, transform:|
+          m(:hash, *raw_pairs.map { |p| p.updated(nil, p.children.map { |c| transform.(c) }) })
         end
         # add_rule(Parser::AST::Node) do |n, transform:|
         #   raise Transformer::NotApplicable if ATOMIC_TYPES.include?(n.type)
