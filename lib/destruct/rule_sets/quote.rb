@@ -11,13 +11,14 @@ class Destruct
       include RuleSet
 
       def initialize
-        add_rule(->{ !expr }) { |expr:, binding:| binding.eval(unparse(expr)) }
-        # add_rule(->{ !expr }) do |expr:, binding:|
-        #   value = binding.eval(unparse(expr))
-        #   if !value.is_a?(Parser::AST::Node)
-        #   end
-        # end
-        add_rule_set(RubyInverse)
+        add_rule(->{ !expr }) do |expr:, binding:|
+          value = binding.eval(unparse(expr))
+          if value.is_a?(Parser::AST::Node)
+            value
+          else
+            RubyInverse.transform(value)
+          end
+        end
         add_rule_set(UnpackAst)
       end
 
