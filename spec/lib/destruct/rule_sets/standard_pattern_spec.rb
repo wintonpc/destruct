@@ -71,6 +71,13 @@ class Destruct
           expect_success_on [1, 4]
           expect_failure_on [1, 5]
         end
+        it 'regex' do
+          given_pattern { /hello (?<name>\w+)/ }
+          expect_success_on "hello alice", name: "alice"
+
+          given_pattern { [/hello (?<hname>\w+)/, /goodbye (?<gbname>\w+)/] }
+          expect_success_on ["hello alice", "goodbye bob"], hname: "alice", gbname: "bob"
+        end
       end
     end
   end

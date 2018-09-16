@@ -154,6 +154,12 @@ class Destruct
 
       given_pattern [/hello (?<name>\w+)/, Var.new(:a)]
       expect_success_on ["hello alice", 1], a: 1, name: "alice"
+
+      given_pattern [/hello (?<name>\w+)/, /hello (?<name>\w+)/]
+      expect_success_on ["hello alice", "hello alice"]
+
+      given_pattern [/hello (?<name>\w+)/, /hello (?<name>\w+)/]
+      expect_failure_on ["hello alice", "hello bob"]
     end
     it 'compiles arrays' do
       given_pattern [1, Var.new(:foo)]
