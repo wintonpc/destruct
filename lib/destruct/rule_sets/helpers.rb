@@ -14,7 +14,15 @@ class Destruct
       end
 
       def any(*alt_patterns)
-        Or.new(*alt_patterns)
+        if alt_patterns.none?
+          Any
+        else
+          Or.new(*alt_patterns)
+        end
+      end
+
+      def let(name, pat)
+        Let.new(name, pat)
       end
     end
   end

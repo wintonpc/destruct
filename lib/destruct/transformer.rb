@@ -10,6 +10,7 @@ class Destruct
     DEBUG = true
     Rec = Struct.new(:input, :output, :subs, :is_recurse, :rule)
     class NotApplicable < RuntimeError; end
+    class Accept < RuntimeError; end
 
     Rule = Struct.new(:pat, :template, :constraints)
     class Rule
@@ -136,17 +137,19 @@ class Destruct
       @rules.each do |rule|
         begin
           if rule.pat.is_a?(Class) && x.is_a?(rule.pat)
-            applied = pop_rec(apply_template(rule, [x]), rule)
+            applied = pop_rec(apply_template(x, rule, [x]), rule)
             return continue_transforming(x, applied)
           elsif e = Compiler.compile(rule.pat).match(x)
             args = {}
             if e.is_a?(Env)
               e.env_each do |k, v|
-                val = v.transformer_eql?(x) ? v : transform(v) # don't try to transform if we know we won't get anywhere (prevent stack overflow); template might guard by raising NotApplicable
-                args[k] = val
+                raw_key = :"raw_#{k}"
+                raw_key = proc_has_kw(rule.template, raw_key) && raw_key
+                val = v.transformer_eql?(x) || raw_key ? v : transform(v) # don't try to transform if we know we won't get anywhere (prevent stack overflow); template might guard by raising NotApplicable
+                args[raw_key || k] = val
               end
             end
-            applied = pop_rec(apply_template(rule, [], args), rule)
+            applied = pop_rec(apply_template(x, rule, [], args), rule)
             return continue_transforming(x, applied)
           end
         rescue NotApplicable
@@ -173,18 +176,26 @@ class Destruct
       end
     end
 
-    def apply_template(rule, args=[], kws={})
-      if rule.template.parameters.include?([:key, :binding]) || rule.template.parameters.include?([:keyreq, :binding])
+    def apply_template(x, rule, args=[], kws={})
+      if proc_has_kw(rule.template, :binding)
         kws[:binding] = @binding
       end
-      if rule.template.parameters.include?([:key, :transform]) || rule.template.parameters.include?([:keyreq, :transform])
+      if proc_has_kw(rule.template, :transform)
         kws[:transform] = method(:transform)
       end
-      if kws.any?
-        rule.template.(*args, **kws)
-      else
-        rule.template.(*args)
+      begin
+        if kws.any?
+          rule.template.(*args, **kws)
+        else
+          rule.template.(*args)
+        end
+      rescue Accept
+        x
       end
+    end
+
+    def proc_has_kw(proc, kw)
+      proc.parameters.include?([:key, kw]) || proc.parameters.include?([:keyreq, kw])
     end
   end
 end

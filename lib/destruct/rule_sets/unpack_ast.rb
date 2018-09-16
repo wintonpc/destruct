@@ -13,13 +13,22 @@ class Destruct
       ATOMIC_TYPES = %i[int float sym str const lvar].freeze
 
       def initialize
-        # add_rule(n(:send, [v(:recv), v(:meth), s(:args)])) do |recv:, meth:, args:, transform:|
-        #   m(:send, transform.())
-        # end
-        add_rule(Parser::AST::Node) do |n, transform:|
-          raise Transformer::NotApplicable if ATOMIC_TYPES.include?(n.type)
-          n.updated(nil, n.children.map(&transform))
+        add_rule(n(:send, [nil, v(:meth), s(:args)])) do |raw_meth:, args:|
+          m(:send, nil, raw_meth, *args)
         end
+        add_rule(n(:send, [v(:recv), v(:meth), s(:args)])) do |recv:, raw_meth:, args:|
+          m(:send, recv, raw_meth, *args)
+        end
+        add_rule(n(any(:int, :float, :sym, :str, :lvar), any)) do
+          raise Transformer::Accept
+        end
+        add_rule(n(:array, [s(:items)])) do |raw_items:, transform:|
+          m(:array, *raw_items.map(&transform))
+        end
+        # add_rule(Parser::AST::Node) do |n, transform:|
+        #   raise Transformer::NotApplicable if ATOMIC_TYPES.include?(n.type)
+        #   n.updated(nil, n.children.map(&transform))
+        # end
       end
 
       def m(type, *children)
