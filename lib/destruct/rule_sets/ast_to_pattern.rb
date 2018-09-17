@@ -21,9 +21,9 @@ class Destruct
         add_rule(n(:splat, [any(mvar, lvar)])) do |name:|
           Splat.new(name)
         end
-        # add_rule(n(:lvasgn, [v(:lvar), v(:expr)])) do |name:, transform:|
-        #   Splat.new(name)
-        # end
+        add_rule(n(:lvasgn, [v(:lvar), v(:expr)])) do |lvar:, expr:, transform:|
+          n(:lvasgn, [Var.new(lvar), transform.(expr)])
+        end
         add_rule(Parser::AST::Node) do |node, transform:|
           n(node.type, node.children.map { |c| transform.(c) })
         end
