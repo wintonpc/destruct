@@ -13,9 +13,17 @@ class Destruct
       ATOMIC_TYPES = %i[int float sym str const lvar].freeze
 
       def initialize
-        add_rule(any(n(:send, [nil, v(:name)]), n(:lvar, [v(:name)]))) do |name:|
+        mvar = n(:send, [nil, v(:name)])
+        lvar = n(:lvar, [v(:name)])
+        add_rule(any(mvar, lvar)) do |name:|
           Var.new(name)
         end
+        add_rule(n(:splat, [any(mvar, lvar)])) do |name:|
+          Splat.new(name)
+        end
+        # add_rule(n(:lvasgn, [v(:lvar), v(:expr)])) do |name:, transform:|
+        #   Splat.new(name)
+        # end
         add_rule(Parser::AST::Node) do |node, transform:|
           n(node.type, node.children.map { |c| transform.(c) })
         end
