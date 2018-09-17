@@ -1,3 +1,4 @@
+
 Gem::Specification.new do |s|
   s.name        = 'destructure'
   s.version     = '0.2.0'
@@ -11,8 +12,8 @@ Gem::Specification.new do |s|
   s.license     = 'MIT'
 
 
-  s.add_dependency('activesupport', ['~> 4.0.0'])
-  s.add_dependency('parser', ['~> 2.5'])
+  s.add_dependency('activesupport', ['> 4.0.0'])
+  s.add_dependency('parser')
   s.add_dependency('unparser')
 
   s.add_development_dependency 'rspec', '~> 3.0'
