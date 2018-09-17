@@ -155,6 +155,7 @@ class Destruct
                 args[raw_key || k] = val
               end
             end
+            next unless validate_constraints(args, rule.constraints)
             applied = pop_rec(apply_template(x, rule, [], args), rule)
             return continue_transforming(x, applied)
           end
@@ -179,6 +180,26 @@ class Destruct
         x
       else
         recursing { transform(x) }
+      end
+    end
+
+    def validate_constraints(args, constraints)
+      constraints.each_pair do |var, const|
+        return false unless validate_constraint(args[var], const)
+      end
+    end
+
+    def validate_constraint(x, c)
+      if c.is_a?(Module)
+        x.is_a?(c)
+      elsif c.is_a?(Array) && c.size == 1
+        return false unless x.is_a?(Array) || x.is_a?(Hash)
+        vs = x.is_a?(Array) ? x : x.values
+        vs.all? { |v| validate_constraint(v, c[0]) }
+      elsif c.is_a?(Array)
+        c.any? { |c| validate_constraint(x, c) }
+      elsif c.respond_to?(:call)
+        c.(x)
       end
     end
 
