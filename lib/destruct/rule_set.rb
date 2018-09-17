@@ -46,12 +46,17 @@ class Destruct
     def add_rule(pat_or_proc, constraints={}, &translate_block)
       translate = wrap_translate(translate_block, constraints)
       if pat_or_proc.is_a?(Proc)
+        @meta_rule_set or raise "must specify meta_rule_set if using proc-style rules"
         node = ExprCache.get(pat_or_proc)
-        pat = node_to_pattern(node)
+        pat = @meta_rule_set.transform(node)
         rules << Transformer::Rule.new(pat, translate, constraints)
       else
         rules << Transformer::Rule.new(pat_or_proc, translate, constraints)
       end
+    end
+
+    def meta_rule_set(rule_set)
+      @meta_rule_set = rule_set
     end
 
     def add_rule_set(rule_set)

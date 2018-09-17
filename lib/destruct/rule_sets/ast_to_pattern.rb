@@ -6,21 +6,19 @@ require_relative './helpers'
 
 class Destruct
   module RuleSets
-    class UnpackAst
+    class AstToPattern
       include RuleSet
       include Helpers
 
       ATOMIC_TYPES = %i[int float sym str const lvar].freeze
 
       def initialize
-        add_rule(Parser::AST::Node) do |n, transform:|
-          raise Transformer::NotApplicable if ATOMIC_TYPES.include?(n.type)
-          n.updated(nil, n.children.map(&transform))
+        add_rule(any(n(:send, [nil, v(:name)]), n(:lvar, [v(:name)]))) do |name:|
+          Var.new(name)
         end
-      end
-
-      def m(type, *children)
-        Parser::AST::Node.new(type, children)
+        add_rule(Parser::AST::Node) do |node, transform:|
+          n(node.type, node.children.map { |c| transform.(c) })
+        end
       end
     end
   end
