@@ -24,8 +24,7 @@ class Destruct
       sexp = @exprs_by_proc[p]
       return sexp if sexp
 
-      file_path, line = *p.source_location
-      ast = get_ast(file_path)
+      ast, line = get_ast(*p.source_location)
       candidate_nodes = find_proc(ast, line)
       candidate_nodes = candidate_nodes.sort_by do |n|
         n.children[0].type == :send && (n.children[0].children[1] == :lambda ||
@@ -69,10 +68,26 @@ class Destruct
       end
     end
 
-    def get_ast(file_path)
-      @asts_by_file.fetch(file_path) do
-        @asts_by_file[file_path] = Parser::CurrentRuby.parse(File.read(file_path))
+    def get_ast(file_path, line)
+      if in_repl(file_path)
+        start_offset = -1
+        begin
+          code = Readline::HISTORY.to_a[start_offset..-1].join("\n")
+          [Parser::CurrentRuby.parse(code), 1]
+        rescue Parser::SyntaxError
+          start_offset -= 1
+          retry
+        end
+      else
+        ast = @asts_by_file.fetch(file_path) do
+          @asts_by_file[file_path] = Parser::CurrentRuby.parse(File.read(file_path))
+        end
+        [ast, line]
       end
+    end
+
+    def in_repl(file_path)
+      file_path == "(irb)" || file_path == "(pry)"
     end
 
     def find_proc(node, line)
