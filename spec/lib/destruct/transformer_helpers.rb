@@ -35,7 +35,7 @@ class Destruct
 
     def expect_success_on(x, bindings={})
       @rule_set ||= RuleSets::PatternBase
-      env = Compiler.compile(transform(&@pat_proc)).match(x, @binding)
+      env = Destruct.match(transform(&@pat_proc), x, @binding)
       expect(env).to be_truthy
       bindings.each do |k, v|
         expect(env[k]).to eql v
@@ -44,7 +44,7 @@ class Destruct
 
     def expect_failure_on(x)
       @rule_set ||= RuleSets::PatternBase
-      env = Compiler.compile(transform(&@pat_proc)).match(x, @binding)
+      env = Destruct.match(transform(&@pat_proc), x, @binding)
       expect(env).to be_falsey
     end
   end

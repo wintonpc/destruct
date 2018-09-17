@@ -71,15 +71,16 @@ class Destruct
     def get_ast(file_path, line)
       if in_repl(file_path)
         start_offset = -1
+        old_stderr = $stderr
         begin
-          $silence_parser_diagnostics = true
+          $stderr = File.open(IO::NULL, "w") # silence parse diagnostics
           code = Readline::HISTORY.to_a[start_offset..-1].join("\n")
           [Parser::CurrentRuby.parse(code), 1]
         rescue Parser::SyntaxError
           start_offset -= 1
           retry
         ensure
-          $silence_parser_diagnostics = false
+          $stderr = old_stderr
         end
       else
         ast = @asts_by_file.fetch(file_path) do
@@ -100,29 +101,6 @@ class Destruct
       result << node if is_match
       result += node.children.flat_map { |c| find_proc(c, line) }.reject(&:nil?)
       result
-    end
-  end
-end
-
-require 'parser/runner'
-
-module Kernel
-  old_puts = instance_method(:puts)
-  define_method(:puts) do |*args|
-    old_puts.bind(self).(caller)
-    old_puts.bind(self).(*args)
-  end
-end
-
-module Parser
-  class Runner
-    old_prepare_parser = instance_method(:prepare_parser)
-    define_method(:prepare_parser) do
-      if $silence_parser_diagnostics
-        @parser = @parser_class.new
-      else
-        old_prepare_parser.bind(self).call
-      end
     end
   end
 end

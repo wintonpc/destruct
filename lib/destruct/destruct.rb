@@ -64,6 +64,10 @@ class Destruct
     g.proc
   end
 
+  def self.match(pat, x, binding=nil)
+    Compiler.compile(pat).match(x, binding)
+  end
+
   private def redirect(node, var_names)
     if !node.is_a?(Parser::AST::Node)
       node

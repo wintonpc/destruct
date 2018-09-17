@@ -145,7 +145,7 @@ class Destruct
           if rule.pat.is_a?(Class) && x.is_a?(rule.pat)
             applied = pop_rec(apply_template(x, rule, [x]), rule)
             return continue_transforming(x, applied)
-          elsif e = Compiler.compile(rule.pat).match(x)
+          elsif e = Destruct.match(rule.pat, x)
             args = {}
             if e.is_a?(Env)
               e.env_each do |k, v|
