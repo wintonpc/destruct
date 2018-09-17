@@ -70,5 +70,21 @@ class Destruct
 
       expect(outputs).to eql [[5, 6], [2, 3]]
     end
+
+    it 'multiple preds per when' do
+      inputs = [
+          FBar.new(:first, [1, 0]),
+          FBar.new(:second, [0, 2])
+      ]
+      outputs = inputs.map do |input|
+        destruct(input) do
+          case
+          when FBar[a: :first, b: [v, _]], FBar[a: :second, b: [_, v]]
+            v
+          end
+        end
+      end
+      expect(outputs).to eql [1, 2]
+    end
   end
 end

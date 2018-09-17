@@ -15,7 +15,7 @@ class Destruct
             Case.new(value, whens, last)
           end
         end
-        add_rule(n(:when, [v(:pred), v(:body)])) { |pred:, body:| CaseClause.new(pred, body) }
+        add_rule(n(:when, [s(:preds), v(:body)])) { |preds:, body:| CaseClause.new(preds, body) }
         add_rule_set(UnpackEnumerables)
       end
 
@@ -35,15 +35,15 @@ class Destruct
       end
 
       class CaseClause
-        attr_reader :pred, :body
+        attr_reader :preds, :body
 
-        def initialize(pred, body)
-          @pred = pred
+        def initialize(preds, body)
+          @preds = preds
           @body = body
         end
 
         def to_s
-          "#<CaseClause: #{pred.inspect.gsub(/\s+/, " ")} #{body.inspect.gsub(/\s+/, " ")}"
+          "#<CaseClause: #{preds.map { |pred| pred.inspect.gsub(/\s+/, " ")} } #{body.inspect.gsub(/\s+/, " ")}"
         end
         alias_method :inspect, :to_s
       end

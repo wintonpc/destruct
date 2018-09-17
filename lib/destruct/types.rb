@@ -70,7 +70,7 @@ class Destruct
     end
 
     def inspect
-      "#<Obj: #{type}[#{fields.map { |(k, v)| "#{k}: #{v}"}.join(", ")}]>"
+      "#<Obj: #{type}[#{fields.map { |(k, v)| "#{k}: #{v.inspect}"}.join(", ")}]>"
     end
     alias_method :to_s, :inspect
   end

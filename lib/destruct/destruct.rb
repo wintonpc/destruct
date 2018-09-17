@@ -38,16 +38,18 @@ class Destruct
     emit_lambda("_x", "_obj_with_binding") do
       show_code_on_error do
         case_expr.whens.each do |w|
-          pat = tx.transform(w.pred, binding: pat_proc.binding)
-          cp = Compiler.compile(pat)
-          if_str = w == case_expr.whens.first ? "if" : "elsif"
-          emit "#{if_str} _env = #{get_ref(cp.generated_code)}.proc.(_x, _obj_with_binding)"
-          cp.var_names.each do |name|
-            emit "#{name} = _env.#{name}"
+          w.preds.each do |pred|
+            pat = tx.transform(pred, binding: pat_proc.binding)
+            cp = Compiler.compile(pat)
+            if_str = w == case_expr.whens.first && pred == w.preds.first ? "if" : "elsif"
+            emit "#{if_str} _env = #{get_ref(cp.generated_code)}.proc.(_x, _obj_with_binding)"
+            cp.var_names.each do |name|
+              emit "#{name} = _env.#{name}"
+            end
+            redirected = redirect(w.body, cp.var_names)
+            emit "_binding = _obj_with_binding.binding" if @needs_binding
+            emit Unparser.unparse(redirected)
           end
-          redirected = redirect(w.body, cp.var_names)
-          emit "_binding = _obj_with_binding.binding" if @needs_binding
-          emit Unparser.unparse(redirected)
         end
         if case_expr.else_body
           emit "else"
