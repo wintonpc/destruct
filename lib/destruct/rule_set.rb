@@ -37,8 +37,6 @@ class Destruct
       result
     end
 
-    private
-
     # @param pat_or_proc [Object] One of:
     #   an AST-matching destruct pattern,
     #   a proc containing syntax to be converted into an AST-matching destruct pattern, or
@@ -52,6 +50,8 @@ class Destruct
         rules << Transformer::Rule.new(pat_or_proc, translate_block, constraints)
       end
     end
+
+    private
 
     def meta_rule_set(rule_set)
       @meta_rule_set = rule_set

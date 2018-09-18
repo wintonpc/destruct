@@ -16,7 +16,7 @@ class Destruct
         when [v, w, u, 3]
           [v, w, u, 3, c, @d, a(@d), b, Outer.new(45)].inspect
         else
-          99
+          99.to_s
         end
       end
       expect(r).to eql [1, 4, 5, 3, 42, 43, 44, 46, Outer.new(45)].inspect
@@ -54,21 +54,24 @@ class Destruct
 
       inputs = [
           FBar.new(5, 6),
-          [1, 2, 3]
+          [1, 2, 3],
+          [7, 8]
       ]
 
       outputs = inputs.map do |inp|
         destruct(inp, t) do
-          case
+          case x
           when FBar[a, b]
             [a, b]
           when [1, ~rest]
             rest
+          else
+            x
           end
         end
       end
 
-      expect(outputs).to eql [[5, 6], [2, 3]]
+      expect(outputs).to eql [[5, 6], [2, 3], [7, 8]]
     end
 
     it 'multiple preds per when' do

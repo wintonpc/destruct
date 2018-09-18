@@ -35,6 +35,8 @@ class Destruct
 
   def compile(pat_proc, tx)
     case_expr = RuleSets::Destruct.transform(&pat_proc)
+    source_file = pat_proc.source_location[0]
+    input_name = case_expr.value ? Unparser.unparse(case_expr.value).to_sym : :_input
     emit_lambda("_x", "_obj_with_binding") do
       show_code_on_error do
         case_expr.whens.each do |w|
@@ -43,19 +45,12 @@ class Destruct
             cp = Compiler.compile(pat)
             if_str = w == case_expr.whens.first && pred == w.preds.first ? "if" : "elsif"
             emit "#{if_str} _env = #{get_ref(cp.generated_code)}.proc.(_x, _obj_with_binding)"
-            cp.var_names.each do |name|
-              emit "#{name} = _env.#{name}"
-            end
-            redirected = redirect(w.body, cp.var_names)
-            emit "_binding = _obj_with_binding.binding" if @needs_binding
-            emit Unparser.unparse(redirected)
+            emit_body(w.body, input_name, cp.var_names, source_file)
           end
         end
         if case_expr.else_body
           emit "else"
-          redirected = redirect(case_expr.else_body, [])
-          emit "_binding = _obj_with_binding.binding" if @needs_binding
-          emit Unparser.unparse(redirected)
+          emit_body(case_expr.else_body, input_name, [], source_file)
         end
         emit "end"
       end
@@ -66,21 +61,42 @@ class Destruct
     g.proc
   end
 
+  def emit_body(body, input_name, var_names, source_file_path)
+    redirected, needs_binding = redirect(body, [input_name, *var_names])
+    params = [input_name, *var_names.map(&:to_s)]
+    params << "_binding" if needs_binding
+    code = StringIO.new
+    code.puts "lambda do |#{params.join(", ")}|"
+    code.puts Unparser.unparse(redirected)
+    code.puts "end"
+    code = code.string
+    args = ["_x", *var_names.map { |name| "_env.#{name}" }]
+    args << "_obj_with_binding.binding" if needs_binding
+    body_proc = get_ref(eval(code, nil, source_file_path, body.location.line - 1))
+    emit "#{body_proc}.(#{args.join(", ")})"
+  end
+
   def self.match(pat, x, binding=nil)
     Compiler.compile(pat).match(x, binding)
   end
 
   private def redirect(node, var_names)
+    @needs_binding = false
+    [redir(node, var_names), @needs_binding]
+  end
+
+  private def redir(node, var_names)
     if !node.is_a?(Parser::AST::Node)
       node
     elsif (node.type == :lvar || node.type == :ivar) && !var_names.include?(node.children[0])
+      @needs_binding = true
       n(:send, n(:lvar, :_binding), :eval, n(:str, node.children[0].to_s))
     elsif node.type == :send && node.children[0].nil? && !var_names.include?(node.children[1])
       @needs_binding = true
       self_expr = n(:send, n(:lvar, :_binding), :receiver)
-      n(:send, self_expr, :send, n(:sym, node.children[1]), *node.children[2..-1].map { |c| redirect(c, var_names) })
+      n(:send, self_expr, :send, n(:sym, node.children[1]), *node.children[2..-1].map { |c| redir(c, var_names) })
     else
-      node.updated(nil, node.children.map { |c| redirect(c, var_names) })
+      node.updated(nil, node.children.map { |c| redir(c, var_names) })
     end
   end
 

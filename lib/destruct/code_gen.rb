@@ -20,7 +20,7 @@ class Destruct
       emitted << "\n"
     end
 
-    def generate(filename='')
+    def generate(filename='', line=1)
       code = <<~CODE
         # frozen_string_literal: true
         lambda do |_code, _filename, _refs#{ref_args}|
@@ -29,7 +29,7 @@ class Destruct
       CODE
       code = beautify_ruby(code)
       begin
-        result = eval(code, nil, filename).call(code, filename, refs, *refs.values)
+        result = eval(code, nil, filename, line - 2).call(code, filename, refs, *refs.values)
         gc = GeneratedCode.new(result, code, filename)
         show_code(gc) if $show_code
         gc
@@ -37,6 +37,15 @@ class Destruct
         show_code(code, filename, refs, fancy: false, include_vm: false)
         raise
       end
+    end
+
+    def self.quick_gen(filename='', line=1, &block)
+      Class.new do
+        include CodeGen
+        define_method(:initialize) do
+          instance_exec(&block)
+        end
+      end.new.generate(filename, line)
     end
 
     def show_code_on_error
