@@ -71,7 +71,7 @@ class Destruct
     code.puts Unparser.unparse(redirected)
     code.puts "end"
     code = code.string
-    puts code
+    CodeGen.show_code(beautify_ruby(code), "Destruct body")
     args = ["_x", *var_names.map { |name| "_env.#{name}" }]
     args << "_obj_with_binding.binding" if needs_binding
     body_proc = get_ref(eval(code, binding, source_file_path, body.location.line - 1))
@@ -106,6 +106,9 @@ class Destruct
     elsif e = match(n(:block, [v(:recv), v(:args), v(:block)]), node)
       bound_vars = e[:args].children.map { |c| arg_name(c) }
       node.updated(nil, [redir(e[:recv], var_names), e[:args], redir(e[:block], var_names + bound_vars)])
+    elsif e = match(n(:lvasgn, [v(:name), v(:expr)]), node)
+      var_names.push(e[:name])
+      node.updated(nil, [e[:name], redir(e[:expr], var_names)])
     else
       node.updated(nil, node.children.map { |c| redir(c, var_names) })
     end

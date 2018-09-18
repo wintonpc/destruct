@@ -7,7 +7,7 @@ require_relative './compiler'
 
 class Destruct
   class Transformer
-    DEBUG = true
+    DEBUG = false
     Rec = Struct.new(:input, :output, :subs, :is_recurse, :rule)
     class NotApplicable < RuntimeError; end
     class Accept < RuntimeError
