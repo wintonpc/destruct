@@ -95,19 +95,23 @@ class Destruct
   private def redir(node, var_names)
     if !node.is_a?(Parser::AST::Node)
       node
-    elsif (e = Destruct.match(n(any(:lvar, :ivar), [v(:name)]), node)) && !var_names.include?(e[:name])
+    elsif (e = match(n(any(:lvar, :ivar), [v(:name)]), node)) && !var_names.include?(e[:name])
       @needs_binding = true
       m(:send, m(:lvar, :_binding), :eval, m(:str, e[:name].to_s))
-    elsif (e = Destruct.match(n(:send, [nil, v(:meth), s(:args)]), node)) && !var_names.include?(e[:meth])
+    elsif (e = match(n(:send, [nil, v(:meth), s(:args)]), node)) && !var_names.include?(e[:meth])
       @needs_binding = true
       self_expr = m(:send, m(:lvar, :_binding), :receiver)
       m(:send, self_expr, :send, m(:sym, e[:meth]), *e[:args].map { |c| redir(c, var_names) })
-    elsif e = Destruct.match(n(:block, [v(:recv), v(:args), v(:block)]), node)
+    elsif e = match(n(:block, [v(:recv), v(:args), v(:block)]), node)
       bound_vars = e[:args].children.map { |c| arg_name(c) }
       node.updated(nil, [redir(e[:recv], var_names), e[:args], redir(e[:block], var_names + bound_vars)])
     else
       node.updated(nil, node.children.map { |c| redir(c, var_names) })
     end
+  end
+
+  private def match(pat, x)
+    Destruct.match(pat, x)
   end
 
   def arg_name(a)
