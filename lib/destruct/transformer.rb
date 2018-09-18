@@ -42,7 +42,7 @@ class Destruct
       def transform(x, rule_set, binding)
         txr = Transformer.new(rule_set, binding)
         result = txr.transform(x)
-        if DEBUG
+        if DEBUG || $show_transformations
           puts "\nRules:"
           dump_rules(rule_set.rules)
           puts "\nTransformations:"
