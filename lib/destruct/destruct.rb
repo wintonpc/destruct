@@ -35,6 +35,7 @@ class Destruct
 
   def compile(pat_proc, tx)
     case_expr = RuleSets::Destruct.transform(&pat_proc)
+    binding = pat_proc.binding
     source_file = pat_proc.source_location[0]
     input_name = case_expr.value ? Unparser.unparse(case_expr.value).to_sym : :_input
     emit_lambda("_x", "_obj_with_binding") do
@@ -45,12 +46,12 @@ class Destruct
             cp = Compiler.compile(pat)
             if_str = w == case_expr.whens.first && pred == w.preds.first ? "if" : "elsif"
             emit "#{if_str} _env = #{get_ref(cp.generated_code)}.proc.(_x, _obj_with_binding)"
-            emit_body(w.body, input_name, cp.var_names, source_file)
+            emit_body(w.body, input_name, cp.var_names, source_file, binding)
           end
         end
         if case_expr.else_body
           emit "else"
-          emit_body(case_expr.else_body, input_name, [], source_file)
+          emit_body(case_expr.else_body, input_name, [], source_file, binding)
         end
         emit "end"
       end
@@ -61,7 +62,7 @@ class Destruct
     g.proc
   end
 
-  def emit_body(body, input_name, var_names, source_file_path)
+  def emit_body(body, input_name, var_names, source_file_path, binding)
     redirected, needs_binding = redirect(body, [input_name, *var_names])
     params = [input_name, *var_names.map(&:to_s)]
     params << "_binding" if needs_binding
@@ -73,7 +74,7 @@ class Destruct
     puts code
     args = ["_x", *var_names.map { |name| "_env.#{name}" }]
     args << "_obj_with_binding.binding" if needs_binding
-    body_proc = get_ref(eval(code, nil, source_file_path, body.location.line - 1))
+    body_proc = get_ref(eval(code, binding, source_file_path, body.location.line - 1))
     emit "#{body_proc}.(#{args.join(", ")})"
   end
 
