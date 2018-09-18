@@ -70,6 +70,7 @@ class Destruct
     code.puts Unparser.unparse(redirected)
     code.puts "end"
     code = code.string
+    puts code
     args = ["_x", *var_names.map { |name| "_env.#{name}" }]
     args << "_obj_with_binding.binding" if needs_binding
     body_proc = get_ref(eval(code, nil, source_file_path, body.location.line - 1))
@@ -95,8 +96,20 @@ class Destruct
       @needs_binding = true
       self_expr = n(:send, n(:lvar, :_binding), :receiver)
       n(:send, self_expr, :send, n(:sym, node.children[1]), *node.children[2..-1].map { |c| redir(c, var_names) })
+    elsif node.type == :block
+      recv, args, block = node.children
+      bound_vars = args.children.map { |c| arg_name(c) }
+      node.updated(nil, [redir(recv, var_names), args, redir(block, var_names + bound_vars)])
     else
       node.updated(nil, node.children.map { |c| redir(c, var_names) })
+    end
+  end
+
+  def arg_name(a)
+    if a.type == :arg
+      a.children[0]
+    else
+      raise "Unexpected arg: #{a}"
     end
   end
 
