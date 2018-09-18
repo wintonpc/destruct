@@ -102,10 +102,9 @@ class Destruct
       @needs_binding = true
       self_expr = m(:send, m(:lvar, :_binding), :receiver)
       m(:send, self_expr, :send, m(:sym, e[:meth]), *e[:args].map { |c| redir(c, var_names) })
-    elsif node.type == :block
-      recv, args, block = node.children
-      bound_vars = args.children.map { |c| arg_name(c) }
-      node.updated(nil, [redir(recv, var_names), args, redir(block, var_names + bound_vars)])
+    elsif e = Destruct.match(n(:block, [v(:recv), v(:args), v(:block)]), node)
+      bound_vars = e[:args].children.map { |c| arg_name(c) }
+      node.updated(nil, [redir(e[:recv], var_names), e[:args], redir(e[:block], var_names + bound_vars)])
     else
       node.updated(nil, node.children.map { |c| redir(c, var_names) })
     end
