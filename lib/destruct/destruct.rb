@@ -81,21 +81,27 @@ class Destruct
     Compiler.compile(pat).match(x, binding)
   end
 
+  def self.match2(x, binding=nil, &pat_proc)
+    match(RuleSets::StandardPattern.transform(binding: binding, &pat_proc), x, binding)
+  end
+
   private def redirect(node, var_names)
     @needs_binding = false
     [redir(node, var_names), @needs_binding]
   end
 
+  include RuleSets::Helpers
+
   private def redir(node, var_names)
     if !node.is_a?(Parser::AST::Node)
       node
-    elsif (node.type == :lvar || node.type == :ivar) && !var_names.include?(node.children[0])
+    elsif (e = Destruct.match(n(any(:lvar, :ivar), [v(:name)]), node)) && !var_names.include?(e[:name])
       @needs_binding = true
-      n(:send, n(:lvar, :_binding), :eval, n(:str, node.children[0].to_s))
+      m(:send, m(:lvar, :_binding), :eval, m(:str, e[:name].to_s))
     elsif node.type == :send && node.children[0].nil? && !var_names.include?(node.children[1])
       @needs_binding = true
-      self_expr = n(:send, n(:lvar, :_binding), :receiver)
-      n(:send, self_expr, :send, n(:sym, node.children[1]), *node.children[2..-1].map { |c| redir(c, var_names) })
+      self_expr = m(:send, m(:lvar, :_binding), :receiver)
+      m(:send, self_expr, :send, m(:sym, node.children[1]), *node.children[2..-1].map { |c| redir(c, var_names) })
     elsif node.type == :block
       recv, args, block = node.children
       bound_vars = args.children.map { |c| arg_name(c) }
@@ -113,7 +119,7 @@ class Destruct
     end
   end
 
-  def n(type, *children)
+  def m(type, *children)
     Parser::AST::Node.new(type, children)
   end
 end

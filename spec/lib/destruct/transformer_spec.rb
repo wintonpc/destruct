@@ -21,8 +21,8 @@ class Destruct
     end
 
     it 'metacircularish' do
-      given_pattern { n(:send, [nil, var_name]) }
-      given_rule(->{ n(type, children) }) do |type:, children:|
+      given_pattern { m(:send, [nil, var_name]) }
+      given_rule(->{ m(type, children) }) do |type:, children:|
         Obj.new(Parser::AST::Node, type: type, children: children)
       end
       expect_success_on ExprCache.get(->{ asdf }), var_name: :asdf
