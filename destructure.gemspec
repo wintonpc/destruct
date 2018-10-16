@@ -18,4 +18,5 @@ Gem::Specification.new do |s|
 
   s.add_development_dependency 'rspec', '~> 3.0'
   s.add_development_dependency 'memory_profiler'
+  s.add_development_dependency 'colorize'
 end

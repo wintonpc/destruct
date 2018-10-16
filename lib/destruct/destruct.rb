@@ -58,7 +58,7 @@ class Destruct
     end
     filename = "Destruct for #{pat_proc}"
     g = generate(filename)
-    show_code(g)
+    # show_code(g)
     g.proc
   end
 
@@ -71,7 +71,7 @@ class Destruct
     code.puts Unparser.unparse(redirected)
     code.puts "end"
     code = code.string
-    CodeGen.show_code(beautify_ruby(code), "Destruct body")
+    # CodeGen.show_code(beautify_ruby(code), "Destruct body")
     args = ["_x", *var_names.map { |name| "_env.#{name}" }]
     args << "_obj_with_binding.binding" if needs_binding
     body_proc = get_ref(eval(code, binding, source_file_path, body.location.line - 1))
