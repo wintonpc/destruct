@@ -9,6 +9,10 @@ class Object
   def primitive?
     is_a?(Numeric) || is_a?(String) || is_a?(Symbol) || is_a?(Regexp) || self == true || self == false || self == nil
   end
+
+  def unpack_constants(mod)
+    mod.constants.each { |c| Object.const_set(c, mod.const_get(c)) }
+  end
 end
 
 module Parser

@@ -29,8 +29,8 @@ class Destruct
         Thread.current[:destruct_compiled_patterns] ||= {}
       end
 
-      def match(pat, x)
-        compile(pat).match(x)
+      def match(pat, x, binding=nil)
+        compile(pat).match(x, binding)
       end
 
       def on_compile(&block)
@@ -426,6 +426,10 @@ class Destruct
 
     def match(x, binding=nil)
       @generated_code.proc.(x, binding)
+    end
+
+    def show_code
+      CodeGen.show_code(generated_code)
     end
   end
 end
