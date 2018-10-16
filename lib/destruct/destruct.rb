@@ -79,6 +79,9 @@ class Destruct
   end
 
   def self.match(pat, x, binding=nil)
+    if pat.is_a?(Proc)
+      pat = RuleSets::StandardPattern.transform(pat)
+    end
     Compiler.compile(pat).match(x, binding)
   end
 
