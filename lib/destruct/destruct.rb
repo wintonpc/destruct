@@ -80,7 +80,7 @@ class Destruct
 
   def self.match(pat, x, binding=nil)
     if pat.is_a?(Proc)
-      pat = RuleSets::StandardPattern.transform(binding: binding, &pat_proc)
+      pat = RuleSets::StandardPattern.transform(binding: binding, &pat)
     end
     Compiler.compile(pat).match(x, binding)
   end
