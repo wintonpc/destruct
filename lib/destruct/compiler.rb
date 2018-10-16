@@ -269,6 +269,7 @@ class Destruct
     def match_unquote(s)
       temp_env = get_temp("env")
       emit "#{temp_env} = ::Destruct.match(_binding.eval('#{s.pat.code_expr}'), #{s.x}, _binding)"
+      test(s, temp_env)
       merge(s, temp_env, dynamic: true)
     end
 

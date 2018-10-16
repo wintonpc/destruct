@@ -148,6 +148,12 @@ class Destruct
 
       expect(compiled_pats.count { |p| p == Var.new(var_name) }).to eql 1
     end
+    it 'stops when unquote fails' do
+      outer = 1
+      given_pattern [Unquote.new("outer"), Splat.new(:rest)]
+      given_binding binding
+      expect_failure_on [2, 3]
+    end
     it 'compiles regexes' do
       given_pattern [Var.new(:a), /hello (?<name>\w+)/]
       expect_success_on [1, "hello alice"], a: 1, name: "alice"
