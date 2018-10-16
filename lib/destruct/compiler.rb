@@ -86,6 +86,8 @@ class Destruct
         pat.values.flat_map(&method(:find_var_names_non_uniq))
       elsif pat.is_a?(Array)
         pat.flat_map(&method(:find_var_names_non_uniq))
+      elsif pat.is_a?(Regexp)
+        pat.named_captures.keys.map(&:to_sym)
       else
         []
       end

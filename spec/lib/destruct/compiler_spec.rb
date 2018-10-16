@@ -231,6 +231,10 @@ class Destruct
       expect(e[:tail].instance_exec { @inner }).to be_an Enumerator
       expect(e[:tail].instance_exec { @inner }).to_not be_a WrappedEnumerator
     end
+    it 'finds regex var names' do
+      cpat = Compiler.compile(/(?<what>\w+)/)
+      expect(cpat.var_names).to include :what
+    end
 
     def compile(pat)
       Compiler.compile(pat)
