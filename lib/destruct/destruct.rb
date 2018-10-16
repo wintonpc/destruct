@@ -80,13 +80,9 @@ class Destruct
 
   def self.match(pat, x, binding=nil)
     if pat.is_a?(Proc)
-      pat = RuleSets::StandardPattern.transform(pat)
+      pat = RuleSets::StandardPattern.transform(binding: binding, &pat_proc)
     end
     Compiler.compile(pat).match(x, binding)
-  end
-
-  def self.match2(x, binding=nil, &pat_proc)
-    match(RuleSets::StandardPattern.transform(binding: binding, &pat_proc), x, binding)
   end
 
   private def redirect(node, var_names)
