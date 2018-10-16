@@ -45,7 +45,7 @@ class Destruct
             pat = tx.transform(pred, binding: pat_proc.binding)
             cp = Compiler.compile(pat)
             if_str = w == case_expr.whens.first && pred == w.preds.first ? "if" : "elsif"
-            emit "#{if_str} _env = #{get_ref(cp.generated_code)}.proc.(_x, _obj_with_binding)"
+            emit "#{if_str} _env = #{get_ref(cp.generated_code)}.proc.(_x, _obj_with_binding.binding)"
             emit_body(w.body, input_name, cp.var_names, source_file, binding)
           end
         end
