@@ -232,10 +232,12 @@ class Destruct
       s.type = :regexp
       m = get_temp("m")
       match_env = get_temp("env")
-      emit "#{m} = #{get_ref(s.pat)}.match(#{s.x})"
-      emit "#{match_env} = ::Destruct::Env.new(#{m}) if #{m}"
-      test(s, match_env)
-      merge(s, match_env, dynamic: true)
+      test(s, "#{s.x}.is_a?(String) || #{s.x}.is_a?(Symbol)") do
+        emit "#{m} = #{get_ref(s.pat)}.match(#{s.x})"
+        emit "#{match_env} = ::Destruct::Env.new(#{m}) if #{m}"
+        test(s, match_env)
+        merge(s, match_env, dynamic: true)
+      end
     end
 
     def match_literal(s)
