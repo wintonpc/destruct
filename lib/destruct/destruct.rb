@@ -5,12 +5,6 @@ require_relative 'rule_sets/destruct'
 require_relative './code_gen'
 require_relative './util'
 
-class Proc
-  def cached_source_location
-    @cached_source_location ||= source_location # don't allocate a new array every time
-  end
-end
-
 class Destruct
   include CodeGen
 
@@ -132,4 +126,10 @@ end
 
 def destruct(obj, rule_set=Destruct::RuleSets::StandardPattern, &block)
   Destruct.destruct(obj, rule_set, &block)
+end
+
+class Proc
+  def cached_source_location
+    @cached_source_location ||= source_location # don't allocate a new array every time
+  end
 end

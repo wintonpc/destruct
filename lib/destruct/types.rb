@@ -3,11 +3,13 @@
 require_relative './util'
 
 class Destruct
+  # Accept any value
   Any = make_singleton("#<Any>")
 
   module Binder
   end
 
+  # Bind a single value
   Var = Struct.new(:name)
   class Var
     include Binder
@@ -22,6 +24,7 @@ class Destruct
     alias_method :to_s, :inspect
   end
 
+  # Bind zero or more values
   Splat = Struct.new(:name)
   class Splat
     include Binder
@@ -36,6 +39,7 @@ class Destruct
     alias_method :to_s, :inspect
   end
 
+  # Bind a value but continue to match a subpattern
   Let = Struct.new(:name, :pattern)
   class Let
     include Binder
@@ -51,6 +55,7 @@ class Destruct
     alias_method :to_s, :inspect
   end
 
+  # A subpattern supplied by a match-time expression
   Unquote = Struct.new(:code_expr)
   class Unquote
     def inspect
@@ -59,6 +64,7 @@ class Destruct
     alias_method :to_s, :inspect
   end
 
+  # Match an object of a particular type with particular fields
   Obj = Struct.new(:type, :fields)
   class Obj
     def initialize(type, fields={})
@@ -75,6 +81,7 @@ class Destruct
     alias_method :to_s, :inspect
   end
 
+  # Bind based on the first pattern that matches
   Or = Struct.new(:patterns)
   class Or
     def initialize(*patterns)

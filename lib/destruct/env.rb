@@ -4,6 +4,11 @@ require 'stringio'
 require_relative './types'
 
 class Destruct
+  # Holds the variables bound during pattern matching. For many patterns, the variable
+  # names are known at compilation time, so Env.new_class is used to create a derived
+  # Env that can hold exactly those variables. If a pattern contains a Regex, Or, or
+  # Unquote, then the variables bound are generally not known until the pattern is matched
+  # against a particular object at run time. The @extras hash is used to bind these variables.
   class Env
     NIL = Object.new
     UNBOUND = :__unbound__
@@ -22,9 +27,9 @@ class Destruct
       end
     end
 
-    def initialize(match_data=nil)
-      if match_data
-        @extras = match_data.names.map { |n| [n.to_sym, match_data[n]] }.to_h
+    def initialize(regexp_match_data=nil)
+      if regexp_match_data
+        @extras = regexp_match_data.names.map { |n| [n.to_sym, regexp_match_data[n]] }.to_h
       end
     end
 
