@@ -4,6 +4,7 @@ require 'parser/current'
 require 'unparser'
 
 class Destruct
+  # Obtains the AST node for a given proc
   class ExprCache
     class << self
       def instance
@@ -20,12 +21,22 @@ class Destruct
       @exprs_by_proc = {}
     end
 
+    # Obtains the AST node for a given proc. The node is found by using
+    # Proc#source_location to reparse the source file and find the proc's node
+    # on the appropriate line. If there are multiple procs on the same line,
+    # procs and lambdas are preferred over blocks, and the first is returned.
+    # If try_to_use is provided, candidate nodes are passed to the block for
+    # evaluation. If the node is unacceptable, the block is expected to raise
+    # InvalidPattern. The first acceptable block is returned.
+    # If the proc was entered at the repl, we attempt to find it in the repl
+    # history.
     def get(p, &try_to_use)
       sexp = @exprs_by_proc[p]
       return sexp if sexp
 
       ast, line = get_ast(*p.source_location)
       candidate_nodes = find_proc(ast, line)
+      # prefer lambdas and procs over blocks
       candidate_nodes = candidate_nodes.sort_by do |n|
         n.children[0].type == :send && (n.children[0].children[1] == :lambda ||
             n.children[0].children[1] == :proc) ? 0 : 1

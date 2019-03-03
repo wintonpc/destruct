@@ -3,11 +3,16 @@
 require 'stringio'
 
 class Destruct
+  # Helper methods for generating code
   module CodeGen
     GeneratedCode = Struct.new(:proc, :code, :filename)
     class GeneratedCode
       def inspect
         "#<GeneratedCode: #{filename}>"
+      end
+
+      def show
+        CodeGen.show_code(self)
       end
     end
 
@@ -142,6 +147,7 @@ class Destruct
       @reverse_refs ||= {}
     end
 
+    # obtain a runtime reference to a compile-time value
     def get_ref(value, id=nil)
       reverse_refs.fetch(value) do
         if id
@@ -155,6 +161,7 @@ class Destruct
       end
     end
 
+    # obtain a unique temporary identifier
     def get_temp(prefix="t")
       @temp_num ||= 0
       "_#{prefix}#{@temp_num += 1}"

@@ -427,6 +427,10 @@ class Destruct
     def match(x, binding=nil)
       @generated_code.proc.(x, binding)
     end
+
+    def show_code
+      generated_code.show
+    end
   end
 end
 

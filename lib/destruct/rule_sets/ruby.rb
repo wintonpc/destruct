@@ -21,7 +21,9 @@ class Destruct
         add_rule(n(:pair, [v(:k), v(:v)])) { |k:, v:| [k, v] }
         add_rule(n(:lvar, [v(:name)])) { |name:| VarRef.new(name) }
         add_rule(n(:send, [nil, v(:name)])) { |name:| VarRef.new(name) }
-        add_rule(n(:const, [v(:parent), v(:name)]), parent: [ConstRef, NilClass]) { |parent:, name:| ConstRef.new([parent&.fqn, name].compact.join("::")) }
+        add_rule(n(:const, [v(:parent), v(:name)]), parent: [ConstRef, NilClass]) do |parent:, name:|
+          ConstRef.new([parent&.fqn, name].compact.join("::"))
+        end
         add_rule(n(:cbase)) { ConstRef.new("") }
         add_rule(let(:matched, n(:regexp, any))) { |matched:| eval(unparse(matched)) }
         add_rule_set(UnpackEnumerables)

@@ -39,8 +39,14 @@ class Destruct
 
     # @param pat_or_proc [Object] One of:
     #   an AST-matching destruct pattern,
-    #   a proc containing syntax to be converted into an AST-matching destruct pattern, or
-    #   a class
+    #   a proc containing syntax for a meta rule set to convert into an AST-matching destruct pattern, or
+    #   a class.
+    # The block should take keyword parameters that match the names of variables bound by the pattern.
+    # These values are fully transformed before being passed to the block. To obtain the untransformed
+    # syntax of variable "x", the block may request parameter "raw_x" instead. The block may also request
+    # the special parameters "binding" and/or "transform". "binding" is the Binding within which the pattern
+    # is being evaluated. "transform" is the transformation method, which allows the block to insert itself
+    # into the recursive transformation process.
     def add_rule(pat_or_proc, constraints={}, &translate_block)
       if pat_or_proc.is_a?(Proc)
         node = ExprCache.get(pat_or_proc)
