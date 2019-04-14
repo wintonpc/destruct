@@ -26,38 +26,9 @@ class Destruct
       time_it("matches") { 100_000.times.each { match_once(a) } } # should take a fraction of a second
     end
 
-    it 'destructuring is memory-efficient' do
-      a = [1, 2, 3, 4]
-      destruct_once(a)
-      report = MemoryProfiler.report do
-        1.times do
-          destruct_once(a)
-        end
-      end
-
-      report.pretty_print # at last check, this was allocating 176 bytes: one proc (the block), one array (proc source location), and one Env
-    end
-
-    it 'destructuring is time-efficient' do
-      a = [1, 2, 3, 4]
-      destruct_once(a)
-      time_it("destructs") { 100_000.times.each { destruct_once(a) } } # should take a fraction of a second
-    end
-
     def match_once(a)
       p = cp
       p.match(a) or raise "didn't match"
-    end
-
-    def destruct_once(a)
-      destruct(a) do
-        case
-        when [1, x, y, 4]
-          :success
-        else
-          raise "didn't match"
-        end
-      end
     end
   end
 end
