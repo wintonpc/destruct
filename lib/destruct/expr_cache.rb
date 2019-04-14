@@ -31,7 +31,8 @@ class Destruct
     # If the proc was entered at the repl, we attempt to find it in the repl
     # history.
     def get(p, &try_to_use)
-      sexp = @exprs_by_proc[p]
+      cache_key = p.source_location_id
+      sexp = @exprs_by_proc[cache_key]
       return sexp if sexp
 
       ast, line = get_ast(*p.source_location)
@@ -43,7 +44,7 @@ class Destruct
       end.map { |n| n.children[2] }
 
       if !try_to_use
-        @exprs_by_proc[p] =
+        @exprs_by_proc[cache_key] =
             if candidate_nodes.size > 1
               candidate_nodes.reject { |n| contains_block?(n) }.first # hack to deal with more than one per line
             else
@@ -59,7 +60,7 @@ class Destruct
         end
         first_good_idx = tried_candidates.find_index { |x| !x.is_a?(InvalidPattern) }
         if first_good_idx
-          @exprs_by_proc[p] = candidate_nodes[first_good_idx]
+          @exprs_by_proc[cache_key] = candidate_nodes[first_good_idx]
           tried_candidates[first_good_idx]
         else
           raise InvalidPattern.new(tried_candidates.last.pattern, Unparser.unparse(candidate_nodes.last))

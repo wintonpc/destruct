@@ -72,6 +72,8 @@ class Destruct
               @extras.each_pair { |k, v| yield(k, v) }
             end
           end
+
+          def self.name; "Destruct::Env"; end
         CODE
       end
     end

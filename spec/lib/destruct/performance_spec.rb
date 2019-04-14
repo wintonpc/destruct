@@ -17,7 +17,20 @@ class Destruct
         end
       end
 
-      report.pretty_print # at last check, this was allocating one 40 byte Env (appearing as <<Unknown>>)
+      report.pretty_print # at last check, this was allocating one 40 byte Destruct::Env
+    end
+
+    it 'caching procs is memory-efficient' do
+      ExprCache.get(proc { x })
+      report = MemoryProfiler.report do
+        10_000.times do
+          ExprCache.get(proc { x })
+        end
+      end
+
+      report.pretty_print
+      # At last check, this was allocating 800,000 bytes of Proc and 23,760 bytes of Array.
+      # The only allocations within this spec file should be Procs.
     end
 
     it 'matching is time-efficient' do
