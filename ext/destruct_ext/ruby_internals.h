@@ -1,6 +1,7 @@
 #include <ruby.h>
 
-// the following declarations are taken from vm_core.h and node.h
+// The following declarations are taken from vm_core.h and node.h in Ruby 2.5.3
+// TODO: support multiple ruby versions
 
 typedef struct rb_code_location_struct {
     int lineno;
@@ -137,7 +138,6 @@ struct rb_iseq_constant_body {
      unsigned int insns_info_size;
      unsigned int stack_max; /* for stack overflow check */
     };
-
 
 struct rb_iseq_struct {
     VALUE flags;

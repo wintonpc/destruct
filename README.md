@@ -1,7 +1,5 @@
 # destructure
 
-[![Code Climate](https://codeclimate.com/github/wintonpc/destructure.png)](https://codeclimate.com/github/wintonpc/destructure)
-
 Destructuring assignment is an operation typically found in functional programming languages,
 including Lisp, Haskell, Erlang, Prolog, and JavaScript (as of ECMAScript 6).
 Think of destructuring assignment as regular expressions for data structures.

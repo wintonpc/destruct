@@ -39,6 +39,12 @@ class Destruct
       end
     end
 
+    def keys
+      result = []
+      env_each { |k, _| result.push(k) }
+      result
+    end
+
     # deprecated
     def [](var_name)
       self.send(var_name)
