@@ -92,7 +92,7 @@ class Destruct
         begin
           $stderr = File.open(IO::NULL, "w") # silence parse diagnostics
           code = Readline::HISTORY.to_a[start_offset..-1].join("\n")
-          [Parser::CurrentRuby.parse(code), Region.new(1, 0, 1, 0)]
+          [Parser::CurrentRuby.parse(code), Region.new(region.path, 1, 0, 1, 0)]
         rescue Parser::SyntaxError
           start_offset -= 1
           retry

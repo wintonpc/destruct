@@ -415,6 +415,24 @@ class Destruct
     end
   end
 
+  class Pattern
+    attr_reader :pat
+
+    def initialize(pat)
+      @pat = pat
+    end
+
+    def to_s
+      "#<Pattern #{pat}>"
+    end
+
+    alias_method :inspect, :to_s
+
+    def match(x, binding=nil)
+      Compiler.compile(pat).match(x, binding)
+    end
+  end
+
   class CompiledPattern
     attr_reader :pat, :generated_code, :var_names
 

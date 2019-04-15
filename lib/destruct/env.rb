@@ -39,7 +39,7 @@ class Destruct
       end
     end
 
-    def keys
+    def env_keys
       result = []
       env_each { |k, _| result.push(k) }
       result
