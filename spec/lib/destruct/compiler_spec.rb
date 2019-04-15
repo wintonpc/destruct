@@ -88,8 +88,9 @@ class Destruct
                         a: 3, b: 7, c: ::Destruct::Env::UNBOUND
     end
     it 'compiles hashes' do
-      given_pattern({a: Var.new(:foo)})
-      expect_success_on({a: 1}, foo: 1)
+      given_pattern({a: 1, b: Var.new(:v)})
+      expect_success_on({a: 1, b: 2}, v: 2)
+      expect_failure_on({a: 1})
     end
     it 'compiles wildcards' do
       given_pattern([Any, Any])

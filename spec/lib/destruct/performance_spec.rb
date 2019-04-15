@@ -59,10 +59,10 @@ class Destruct
     def destruct_once(a)
       destruct(a) do
         case
-        when match { [3, 4] }
+        when e = match { [3, 4] }
           raise "oops"
-        when match { [1, x] }
-          :ok
+        when e = match { [1, x] }
+          e.x
         end
       end
     end

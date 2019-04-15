@@ -15,8 +15,8 @@ class Destruct
       Thread.current[:destruct_cache_instance] ||= Destruct.new
     end
 
-    def get_compiled(p, binding=nil)
-      instance.get_compiled(p, binding)
+    def get_compiled(p, get_binding=nil)
+      instance.get_compiled(p, get_binding)
     end
 
     def destruct(value, &block)
@@ -35,7 +35,8 @@ class Destruct
     @cpats_by_proc_id ||= {}
     key = p.source_location_id
     @cpats_by_proc_id.fetch(key) do
-      @cpats_by_proc_id[key] = Compiler.compile(RuleSets::StandardPattern.transform(binding: get_binding.call, &p))
+      binding = get_binding.call # obtaining the proc binding allocates heap, so only do so when necessary
+      @cpats_by_proc_id[key] = Compiler.compile(RuleSets::StandardPattern.transform(binding: binding, &p))
     end
   end
 
@@ -50,7 +51,8 @@ class Destruct
   end
 
   def contexts
-    @contexts ||= Array.new(100) { Context.new }
+    # Avoid allocations by keeping a stack for each thread. Maximum stack depth of 100 should be plenty.
+    Thread.current[:destruct_contexts] ||= Array.new(100) { Context.new }
   end
 
   class Context
