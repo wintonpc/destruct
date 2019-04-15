@@ -112,12 +112,18 @@ class Destruct
         match_array(s)
       elsif s.pat.is_a?(Regexp)
         match_regexp(s)
-      else
+      elsif is_literal_val?(s.pat)
         match_literal(s)
+      elsif
+        match_other(s)
       end
     end
 
-    def is_literal?(p)
+    def is_literal_val?(x)
+      x.is_a?(Numeric) || x.is_a?(String) || x.is_a?(Symbol)
+    end
+
+    def is_literal_pat?(p)
       !(p.is_a?(Obj) ||
           p.is_a?(Or) ||
           p.is_a?(Binder) ||
@@ -128,7 +134,7 @@ class Destruct
 
     def pattern_order(p)
       # check the cheapest or most likely to fail first
-      if is_literal?(p)
+      if is_literal_pat?(p)
         0
       elsif p.is_a?(Or) || p.is_a?(Regexp)
         2
@@ -245,6 +251,11 @@ class Destruct
       test(s, "#{s.x} == #{s.pat.inspect}")
     end
 
+    def match_other(s)
+      s.type = :other
+      test(s, "#{s.x} == #{get_ref(s.pat)}")
+    end
+
     def test(s, cond)
       # emit "puts \"line #{emitted_line_count + 8}: \#{#{cond.inspect}}\""
       emit "puts \"test: \#{#{cond.inspect}}\"" if $show_tests
@@ -350,7 +361,9 @@ class Destruct
             .sort_by { |(_, field_pat)| pattern_order(field_pat) }
             .each do |field_name, field_pat|
           x = localize(field_pat, make_x_sub.(field_name), field_name)
-          emit("return nil if #{x} == #{nothing_ref}")
+          # xv = get_ref("xv")
+          # emit("#{xv} = #{x}")
+          # test(s, "#{xv} != #{nothing_ref}")
           match(Frame.new(field_pat, x, s.env, s))
         end
       end
