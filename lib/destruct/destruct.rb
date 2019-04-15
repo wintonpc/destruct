@@ -17,9 +17,3 @@ class Destruct
     Compiler.compile(pat).match(x, binding)
   end
 end
-
-class Proc
-  def cached_source_location
-    @cached_source_location ||= source_location # don't allocate a new array every time
-  end
-end
