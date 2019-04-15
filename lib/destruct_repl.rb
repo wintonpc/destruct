@@ -21,6 +21,10 @@ def match(pat_or_proc, x, binding=nil)
   compile(pat).match(x, binding)
 end
 
+def p(pat)
+  Destruct::Pattern.new(pat)
+end
+
 Var = Destruct::Var
 Splat = Destruct::Splat
 Or = Destruct::Or
