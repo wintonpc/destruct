@@ -39,9 +39,32 @@ class Destruct
       time_it("matches") { 100_000.times.each { match_once(a) } } # should take a fraction of a second
     end
 
+    it 'destructing is memory-efficient' do
+      a = [1, 2]
+      destruct_once(a)
+      report = MemoryProfiler.report do
+        1.times do
+          destruct_once(a)
+        end
+      end
+
+      report.pretty_print
+    end
+
     def match_once(a)
       p = cp
       p.match(a) or raise "didn't match"
+    end
+
+    def destruct_once(a)
+      destruct(a) do
+        case
+        when match { [3, 4] }
+          raise "oops"
+        when match { [1, x] }
+          :ok
+        end
+      end
     end
   end
 end

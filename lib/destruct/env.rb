@@ -15,7 +15,7 @@ class Destruct
 
     def method_missing(name, *args, &block)
       name_str = name.to_s
-      if name_str[-1] == '='
+      if name_str.end_with?('=')
         @extras ||= {}
         @extras[name_str[0..-2].to_sym] = args[0]
       else
