@@ -88,9 +88,15 @@ class Destruct
                         a: 3, b: 7, c: ::Destruct::Env::UNBOUND
     end
     it 'compiles hashes' do
+      $show_code = true
       given_pattern({a: 1, b: Var.new(:v)})
       expect_success_on({a: 1, b: 2}, v: 2)
-      expect_failure_on({a: 1})
+      expect_success_on({a: 1, b: 2, c: 3}, v: 2) # extra values are ok
+      expect_failure_on({a: 1}) # missing values are not
+
+      # require absence
+      given_pattern({a: 1, b: ::Destruct::NOTHING})
+      expect_success_on({a: 1})
     end
     it 'compiles wildcards' do
       given_pattern([Any, Any])

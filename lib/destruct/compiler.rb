@@ -337,7 +337,11 @@ class Destruct
 
     def match_hash(s)
       s.type = :hash
-      match_hash_or_obj(s, "Hash", s.pat, proc { |field_name| "#{s.x}[#{field_name.inspect}]" })
+      match_hash_or_obj(s, "Hash", s.pat, proc { |field_name| "#{s.x}.fetch(#{field_name.inspect}, #{nothing_ref})" })
+    end
+
+    def nothing_ref
+      get_ref(::Destruct::NOTHING)
     end
 
     def match_hash_or_obj(s, type_str, pairs, make_x_sub)
@@ -346,6 +350,7 @@ class Destruct
             .sort_by { |(_, field_pat)| pattern_order(field_pat) }
             .each do |field_name, field_pat|
           x = localize(field_pat, make_x_sub.(field_name), field_name)
+          emit("return nil if #{x} == #{nothing_ref}")
           match(Frame.new(field_pat, x, s.env, s))
         end
       end
