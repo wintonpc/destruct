@@ -8,7 +8,6 @@ unsigned long hash(unsigned char *str);
 
 void Init_destruct_ext() {
   rb_define_method(rb_define_class("Proc", rb_cObject), "source_location_id", method_source_location_id, 0);
-  rb_define_method(rb_define_class("Proc", rb_cObject), "source_location_is_repl", method_source_location_is_repl, 0);
 }
 
 // Proc#source_location_id
@@ -41,11 +40,4 @@ unsigned long hash(unsigned char *str) {
     hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
 
   return hash;
-}
-
-VALUE method_source_location_is_repl(VALUE self) {
-  struct rb_iseq_location_struct location = rb_proc_get_iseq(self, 0)->body->location;
-  const char * path = RSTRING_PTR(location.pathobj);
-
-  return strcmp(path, "(irb)") == 0 || strcmp(path, "(pry)") == 0 ? Qtrue : Qfalse;
 }
