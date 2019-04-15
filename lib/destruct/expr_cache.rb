@@ -16,6 +16,8 @@ class Destruct
       end
     end
 
+    Region = Struct.new(:path, :begin_line, :begin_col, :end_line, :end_col)
+
     def initialize
       @asts_by_file = {}
       @exprs_by_proc = {}
@@ -30,13 +32,16 @@ class Destruct
     # InvalidPattern. The first acceptable block is returned.
     # If the proc was entered at the repl, we attempt to find it in the repl
     # history.
+    # TODO: Use Region.begin_col to disambiguate. It's not straightforward:
+    # Ruby's parser sometimes disagrees with the parser gem. The relative
+    # order of multiple procs on the same line should be identical though.
     def get(p, &try_to_use)
       cache_key = p.source_location_id
       sexp = @exprs_by_proc[cache_key]
       return sexp if sexp
 
-      ast, line = get_ast(*p.source_location)
-      candidate_nodes = find_proc(ast, line)
+      ast, region = get_ast(Region.new(*p.source_region))
+      candidate_nodes = find_proc(ast, region)
       # prefer lambdas and procs over blocks
       candidate_nodes = candidate_nodes.sort_by do |n|
         n.children[0].type == :send && (n.children[0].children[1] == :lambda ||
@@ -80,14 +85,14 @@ class Destruct
       end
     end
 
-    def get_ast(file_path, line)
-      if in_repl(file_path)
+    def get_ast(region)
+      if in_repl(region.path)
         start_offset = -1
         old_stderr = $stderr
         begin
           $stderr = File.open(IO::NULL, "w") # silence parse diagnostics
           code = Readline::HISTORY.to_a[start_offset..-1].join("\n")
-          [Parser::CurrentRuby.parse(code), 1]
+          [Parser::CurrentRuby.parse(code), Region.new(1, 0, 1, 0)]
         rescue Parser::SyntaxError
           start_offset -= 1
           retry
@@ -95,10 +100,10 @@ class Destruct
           $stderr = old_stderr
         end
       else
-        ast = @asts_by_file.fetch(file_path) do
-          @asts_by_file[file_path] = Parser::CurrentRuby.parse(File.read(file_path))
+        ast = @asts_by_file.fetch(region.path) do
+          @asts_by_file[region.path] = Parser::CurrentRuby.parse(File.read(region.path))
         end
-        [ast, line]
+        [ast, region]
       end
     end
 
@@ -106,12 +111,12 @@ class Destruct
       file_path == "(irb)" || file_path == "(pry)"
     end
 
-    def find_proc(node, line)
+    def find_proc(node, region)
       return [] unless node.is_a?(Parser::AST::Node)
       result = []
-      is_match = node.type == :block && node.location.line == line
+      is_match = node.type == :block && node.location.begin.line == region.begin_line
       result << node if is_match
-      result += node.children.flat_map { |c| find_proc(c, line) }.reject(&:nil?)
+      result += node.children.flat_map { |c| find_proc(c, region) }.reject(&:nil?)
       result
     end
   end

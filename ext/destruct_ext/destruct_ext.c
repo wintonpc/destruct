@@ -3,11 +3,12 @@
 #include "ruby_internals.h"
 
 VALUE method_source_location_id(VALUE self);
-VALUE method_source_location_is_repl(VALUE self);
+VALUE method_source_region(VALUE self);
 unsigned long hash(unsigned char *str);
 
 void Init_destruct_ext() {
   rb_define_method(rb_define_class("Proc", rb_cObject), "source_location_id", method_source_location_id, 0);
+  rb_define_method(rb_define_class("Proc", rb_cObject), "source_region", method_source_region, 0);
 }
 
 // Proc#source_location_id
@@ -40,4 +41,18 @@ unsigned long hash(unsigned char *str) {
     hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
 
   return hash;
+}
+
+// Proc#source_range
+// Similar to Proc#Source_location, but includes extra values.
+// returns [file, starting_line_number, starting_line_column, ending_line_number, ending_line_column]
+VALUE method_source_region(VALUE self) {
+  struct rb_iseq_location_struct location = rb_proc_get_iseq(self, 0)->body->location;
+  VALUE result = rb_ary_new2(5);
+  rb_ary_push(result, location.pathobj);
+  rb_ary_push(result, INT2FIX(location.code_range.first_loc.lineno));
+  rb_ary_push(result, INT2FIX(location.code_range.first_loc.column));
+  rb_ary_push(result, INT2FIX(location.code_range.last_loc.lineno));
+  rb_ary_push(result, INT2FIX(location.code_range.last_loc.column));
+  return result;
 }
