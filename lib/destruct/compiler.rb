@@ -199,9 +199,9 @@ class Destruct
           end
 
           if splat_index
-            splat = get_temp("splat")
-            emit "#{splat} = []"
             if is_closed
+              splat = get_temp("splat")
+              emit "#{splat} = []"
               splat_len = get_temp("splat_len")
               emit "#{splat_len} = #{s.x}.size - #{s.pat.size - 1}"
               emit "#{splat_len}.times do"
@@ -276,11 +276,13 @@ class Destruct
 
     def match_var(s)
       s.type = :var
+      test(s, "#{s.x} != #{nothing_ref}")
       bind(s, s.pat, s.x)
     end
 
     def match_unquote(s)
       temp_env = get_temp("env")
+      emit "raise 'binding must be provided' if _binding.nil?"
       emit "#{temp_env} = ::Destruct.match(_binding.eval('#{s.pat.code_expr}'), #{s.x}, _binding)"
       test(s, temp_env)
       merge(s, temp_env, dynamic: true)
@@ -424,7 +426,7 @@ class Destruct
     private
 
     def localize(pat, x, prefix="t")
-      if (pat.nil? && x =~ /\.\[\]/) || multi?(pat)
+      if (pat.nil? && x =~ /\.\[\]/) || multi?(pat) || (pat.is_a?(Binder) && x =~ /\.fetch|\.next/)
         t = get_temp(prefix)
         emit "#{t} = #{x}"
         x = t

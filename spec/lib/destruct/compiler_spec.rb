@@ -88,7 +88,6 @@ class Destruct
                         a: 3, b: 7, c: ::Destruct::Env::UNBOUND
     end
     it 'compiles hashes' do
-      $show_code = true
       given_pattern({a: 1, b: Var.new(:v)})
       expect_success_on({a: 1, b: 2}, v: 2)
       expect_success_on({a: 1, b: 2, c: 3}, v: 2) # extra values are ok
@@ -97,6 +96,13 @@ class Destruct
       # require absence
       given_pattern({a: 1, b: ::Destruct::NOTHING})
       expect_success_on({a: 1})
+      expect_failure_on({a: 1, b: nil}) # nil is not absence
+    end
+    it 'compiles patterns containing non-literal objects' do
+      obj = Object.new
+      given_pattern([obj])
+      expect_success_on([obj])
+      expect_failure_on([Object.new])
     end
     it 'compiles wildcards' do
       given_pattern([Any, Any])
@@ -218,6 +224,7 @@ class Destruct
       given pattern: [1, Splat.new(:x)], expect_failure_on: []
     end
     it 'compiles open-ended splat with enumerable' do
+      $show_code = true
       en = (1..3).cycle
       e = compile([Var.new(:head), Splat.new(:tail)]).match(en)
       expect(e[:head]).to eql 1
