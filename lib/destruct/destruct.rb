@@ -67,7 +67,12 @@ class Destruct
       @outer_self ||= outer_binding.eval("self")
     end
 
+    def outer_binding
+      @outer_binding ||= @get_outer_binding.call
+    end
+
     def method_missing(method, *args, &block)
+      puts "method_missing(#{method}, *args, &block)"
       bound_value = @env && @env[method]
       if bound_value != Env::UNBOUND
         bound_value

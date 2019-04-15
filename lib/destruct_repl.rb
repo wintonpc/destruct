@@ -37,4 +37,5 @@ def ast(pat_proc=nil, &pat_block)
 def transform(node)
 def compile(pat)
 def match(pat_or_proc, x)
+def p(pat)
 EOD

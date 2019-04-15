@@ -205,6 +205,9 @@ class Destruct
 
     def apply_template(x, rule, args=[], kws={})
       if proc_has_kw(rule.template, :binding)
+        if @binding.nil?
+          raise 'binding must be provided'
+        end
         kws[:binding] = @binding
       end
       if proc_has_kw(rule.template, :transform)
