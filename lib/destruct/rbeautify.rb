@@ -23,8 +23,6 @@
  ***************************************************************************/
 =end
 
-PVERSION = "Version 2.9, 10/24/2008"
-
 module RBeautify
 
   # user-customizable values
