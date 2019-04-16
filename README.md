@@ -1,4 +1,4 @@
-# destructure
+# destruct
 
 Destructuring assignment in Ruby
 
