@@ -56,25 +56,30 @@ class Destruct
   end
 
   class Context
+    # BE CAREFUL TO MAKE SURE THAT init() clears all instance vars
+
     def init(value, &get_outer_binding)
       @value = value
       @get_outer_binding = get_outer_binding
+      @env = nil
+      @outer_binding = nil
+      @outer_self = nil
     end
 
     def match(&pat_proc)
       @env = Destruct.get_compiled(pat_proc, @get_outer_binding).match(@value)
     end
 
-    def outer_self
-      @outer_self ||= outer_binding.eval("self")
-    end
-
     def outer_binding
       @outer_binding ||= @get_outer_binding.call
     end
 
+    def outer_self
+      @outer_self ||= outer_binding.eval("self")
+    end
+
     def method_missing(method, *args, &block)
-      bound_value = @env ? @env[method] : Env::UNBOUND
+      bound_value = @env.is_a?(Env) ? @env[method] : Env::UNBOUND
       if bound_value != Env::UNBOUND
         bound_value
       elsif outer_self

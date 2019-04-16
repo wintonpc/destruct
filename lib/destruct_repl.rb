@@ -16,7 +16,7 @@ def compile(pat)
   Destruct::Compiler.compile(pat)
 end
 
-def match(pat_or_proc, x, binding=nil)
+def dmatch(pat_or_proc, x, binding=nil)
   pat = pat_or_proc.is_a?(Proc) ? transform(ast(pat_or_proc)) : pat_or_proc
   compile(pat).match(x, binding)
 end
