@@ -42,7 +42,62 @@ class Destruct
       end
     end
 
-    Frame = Struct.new(:pat, :x, :env, :parent, :type)
+    Frame = Struct.new(:pat, :x, :env, :parent)
+
+    Context = Struct.new(
+        :s, # stack
+        :pi) # previous instruction
+
+    def add_instruction(ctx, inst)
+      ctx.pi.and_then(inst)
+      Context.new(ctx.s, inst)
+    end
+
+    class Instruction
+      attr_reader :ps, # predecessors
+                  :ss  # successors
+
+      def initialize
+        @ps = Set.new
+        @ss = Set.new
+      end
+
+      def and_then(inst)
+        ss.add(inst)
+        inst.ps.add(self)
+      end
+    end
+
+    class Noop < Instruction
+      def initialize
+        super
+      end
+    end
+
+    class Test < Instruction
+      attr_reader :lhs, :op, :rhs
+      def initialize(lhs, op, rhs)
+        super
+        @lhs = lhs
+        @op = op
+        @rhs = rhs
+      end
+    end
+
+    Ident = Struct.new(:name)
+
+    # class Ident
+    #   attr_reader :name, :value
+    #
+    #   def initialize(name, value)
+    #     @name = name
+    #     @value = value
+    #   end
+    # end
+
+    def ident(prefix="t")
+      Ident.new(get_temp(prefix))
+    end
 
     def initialize
       @known_real_envs ||= Set.new
@@ -55,17 +110,113 @@ class Destruct
         get_ref(::Destruct::Env.new_class(*@var_names).method(:new), "_make_env")
       end
 
-      x = get_temp("x")
-      env = get_temp("env")
-      emit_lambda(x, "_binding") do
+      x = ident("x")
+      binding = ident("binding")
+      emit_lambda(x.name, binding.name) do
         show_code_on_error do
-          emit "#{env} = true"
-          match(Frame.new(pat, x, env))
-          emit env
+          emit emit3(emit2(apply(matcher(pat), x, true, binding))).join("\n")
         end
       end
       g = generate("Matcher for: #{pat.inspect.gsub(/\s+/, " ")}")
       CompiledPattern.new(pat, g, @var_names)
+    end
+
+    def emit2(x)
+      case x
+      when Apply
+        seq(x.proc.params.zip(x.args).map { |(p, a)| assign(p, a) } + [emit2(x.proc.body)])
+      when Test
+        tval = ident
+        seq([assign(tval, emit2(x.cond)),
+             test(tval, emit2(x.cons), emit2(x.alt))])
+      when Eq
+        eq(emit2(x.lhs), emit2(x.rhs))
+      when Numeric, Ident, NilClass, String
+        x
+      else
+        raise "emit2: unexpected: #{x.class}"
+      end
+    end
+
+    def emit3(x)
+      case x
+      when Assign
+        ["#{eref(x.lhs)} = (#{emit3(x.rhs).join(";")})"]
+      when Test
+        [ "if #{eref(x.cond)}",
+          *emit3(x.cons),
+          "else",
+          *emit3(x.alt),
+          "end" ]
+      when Eq
+        [ "#{eref(x.lhs)} == #{eref(x.rhs)}" ]
+      when Ident
+        [eref(x)]
+      when Seq
+        x.xs.flat_map { |x| emit3(x) }
+      when NilClass, TrueClass
+        [eref(x)]
+      else
+        raise "emit3: unexpected: #{x.class}"
+      end
+    end
+
+    def eref(x)
+      case x
+      when Ident
+        x.name
+      when Numeric, NilClass, TrueClass, String
+        x.inspect
+      else
+        raise "eref: unexpected: #{x.class}"
+      end
+    end
+
+    def matcher(pat)
+      value_matcher(pat)
+    end
+
+    Seq = Struct.new(:xs)
+
+    def seq(xs)
+      Seq.new(xs)
+    end
+
+    def value_matcher(pat)
+      x = ident("x")
+      env = ident("env")
+      binding = ident("binding")
+      lm([x, env, binding], test(eq(pat, x), env, nil))
+    end
+
+    Assign = Struct.new(:lhs, :rhs)
+
+    def assign(lhs, rhs)
+      Assign.new(lhs, rhs)
+    end
+
+    Apply = Struct.new(:proc, :args)
+
+    def apply(proc, *args)
+      Apply.new(proc, args)
+    end
+
+    Lambda = Struct.new(:params, :body)
+
+    def lm(params, body)
+      Lambda.new(params, body)
+    end
+
+    Test = Struct.new(:cond, :cons, :alt)
+
+    def test(cond, cons, alt)
+      Test.new(cond, cons, alt)
+    end
+
+    Eq = Struct.new(:lhs, :rhs)
+
+    def eq(lhs, rhs)
+      Eq.new(lhs, rhs)
     end
 
     def var_counts(pat)
@@ -268,23 +419,23 @@ class Destruct
       test(s, "#{s.x} == #{get_ref(s.pat)}")
     end
 
-    def test(s, cond)
-      # emit "puts \"line #{emitted_line_count + 8}: \#{#{cond.inspect}}\""
-      emit "puts \"test: \#{#{cond.inspect}}\"" if $show_tests
-      if in_or(s)
-        emit "#{s.env} = (#{cond}) ? #{s.env} : nil if #{s.env}"
-        if block_given?
-          emit_if s.env do
-            yield
-          end.end
-        end
-      elsif cond == "nil" || cond == "false"
-        emit "return nil"
-      else
-        emit "#{cond} or return nil"
-        yield if block_given?
-      end
-    end
+    # def test(s, cond)
+    #   # emit "puts \"line #{emitted_line_count + 8}: \#{#{cond.inspect}}\""
+    #   emit "puts \"test: \#{#{cond.inspect}}\"" if $show_tests
+    #   if in_or(s)
+    #     emit "#{s.env} = (#{cond}) ? #{s.env} : nil if #{s.env}"
+    #     if block_given?
+    #       emit_if s.env do
+    #         yield
+    #       end.end
+    #     end
+    #   elsif cond == "nil" || cond == "false"
+    #     emit "return nil"
+    #   else
+    #     emit "#{cond} or return nil"
+    #     yield if block_given?
+    #   end
+    # end
 
     def match_var(s)
       s.type = :var
