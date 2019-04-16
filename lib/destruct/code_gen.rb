@@ -136,7 +136,7 @@ class Destruct
     end
 
     def beautify_ruby(code)
-      RBeautify.beautify_string(code.split("\n").reject { |line| line.strip == '' }).first
+      Destruct::RBeautify.beautify_string(code.split("\n").reject { |line| line.strip == '' }).first
     end
 
     def refs
