@@ -71,11 +71,11 @@ class Destruct
           expect_success_on [1, 2], a: 2
         end
         it 'let' do
-          given_pattern { [1, a = [2, b]] }
+          given_pattern { [1, a <= [2, b]] }
           expect_success_on [1, [2, 3]], a: [2, 3], b: 3
         end
         it 'let aliased with method' do
-          given_pattern { [1, outer = [2, b]] }
+          given_pattern { [1, outer <= [2, b]] }
           expect_success_on [1, [2, 3]], outer: [2, 3], b: 3
         end
         def outer=(v)
