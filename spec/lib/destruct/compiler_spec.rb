@@ -14,6 +14,11 @@ class Destruct
       given_pattern "foo"
       expect_success_on "foo"
       expect_failure_on "bar"
+
+      obj = Object.new
+      given_pattern obj
+      expect_success_on obj
+      expect_failure_on Object.new
     end
     it 'compiles vars' do
       given_pattern Var.new(:foo)

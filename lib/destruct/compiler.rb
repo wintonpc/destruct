@@ -114,7 +114,13 @@ class Destruct
       binding = ident("binding")
       emit_lambda(x.name, binding.name) do
         show_code_on_error do
-          emit emit3(emit2(apply(matcher(pat), x, true, binding))).join("\n")
+          c = apply(matcher(pat), x, true, binding)
+          c = emit2(c)
+          c = rra(c, {})
+          c = rrtest(c)
+          c = inline_stuff(c)
+          c = emit3(c).join("\n")
+          emit c
         end
       end
       g = generate("Matcher for: #{pat.inspect.gsub(/\s+/, " ")}")
@@ -131,17 +137,144 @@ class Destruct
              test(tval, emit2(x.cons), emit2(x.alt))])
       when Eq
         eq(emit2(x.lhs), emit2(x.rhs))
-      when Numeric, Ident, NilClass, String
+      when is_literal_val?
+        x
+      when Ident
         x
       else
-        raise "emit2: unexpected: #{x.class}"
+        if $debug_compile
+          raise "emit2: unexpected: #{x.class}"
+        else
+          x
+        end
       end
+    end
+
+    # remove redundant assignments
+    def rra(x, map)
+      case x
+      when Seq
+        seq(x.xs.map { |x| rra(x, map) })
+      when Assign
+        if x.rhs.is_a?(Ident) || literal_val?(x.rhs)
+          map[x.lhs] = x.rhs
+          noop
+        else
+          assign(rra(x.lhs, map), rra(x.rhs, map))
+        end
+      when Test
+        test(rra(x.cond, map), rra(x.cons, map), rra(x.alt, map))
+      when Ident
+        map[x] || x
+      when is_literal_val?
+        x
+      when Eq
+        eq(rra(x.lhs, map), rra(x.rhs, map))
+      else
+        if $debug_compile
+          raise "rra: unexpected: #{x.class}"
+        else
+          x
+        end
+      end
+    end
+
+    # remove redundant tests
+    def rrtest(x)
+      case x
+      when Seq
+        seq(x.xs.map { |x| rrtest(x) })
+      when Assign
+        assign(x.lhs, rrtest(x.rhs))
+      when Eq
+        eq(rrtest(x.lhs), rrtest(x.rhs))
+      when is_literal_val?
+        x
+      when Ident
+        x
+      when Test
+        if x.cons == true && !x.alt
+          rrtest(x.cond)
+        else
+          test(rrtest(x.cond), rrtest(x.cons), rrtest(x.alt))
+        end
+      else
+        if $debug_compile
+          raise "rrif: unexpected: #{x.class}"
+        else
+          x
+        end
+      end
+    end
+
+    # inline stuff
+    def inline_stuff(x)
+      counts = Hash.new { |h, k| h[k] = 0 }
+      map = {}
+      count_refs(x, counts, map)
+      map.delete_if { |k, _| counts[k] > 1 }
+      inline(x, map)
+    end
+
+    def inline(x, map)
+      case x
+      when Seq
+        seq(x.xs.map { |x| inline(x, map) })
+      when Assign
+        if map.keys.include?(x.lhs)
+          noop
+        else
+          assign(x.lhs, inline(x.rhs, map))
+        end
+      when Test
+        test(inline(x.cond, map), inline(x.cons, map), inline(x.alt, map))
+      when Ident
+        map[x] || x
+      when is_literal_val?
+        x
+      when Eq
+        eq(inline(x.lhs, map), inline(x.rhs, map))
+      else
+        raise "inline: unexpected: #{x.class}"
+      end
+    end
+
+    def count_refs(x, counts, map)
+      case x
+      when Seq
+        x.xs.each { |x| count_refs(x, counts, map) }
+      when Assign
+        map[x.lhs] = x.rhs
+        count_refs(x.rhs, counts, map)
+      when Eq
+        count_refs(x.lhs, counts, map)
+        count_refs(x.rhs, counts, map)
+      when Ident
+        counts[x] += 1
+      when is_literal_val?
+        # do nothing
+      else
+        raise "ref_counts: unexpected: #{x.class}" if $debug_compile
+      end
+    end
+
+    def literal_val?(x)
+      case x
+      when TrueClass, FalseClass, NilClass, Numeric, String, Symbol
+        true
+      else
+        false
+      end
+    end
+
+    def is_literal_val?
+      proc(&method(:literal_val?))
     end
 
     def emit3(x)
       case x
       when Assign
-        ["#{eref(x.lhs)} = (#{emit3(x.rhs).join(";")})"]
+        ["#{eref(x.lhs)} = #{multival(emit3(x.rhs))}"]
       when Test
         [ "if #{eref(x.cond)}",
           *emit3(x.cons),
@@ -154,10 +287,18 @@ class Destruct
         [eref(x)]
       when Seq
         x.xs.flat_map { |x| emit3(x) }
-      when NilClass, TrueClass
+      when is_literal_val?
         [eref(x)]
       else
         raise "emit3: unexpected: #{x.class}"
+      end
+    end
+
+    def multival(ss)
+      if ss.size == 1
+        ss.first
+      else
+        "(#{ss.join("; ")})"
       end
     end
 
@@ -165,15 +306,23 @@ class Destruct
       case x
       when Ident
         x.name
-      when Numeric, NilClass, TrueClass, String
+      when is_literal_val?
         x.inspect
       else
-        raise "eref: unexpected: #{x.class}"
+        if $debug_compile
+          raise "eref: unexpected: #{x.class}"
+        else
+          get_ref(x)
+        end
       end
     end
 
     def matcher(pat)
       value_matcher(pat)
+    end
+
+    def noop
+      seq([])
     end
 
     Seq = Struct.new(:xs)
@@ -186,7 +335,7 @@ class Destruct
       x = ident("x")
       env = ident("env")
       binding = ident("binding")
-      lm([x, env, binding], test(eq(pat, x), env, nil))
+      lm([x, env, binding], test(eq(x, pat), env, nil))
     end
 
     Assign = Struct.new(:lhs, :rhs)
@@ -274,9 +423,9 @@ class Destruct
       end
     end
 
-    def is_literal_val?(x)
-      x.is_a?(Numeric) || x.is_a?(String) || x.is_a?(Symbol)
-    end
+    # def is_literal_val?(x)
+    #   x.is_a?(Numeric) || x.is_a?(String) || x.is_a?(Symbol)
+    # end
 
     def is_literal_pat?(p)
       !(p.is_a?(Obj) ||
