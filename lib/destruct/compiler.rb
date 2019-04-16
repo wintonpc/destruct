@@ -88,6 +88,8 @@ class Destruct
         pat.flat_map(&method(:find_var_names_non_uniq))
       elsif pat.is_a?(Regexp)
         pat.named_captures.keys.map(&:to_sym)
+      elsif pat.is_a?(Strict)
+        find_var_names_non_uniq(pat.pat)
       else
         []
       end
@@ -112,10 +114,12 @@ class Destruct
         match_array(s)
       elsif s.pat.is_a?(Regexp)
         match_regexp(s)
+      elsif s.pat.is_a?(Strict)
+        match_strict(s)
       elsif is_literal_val?(s.pat)
         match_literal(s)
       elsif
-        match_other(s)
+      match_other(s)
       end
     end
 
@@ -234,6 +238,10 @@ class Destruct
       !s.nil? && (s.type == :or || in_or(s.parent))
     end
 
+    def in_strict(s)
+      !s.nil? && (s.pat.is_a?(Strict) || in_strict(s.parent))
+    end
+
     def match_regexp(s)
       s.type = :regexp
       m = get_temp("m")
@@ -244,6 +252,10 @@ class Destruct
         test(s, match_env)
         merge(s, match_env, dynamic: true)
       end
+    end
+
+    def match_strict(s)
+      match(Frame.new(s.pat.pat, s.x, s.env, s))
     end
 
     def match_literal(s)
@@ -350,23 +362,29 @@ class Destruct
 
     def match_hash(s)
       s.type = :hash
-      match_hash_or_obj(s, "Hash", s.pat, proc { |field_name| "#{s.x}.fetch(#{field_name.inspect}, #{nothing_ref})" })
+      match_hash_or_obj(s, "Hash", s.pat, proc { |field_name| "#{s.x}.fetch(#{field_name.inspect}, #{nothing_ref})" },
+                        "#{s.x}.keys.sort == #{get_ref(s.pat.keys.sort)}")
     end
 
     def nothing_ref
       get_ref(::Destruct::NOTHING)
     end
 
-    def match_hash_or_obj(s, type_str, pairs, make_x_sub)
+    def match_hash_or_obj(s, type_str, pairs, make_x_sub, strict_test=nil)
       test(s, "#{s.x}.is_a?(#{type_str})") do
-        pairs
-            .sort_by { |(_, field_pat)| pattern_order(field_pat) }
-            .each do |field_name, field_pat|
-          x = localize(field_pat, make_x_sub.(field_name), field_name)
-          # xv = get_ref("xv")
-          # emit("#{xv} = #{x}")
-          # test(s, "#{xv} != #{nothing_ref}")
-          match(Frame.new(field_pat, x, s.env, s))
+        keep_matching = proc do
+          pairs
+              .sort_by { |(_, field_pat)| pattern_order(field_pat) }
+              .each do |field_name, field_pat|
+            x = localize(field_pat, make_x_sub.(field_name), field_name)
+            match(Frame.new(field_pat, x, s.env, s))
+          end
+        end
+
+        if in_strict(s) && strict_test
+          test(s, strict_test) { keep_matching.call }
+        else
+          keep_matching.call
         end
       end
     end

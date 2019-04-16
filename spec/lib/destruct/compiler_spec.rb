@@ -98,6 +98,12 @@ class Destruct
       expect_success_on({a: 1})
       expect_failure_on({a: 1, b: nil}) # nil is not absence
     end
+    it 'compiles strict hash patterns' do
+      given_pattern(Strict.new({a: 1, b: Var.new(:v)}))
+      expect_success_on({a: 1, b: 2}, v: 2)
+      expect_failure_on({a: 1, b: 2, c: 3}) # extra values are not ok
+      expect_failure_on({a: 1}) # neither are missing values
+    end
     it 'compiles patterns containing non-literal objects' do
       obj = Object.new
       given_pattern([obj])

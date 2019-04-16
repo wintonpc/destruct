@@ -39,6 +39,14 @@ class Destruct
     alias_method :to_s, :inspect
   end
 
+  Strict = Struct.new(:pat)
+  class Strict
+    def inspect
+      "#<Strict: #{pat}>"
+    end
+    alias_method :to_s, :inspect
+  end
+
   # Bind a value but continue to match a subpattern
   Let = Struct.new(:name, :pattern)
   class Let
