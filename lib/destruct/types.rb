@@ -39,6 +39,8 @@ class Destruct
     alias_method :to_s, :inspect
   end
 
+  # hash patterns matched within the given pattern will be matched strictly,
+  # i.e., the hash being matched must have the exact same key set (no extras allowed).
   Strict = Struct.new(:pat)
   class Strict
     def inspect

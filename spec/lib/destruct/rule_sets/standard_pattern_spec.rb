@@ -42,6 +42,12 @@ class Destruct
           given_pattern { [1, _, _] }
           expect_success_on [1, 2, 3]
         end
+        it 'strict' do
+          given_pattern { strict([{a: x, b: y}]) }
+          expect_success_on [{a: 1, b: 2}]
+          expect_failure_on [{a: 1}]
+          expect_failure_on [{a: 1, b: 2, c: 3}]
+        end
         it 'unquote' do
           given_binding binding
           h = {sub_pat: Var.new(:a)}

@@ -10,6 +10,7 @@ class Destruct
 
       def initialize
         meta_rule_set AstToPattern
+        add_rule(->{ strict(pat) }) { |pat:| Strict.new(pat) }
         add_rule(->{ ~v }, v: Var) { |v:| Splat.new(v.name) }
         add_rule(->{ !expr }) { |expr:| Unquote.new(Transformer.unparse(expr)) }
         add_rule(->{ name = pat }, name: Symbol) { |name:, pat:| Let.new(name, pat) }
