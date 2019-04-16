@@ -21,6 +21,7 @@ class Destruct
         add_rule(->{ klass[field_pats] }, klass: [Class, Module], field_pats: Hash) do |klass:, field_pats:|
           Obj.new(klass, field_pats)
         end
+        add_rule(->{ is_a?(klass) }, klass: [Class, Module]) { |klass:| Obj.new(klass) }
         add_rule(->{ v }, v: [Var, Ruby::VarRef]) do |v:|
           raise Transformer::NotApplicable unless v.name == :_
           Any

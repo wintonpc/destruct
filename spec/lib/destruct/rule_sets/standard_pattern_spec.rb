@@ -30,6 +30,10 @@ class Destruct
           given_pattern { Bar[a: x, b: y] }
           expect_success_on Bar.new(1, 2), x: 1, y: 2
         end
+        it 'type constraint' do
+          given_pattern { is_a?(Bar) }
+          expect_success_on Bar.new(1, 2)
+        end
         it 'array' do
           given_pattern { [a, b] }
           expect_success_on [1, 2], a: 1, b: 2
