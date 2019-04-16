@@ -185,7 +185,7 @@ class Destruct
           show_code(v, seen: seen)
         end
       end
-      lines = number_lines(code)
+      lines = number_lines(code, -2) # -2 to line up with stack traces
       if fancy
         lines = lines
                     .reject { |line| line =~ /^\s*\d+\s*puts/ }
@@ -206,9 +206,9 @@ class Destruct
       end
     end
 
-    def number_lines(code)
+    def number_lines(code, offset=0)
       code.split("\n").each_with_index.map do |line, n|
-        "#{(n + 1).to_s.rjust(3)} #{line}"
+        "#{(n + 1 + offset).to_s.rjust(3)} #{line}"
       end
     end
   end

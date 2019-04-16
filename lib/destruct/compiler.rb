@@ -426,6 +426,7 @@ class Destruct
     private
 
     def localize(pat, x, prefix="t")
+      prefix = prefix.to_s.gsub(/[^\w\d_]/, '')
       if (pat.nil? && x =~ /\.\[\]/) || multi?(pat) || (pat.is_a?(Binder) && x =~ /\.fetch|\.next/)
         t = get_temp(prefix)
         emit "#{t} = #{x}"

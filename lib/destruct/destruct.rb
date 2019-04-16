@@ -26,7 +26,7 @@ class Destruct
 
   def self.match(pat, x, binding=nil)
     if pat.is_a?(Proc)
-      pat = instance.transform(binding: binding, &pat)
+      pat = RuleSets::StandardPattern.transform(binding: binding, &pat)
     end
     Compiler.compile(pat).match(x, binding)
   end
@@ -74,8 +74,7 @@ class Destruct
     end
 
     def method_missing(method, *args, &block)
-      puts "method_missing(#{method}, *args, &block)"
-      bound_value = @env && @env[method]
+      bound_value = @env ? @env[method] : Env::UNBOUND
       if bound_value != Env::UNBOUND
         bound_value
       elsif outer_self
