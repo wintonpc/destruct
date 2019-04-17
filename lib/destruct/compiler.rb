@@ -74,15 +74,15 @@ class Destruct
       end
     end
 
-    class Test < Instruction
-      attr_reader :lhs, :op, :rhs
-      def initialize(lhs, op, rhs)
-        super
-        @lhs = lhs
-        @op = op
-        @rhs = rhs
-      end
-    end
+    # class Test < Instruction
+    #   attr_reader :lhs, :op, :rhs
+    #   def initialize(lhs, op, rhs)
+    #     super
+    #     @lhs = lhs
+    #     @op = op
+    #     @rhs = rhs
+    #   end
+    # end
 
     Ident = Struct.new(:name)
 
@@ -120,6 +120,8 @@ class Destruct
             c = rra(c, {})
             c = rrtest(c)
             c = inline_stuff(c)
+            c = fold_bool(c)
+            c = rrtest(c)
           end
           c = emit3(c).join("\n")
           emit c
@@ -132,19 +134,23 @@ class Destruct
     def emit2(x)
       case x
       when Apply
-        seq(x.proc.params.zip(x.args).map { |(p, a)| assign(p, a) } + [emit2(x.proc.body)])
+        seq(*x.proc.params.zip(x.args).map { |(p, a)| assign(p, a) }, emit2(x.proc.body))
       when Test
         tval = ident
-        seq([assign(tval, emit2(x.cond)),
-             test(tval, emit2(x.cons), emit2(x.alt))])
+        seq(assign(tval, emit2(x.cond)),
+            test(tval, emit2(x.cons), emit2(x.alt)))
       when Eq
         eq(emit2(x.lhs), emit2(x.rhs))
       when is_literal_val?
         x
       when Ident
         x
-      when And
+      when And, Not, MakeEnv
         x
+      when Seq
+        seq(*x.xs.map { |x| emit2(x) })
+      when SetField
+        set_field(emit2(x.recv), x.meth, emit2(x.val))
       else
         if $debug_compile
           raise "emit2: unexpected: #{x.class}"
@@ -158,10 +164,10 @@ class Destruct
     def rra(x, map)
       case x
       when Seq
-        seq(x.xs.map { |x| rra(x, map) })
+        seq(*x.xs.map { |x| rra(x, map) })
       when Assign
         if x.rhs.is_a?(Ident) || literal_val?(x.rhs)
-          map[x.lhs] = x.rhs
+          map[x.lhs] = rra(x.rhs, map)
           noop
         else
           assign(rra(x.lhs, map), rra(x.rhs, map))
@@ -169,13 +175,19 @@ class Destruct
       when Test
         test(rra(x.cond, map), rra(x.cons, map), rra(x.alt, map))
       when Ident
-        map[x] || x
+        map.fetch(x, x)
       when is_literal_val?
         x
       when Eq
         eq(rra(x.lhs, map), rra(x.rhs, map))
       when And
         _and(*x.clauses.map { |c| rra(c, map) })
+      when Not
+        _not(rra(x.x, map))
+      when MakeEnv
+        x
+      when SetField
+        set_field(x.recv, x.meth, rra(x.val, map))
       else
         if $debug_compile
           raise "rra: unexpected: #{x.class}"
@@ -185,11 +197,36 @@ class Destruct
       end
     end
 
+    def fold_bool(x)
+      case x
+      when Seq
+        seq(*x.xs.map { |x| fold_bool(x) })
+      when Test
+        test(fold_bool(x.cond), fold_bool(x.cons), fold_bool(x.alt))
+      when Eq
+        if x.lhs == x.rhs
+          true
+        else
+          x
+        end
+      when Not
+        if x.x == true
+          false
+        elsif x.x == false
+          true
+        else
+          x
+        end
+      else
+        x
+      end
+    end
+
     # remove redundant tests
     def rrtest(x)
       case x
       when Seq
-        seq(x.xs.map { |x| rrtest(x) })
+        seq(*x.xs.map { |x| rrtest(x) })
       when Assign
         assign(x.lhs, rrtest(x.rhs))
       when Eq
@@ -201,11 +238,21 @@ class Destruct
       when Test
         if x.cons == true && !x.alt
           rrtest(x.cond)
+        elsif x.cond == true
+          rrtest(x.cons)
+        elsif x.cond == false
+          rrtest(x.alt)
         else
           test(rrtest(x.cond), rrtest(x.cons), rrtest(x.alt))
         end
       when And
         _and(*x.clauses.drop_while { |c| c == true })
+      when Not
+        _not(rrtest(x.x))
+      when MakeEnv
+        x
+      when SetField
+        set_field(x.recv, x.meth, rrtest(x.val))
       else
         if $debug_compile
           raise "rrif: unexpected: #{x.class}"
@@ -227,7 +274,7 @@ class Destruct
     def inline(x, map)
       case x
       when Seq
-        seq(x.xs.map { |x| inline(x, map) })
+        seq(*x.xs.map { |x| inline(x, map) })
       when Assign
         if map.keys.include?(x.lhs)
           noop
@@ -244,6 +291,10 @@ class Destruct
         _and(*x.clauses.map { |c| inline(c, map) })
       when Eq
         eq(inline(x.lhs, map), inline(x.rhs, map))
+      when SetField
+        set_field(inline(x.recv, map), x.meth, inline(x.val, map))
+      when MakeEnv
+        x
       else
         raise "inline: unexpected: #{x.class}"
       end
@@ -261,9 +312,20 @@ class Destruct
         count_refs!(x.rhs, counts, map)
       when And
         x.clauses.each { |c| count_refs!(c, counts, map) }
+      when Not
+        count_refs!(x.x, counts, map)
       when Ident
         counts[x] += 1
+      when Test
+        count_refs!(x.cond, counts, map)
+        count_refs!(x.cons, counts, map)
+        count_refs!(x.alt, counts, map)
+      when SetField
+        count_refs!(x.recv, counts, map)
+        count_refs!(x.val, counts, map)
       when is_literal_val?
+        # do nothing
+      when MakeEnv
         # do nothing
       else
         raise "ref_counts: unexpected: #{x.class}" if $debug_compile
@@ -288,7 +350,7 @@ class Destruct
       when Assign
         ["#{eref(x.lhs)} = #{multival(emit3(x.rhs))}"]
       when Test
-        [ "if #{eref(x.cond)}",
+        [ "if #{multival(emit3(x.cond))}",
           *emit3(x.cons),
           "else",
           *emit3(x.alt),
@@ -303,6 +365,12 @@ class Destruct
         [eref(x)]
       when And
         [ x.clauses.map { |c| emit3(c) }.join(" && ") ]
+      when Not
+        [ "!#{multival(emit3(x.x))}" ]
+      when MakeEnv
+        [ "_make_env.()" ]
+      when SetField
+        [ "#{multival(emit3(x.recv))}.#{x.meth} = #{multival(emit3(x.val))}" ]
       else
         raise "emit3: unexpected: #{x.class}"
       end
@@ -332,16 +400,57 @@ class Destruct
     end
 
     def matcher(pat)
-      value_matcher(pat)
+      case pat
+      when Var then var_matcher(pat)
+      else value_matcher(pat)
+      end
+    end
+
+    def var_matcher(pat)
+      x = ident("x")
+      env = ident("env")
+      binding = ident("binding")
+      lm([x, env, binding],
+         test(env,
+              bind(env, pat.name, x),
+              nil))
+    end
+
+    def bind(env, sym, x)
+      new_env = ident("new_env")
+      test(_not(env),
+           env,
+           test(eq(env, true),
+                _let(new_env, make_env,
+                     seq(set_field(new_env, sym, x),
+                         new_env)),
+                seq(set_field(env, sym, x),
+                    env)))
+    end
+
+    def _let(var, val, body)
+      apply(lm([var], body), val)
+    end
+
+    MakeEnv = Struct.new(:dummy)
+
+    def make_env
+      MakeEnv.new
+    end
+
+    SetField = Struct.new(:recv, :meth, :val)
+
+    def set_field(recv, meth, val)
+      SetField.new(recv, meth, val)
     end
 
     def noop
-      seq([])
+      seq
     end
 
     Seq = Struct.new(:xs)
 
-    def seq(xs)
+    def seq(*xs)
       Seq.new(xs)
     end
 
@@ -386,6 +495,12 @@ class Destruct
 
     def eq(lhs, rhs)
       Eq.new(lhs, rhs)
+    end
+
+    Not = Struct.new(:x)
+
+    def _not(x)
+      Not.new(x)
     end
 
     def var_counts(pat)
@@ -626,7 +741,7 @@ class Destruct
       bind(s, s.pat, s.x)
     end
 
-    def bind(s, var, val, val_could_be_unbound_sentinel=false)
+    def bind_old(s, var, val, val_could_be_unbound_sentinel=false)
       var_name = var.is_a?(Binder) ? var.name : var
 
       # emit "# bind #{var_name}"
