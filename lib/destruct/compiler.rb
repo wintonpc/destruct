@@ -116,9 +116,11 @@ class Destruct
         show_code_on_error do
           c = apply(matcher(pat), x, true, binding)
           c = emit2(c)
-          c = rra(c, {})
-          c = rrtest(c)
-          c = inline_stuff(c)
+          if $optimize
+            c = rra(c, {})
+            c = rrtest(c)
+            c = inline_stuff(c)
+          end
           c = emit3(c).join("\n")
           emit c
         end
@@ -140,6 +142,8 @@ class Destruct
       when is_literal_val?
         x
       when Ident
+        x
+      when And
         x
       else
         if $debug_compile
@@ -170,6 +174,8 @@ class Destruct
         x
       when Eq
         eq(rra(x.lhs, map), rra(x.rhs, map))
+      when And
+        _and(*x.clauses.map { |c| rra(c, map) })
       else
         if $debug_compile
           raise "rra: unexpected: #{x.class}"
@@ -198,6 +204,8 @@ class Destruct
         else
           test(rrtest(x.cond), rrtest(x.cons), rrtest(x.alt))
         end
+      when And
+        _and(*x.clauses.drop_while { |c| c == true })
       else
         if $debug_compile
           raise "rrif: unexpected: #{x.class}"
@@ -211,7 +219,7 @@ class Destruct
     def inline_stuff(x)
       counts = Hash.new { |h, k| h[k] = 0 }
       map = {}
-      count_refs(x, counts, map)
+      count_refs!(x, counts, map)
       map.delete_if { |k, _| counts[k] > 1 }
       inline(x, map)
     end
@@ -232,6 +240,8 @@ class Destruct
         map[x] || x
       when is_literal_val?
         x
+      when And
+        _and(*x.clauses.map { |c| inline(c, map) })
       when Eq
         eq(inline(x.lhs, map), inline(x.rhs, map))
       else
@@ -239,16 +249,18 @@ class Destruct
       end
     end
 
-    def count_refs(x, counts, map)
+    def count_refs!(x, counts, map)
       case x
       when Seq
-        x.xs.each { |x| count_refs(x, counts, map) }
+        x.xs.each { |x| count_refs!(x, counts, map) }
       when Assign
         map[x.lhs] = x.rhs
-        count_refs(x.rhs, counts, map)
+        count_refs!(x.rhs, counts, map)
       when Eq
-        count_refs(x.lhs, counts, map)
-        count_refs(x.rhs, counts, map)
+        count_refs!(x.lhs, counts, map)
+        count_refs!(x.rhs, counts, map)
+      when And
+        x.clauses.each { |c| count_refs!(c, counts, map) }
       when Ident
         counts[x] += 1
       when is_literal_val?
@@ -289,6 +301,8 @@ class Destruct
         x.xs.flat_map { |x| emit3(x) }
       when is_literal_val?
         [eref(x)]
+      when And
+        [ x.clauses.map { |c| emit3(c) }.join(" && ") ]
       else
         raise "emit3: unexpected: #{x.class}"
       end
@@ -335,7 +349,13 @@ class Destruct
       x = ident("x")
       env = ident("env")
       binding = ident("binding")
-      lm([x, env, binding], test(eq(x, pat), env, nil))
+      lm([x, env, binding], test(_and(env, eq(x, pat)), env, nil))
+    end
+
+    And = Struct.new(:clauses)
+
+    def _and(*clauses)
+      And.new(clauses)
     end
 
     Assign = Struct.new(:lhs, :rhs)

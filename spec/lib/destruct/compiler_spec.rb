@@ -7,6 +7,8 @@ class Destruct
   describe Compiler do
     it 'compiles literals' do
       $show_code = true
+      $optimize = true
+      # $debug_compile = true
       given_pattern 1
       expect_success_on 1
       expect_failure_on 2
