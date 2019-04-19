@@ -44,59 +44,22 @@ class Destruct
 
     Frame = Struct.new(:pat, :x, :env, :parent)
 
-    Context = Struct.new(
-        :s, # stack
-        :pi) # previous instruction
+    MakeEnv = make_singleton("#<MakeEnv>")
 
-    def add_instruction(ctx, inst)
-      ctx.pi.and_then(inst)
-      Context.new(ctx.s, inst)
-    end
-
-    class Instruction
-      attr_reader :ps, # predecessors
-                  :ss  # successors
-
-      def initialize
-        @ps = Set.new
-        @ss = Set.new
+    Form = Struct.new(:type, :children)
+    class Form
+      def initialize(type, *children)
+        self.type = type
+        self.children = children
       end
 
-      def and_then(inst)
-        ss.add(inst)
-        inst.ps.add(self)
+      def to_s
+        "(#{type} #{children.map(&:to_s).join(" ")})"
       end
     end
-
-    class Noop < Instruction
-      def initialize
-        super
-      end
-    end
-
-    # class Test < Instruction
-    #   attr_reader :lhs, :op, :rhs
-    #   def initialize(lhs, op, rhs)
-    #     super
-    #     @lhs = lhs
-    #     @op = op
-    #     @rhs = rhs
-    #   end
-    # end
-
-    Ident = Struct.new(:name)
-
-    # class Ident
-    #   attr_reader :name, :value
-    #
-    #   def initialize(name, value)
-    #     @name = name
-    #     @value = value
-    #   end
-    # end
 
     def ident(prefix="t")
-      Ident.new(get_temp(prefix))
+      Form.new(:ident, get_temp(prefix).to_sym)
     end
 
     def initialize
@@ -112,16 +75,16 @@ class Destruct
 
       x = ident("x")
       binding = ident("binding")
-      emit_lambda(x.name, binding.name) do
+      emit_lambda(ident_name(x), ident_name(binding)) do
         show_code_on_error do
           c = apply(matcher(pat), x, true, binding)
           c = emit2(c)
           if $optimize
-            c = rra(c, {})
-            c = rrtest(c)
+            c = remove_redundant_assignments(c, {})
+            c = remove_redundant_tests(c)
             c = inline_stuff(c)
             c = fold_bool(c)
-            c = rrtest(c)
+            c = remove_redundant_tests(c)
           end
           c = emit3(c).join("\n")
           emit c
@@ -131,133 +94,107 @@ class Destruct
       CompiledPattern.new(pat, g, @var_names)
     end
 
-    def emit2(x)
-      case x
-      when Apply
-        seq(*x.proc.params.zip(x.args).map { |(p, a)| assign(p, a) }, emit2(x.proc.body))
-      when Test
-        tval = ident
-        seq(assign(tval, emit2(x.cond)),
-            test(tval, emit2(x.cons), emit2(x.alt)))
-      when Eq
-        eq(emit2(x.lhs), emit2(x.rhs))
-      when is_literal_val?
-        x
-      when Ident
-        x
-      when And, Not, MakeEnv
-        x
-      when Seq
-        seq(*x.xs.map { |x| emit2(x) })
-      when SetField
-        set_field(emit2(x.recv), x.meth, emit2(x.val))
+    def map_form(x)
+      if x.is_a?(Form)
+        recurse = proc do |method_name, &map_child|
+          block = map_child || method(method_name)
+          Form.new(x.type, *x.children.map(&block))
+        end
+        yield recurse
       else
-        if $debug_compile
-          raise "emit2: unexpected: #{x.class}"
+        x
+      end
+    end
+
+    def ident_name(ident)
+      ident.children[0]
+    end
+
+    def emit2(x)
+      map_form(x) do |recurse|
+        if x.type == :apply && lambda?(x.children.first)
+          proc, *args = x.children
+          params, body = proc.children
+          _begin(*params.zip(args).map { |(p, a)| _set!(p, a) }, emit2(body))
+        elsif x.type == :if
+          cond, cons, alt = x.children
+          tval = ident
+          _begin(_set!(tval, emit2(cond)),
+                 _if(tval, emit2(cons), emit2(alt)))
         else
-          x
+          recurse.call(:emit2)
         end
       end
     end
 
+    def lambda?(x)
+      x.is_a?(Form) && x.type == :lambda
+    end
+
+    def ident?(x)
+      x.is_a?(Form) && x.type == :ident
+    end
+
     # remove redundant assignments
-    def rra(x, map)
-      case x
-      when Seq
-        seq(*x.xs.map { |x| rra(x, map) })
-      when Assign
-        if x.rhs.is_a?(Ident) || literal_val?(x.rhs)
-          map[x.lhs] = rra(x.rhs, map)
-          noop
+    def remove_redundant_assignments(x, map)
+      map_form(x) do |recurse|
+        case x.type
+        when :set!
+          lhs, rhs = x.children
+          if ident?(rhs) || literal_val?(rhs)
+            map[lhs] = remove_redundant_assignments(rhs, map)
+            _noop
+          else
+            recurse.call { |c| remove_redundant_assignments(c, map) }
+          end
+        when :ident
+          map.fetch(x, x)
         else
-          assign(rra(x.lhs, map), rra(x.rhs, map))
-        end
-      when Test
-        test(rra(x.cond, map), rra(x.cons, map), rra(x.alt, map))
-      when Ident
-        map.fetch(x, x)
-      when is_literal_val?
-        x
-      when Eq
-        eq(rra(x.lhs, map), rra(x.rhs, map))
-      when And
-        _and(*x.clauses.map { |c| rra(c, map) })
-      when Not
-        _not(rra(x.x, map))
-      when MakeEnv
-        x
-      when SetField
-        set_field(x.recv, x.meth, rra(x.val, map))
-      else
-        if $debug_compile
-          raise "rra: unexpected: #{x.class}"
-        else
-          x
+          recurse.call { |c| remove_redundant_assignments(c, map) }
         end
       end
     end
 
     def fold_bool(x)
-      case x
-      when Seq
-        seq(*x.xs.map { |x| fold_bool(x) })
-      when Test
-        test(fold_bool(x.cond), fold_bool(x.cons), fold_bool(x.alt))
-      when Eq
-        if x.lhs == x.rhs
-          true
+      map_form(x) do |recurse|
+        case x.type
+        when :equal?
+          lhs, rhs = x.children
+          lhs == rhs ? true : x
+        when :not
+          v = x.children.first
+          if v == true
+            false
+          elsif v == false
+            true
+          else
+            recurse.call(:fold_bool)
+          end
         else
-          x
+          recurse.call(:fold_bool)
         end
-      when Not
-        if x.x == true
-          false
-        elsif x.x == false
-          true
-        else
-          x
-        end
-      else
-        x
       end
     end
 
     # remove redundant tests
-    def rrtest(x)
-      case x
-      when Seq
-        seq(*x.xs.map { |x| rrtest(x) })
-      when Assign
-        assign(x.lhs, rrtest(x.rhs))
-      when Eq
-        eq(rrtest(x.lhs), rrtest(x.rhs))
-      when is_literal_val?
-        x
-      when Ident
-        x
-      when Test
-        if x.cons == true && !x.alt
-          rrtest(x.cond)
-        elsif x.cond == true
-          rrtest(x.cons)
-        elsif x.cond == false
-          rrtest(x.alt)
+    def remove_redundant_tests(x)
+      map_form(x) do |recurse|
+        case x.type
+        when :if
+          cond, cons, alt = x.children
+          if cons == true && !alt
+            remove_redundant_tests(cond)
+          elsif cond == true
+            remove_redundant_tests(cons)
+          elsif cond == false
+            remove_redundant_tests(alt)
+          else
+            recurse.call(:remove_redundant_tests)
+          end
+        when :and
+          _and(*x.children.reject { |c| c == true }.map { |c| remove_redundant_tests(c) })
         else
-          test(rrtest(x.cond), rrtest(x.cons), rrtest(x.alt))
-        end
-      when And
-        _and(*x.clauses.drop_while { |c| c == true })
-      when Not
-        _not(rrtest(x.x))
-      when MakeEnv
-        x
-      when SetField
-        set_field(x.recv, x.meth, rrtest(x.val))
-      else
-        if $debug_compile
-          raise "rrif: unexpected: #{x.class}"
-        else
-          x
+          recurse.call(:remove_redundant_tests)
         end
       end
     end
@@ -272,105 +209,78 @@ class Destruct
     end
 
     def inline(x, map)
-      case x
-      when Seq
-        seq(*x.xs.map { |x| inline(x, map) })
-      when Assign
-        if map.keys.include?(x.lhs)
-          noop
+      map_form(x) do |recurse|
+        case x.type
+        when :set!
+          lhs, _ = x.children
+          if map.keys.include?(lhs)
+            _noop
+          else
+            recurse.call { |c| inline(c, map) }
+          end
+        when :ident
+          map.fetch(x, x)
         else
-          assign(x.lhs, inline(x.rhs, map))
+          recurse.call { |c| inline(c, map) }
         end
-      when Test
-        test(inline(x.cond, map), inline(x.cons, map), inline(x.alt, map))
-      when Ident
-        map[x] || x
-      when is_literal_val?
-        x
-      when And
-        _and(*x.clauses.map { |c| inline(c, map) })
-      when Eq
-        eq(inline(x.lhs, map), inline(x.rhs, map))
-      when SetField
-        set_field(inline(x.recv, map), x.meth, inline(x.val, map))
-      when MakeEnv
-        x
-      else
-        raise "inline: unexpected: #{x.class}"
       end
     end
 
     def count_refs!(x, counts, map)
-      case x
-      when Seq
-        x.xs.each { |x| count_refs!(x, counts, map) }
-      when Assign
-        map[x.lhs] = x.rhs
-        count_refs!(x.rhs, counts, map)
-      when Eq
-        count_refs!(x.lhs, counts, map)
-        count_refs!(x.rhs, counts, map)
-      when And
-        x.clauses.each { |c| count_refs!(c, counts, map) }
-      when Not
-        count_refs!(x.x, counts, map)
-      when Ident
-        counts[x] += 1
-      when Test
-        count_refs!(x.cond, counts, map)
-        count_refs!(x.cons, counts, map)
-        count_refs!(x.alt, counts, map)
-      when SetField
-        count_refs!(x.recv, counts, map)
-        count_refs!(x.val, counts, map)
-      when is_literal_val?
-        # do nothing
-      when MakeEnv
-        # do nothing
-      else
-        raise "ref_counts: unexpected: #{x.class}" if $debug_compile
+      map_form(x) do |recurse|
+        case x.type
+        when :set!
+          lhs, rhs = x.children
+          map[lhs] = rhs
+          count_refs!(rhs, counts, map)
+        when :ident
+          counts[x] += 1
+        else
+          recurse.call { |c| count_refs!(c, counts, map) }
+        end
       end
+      nil
     end
 
     def literal_val?(x)
-      case x
-      when TrueClass, FalseClass, NilClass, Numeric, String, Symbol
-        true
-      else
-        false
-      end
-    end
-
-    def is_literal_val?
-      proc(&method(:literal_val?))
+      [TrueClass, FalseClass, NilClass, Numeric, String, Symbol].any? { |c| x.is_a?(c) }
     end
 
     def emit3(x)
       case x
-      when Assign
-        ["#{eref(x.lhs)} = #{multival(emit3(x.rhs))}"]
-      when Test
-        [ "if #{multival(emit3(x.cond))}",
-          *emit3(x.cons),
-          "else",
-          *emit3(x.alt),
-          "end" ]
-      when Eq
-        [ "#{eref(x.lhs)} == #{eref(x.rhs)}" ]
-      when Ident
+      when Form
+        case x.type
+        when :set!
+          lhs, rhs = x.children
+          ["#{eref(lhs)} = #{multival(emit3(rhs))}"]
+        when :if
+          cond, cons, alt = x.children
+          [ "if #{multival(emit3(cond))}",
+            *emit3(cons),
+            "else",
+            *emit3(alt),
+            "end" ]
+        when :equal?
+          lhs, rhs = x.children
+          [ "#{eref(lhs)} == #{eref(rhs)}" ]
+        when :ident
+          [eref(x)]
+        when :begin
+          x.children.flat_map { |x| emit3(x) }
+        when :and
+          [ x.children.map { |c| emit3(c) }.join(" && ") ]
+        when :not
+          [ "!#{multival(emit3(x.children.first))}" ]
+        when :set_field
+          recv, meth, val = x.children
+          [ "#{multival(emit3(recv))}.#{meth} = #{multival(emit3(val))}" ]
+        else
+          raise "emit3: unexpected: #{x}"
+        end
+      when ->(v) { literal_val?(v) }
         [eref(x)]
-      when Seq
-        x.xs.flat_map { |x| emit3(x) }
-      when is_literal_val?
-        [eref(x)]
-      when And
-        [ x.clauses.map { |c| emit3(c) }.join(" && ") ]
-      when Not
-        [ "!#{multival(emit3(x.x))}" ]
       when MakeEnv
         [ "_make_env.()" ]
-      when SetField
-        [ "#{multival(emit3(x.recv))}.#{x.meth} = #{multival(emit3(x.val))}" ]
       else
         raise "emit3: unexpected: #{x.class}"
       end
@@ -385,10 +295,9 @@ class Destruct
     end
 
     def eref(x)
-      case x
-      when Ident
-        x.name
-      when is_literal_val?
+      if ident?(x)
+        ident_name(x)
+      elsif literal_val?(x)
         x.inspect
       else
         if $debug_compile
@@ -410,97 +319,77 @@ class Destruct
       x = ident("x")
       env = ident("env")
       binding = ident("binding")
-      lm([x, env, binding],
-         test(env,
+      _lambda([x, env, binding],
+              _if(env,
               bind(env, pat.name, x),
               nil))
     end
 
     def bind(env, sym, x)
       new_env = ident("new_env")
-      test(_not(env),
+      _if(_not(env),
            env,
-           test(eq(env, true),
+           _if(_equal?(env, true),
                 _let(new_env, make_env,
-                     seq(set_field(new_env, sym, x),
-                         new_env)),
-                seq(set_field(env, sym, x),
-                    env)))
+                     _begin(set_field(new_env, sym, x),
+                            new_env)),
+                _begin(set_field(env, sym, x),
+                       env)))
     end
 
     def _let(var, val, body)
-      apply(lm([var], body), val)
+      apply(_lambda([var], body), val)
     end
-
-    MakeEnv = Struct.new(:dummy)
 
     def make_env
-      MakeEnv.new
+      MakeEnv
     end
-
-    SetField = Struct.new(:recv, :meth, :val)
 
     def set_field(recv, meth, val)
-      SetField.new(recv, meth, val)
+      Form.new(:set_field, recv, meth, val)
     end
 
-    def noop
-      seq
+    def _noop
+      _begin
     end
 
-    Seq = Struct.new(:xs)
-
-    def seq(*xs)
-      Seq.new(xs)
+    def _begin(*xs)
+      Form.new(:begin, *xs)
     end
 
     def value_matcher(pat)
       x = ident("x")
       env = ident("env")
       binding = ident("binding")
-      lm([x, env, binding], test(_and(env, eq(x, pat)), env, nil))
+      _lambda([x, env, binding], _if(_and(env, _equal?(x, pat)), env, nil))
     end
-
-    And = Struct.new(:clauses)
 
     def _and(*clauses)
-      And.new(clauses)
+      Form.new(:and, *clauses)
     end
 
-    Assign = Struct.new(:lhs, :rhs)
-
-    def assign(lhs, rhs)
-      Assign.new(lhs, rhs)
+    def _set!(lhs, rhs)
+      Form.new(:set!, lhs, rhs)
     end
-
-    Apply = Struct.new(:proc, :args)
 
     def apply(proc, *args)
-      Apply.new(proc, args)
+      Form.new(:apply, proc, *args)
     end
 
-    Lambda = Struct.new(:params, :body)
-
-    def lm(params, body)
-      Lambda.new(params, body)
+    def _lambda(params, body)
+      Form.new(:lambda, params, body)
     end
 
-    Test = Struct.new(:cond, :cons, :alt)
-
-    def test(cond, cons, alt)
-      Test.new(cond, cons, alt)
+    def _if(cond, cons, alt)
+      Form.new(:if, cond, cons, alt)
     end
 
-    Eq = Struct.new(:lhs, :rhs)
-
-    def eq(lhs, rhs)
-      Eq.new(lhs, rhs)
+    def _equal?(lhs, rhs)
+      Form.new(:equal?, lhs, rhs)
     end
-
-    Not = Struct.new(:x)
 
     def _not(x)
-      Not.new(x)
+      Form.new(:not, x)
     end
 
     def var_counts(pat)
