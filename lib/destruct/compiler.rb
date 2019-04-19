@@ -54,7 +54,11 @@ class Destruct
       end
 
       def to_s
-        "(#{type} #{children.map(&:to_s).join(" ")})"
+        if type == :ident
+          "〈#{children.first}〉"
+        else
+          "(#{type} #{children.map(&:to_s).join(" ")})"
+        end
       end
     end
 
@@ -85,6 +89,7 @@ class Destruct
             c = inline_stuff(c)
             c = fold_bool(c)
             c = remove_redundant_tests(c)
+            c = squash_begins(c)
           end
           c = emit3(c)
           emit c
@@ -167,6 +172,12 @@ class Destruct
             false
           elsif v == false
             true
+          elsif v.is_a?(Form) && v.type == :equal?
+            lhs, rhs = v.children
+            fold_bool(_not_equal?(lhs, rhs))
+          elsif v.is_a?(Form) && v.type == :not_equal?
+            lhs, rhs = v.children
+            fold_bool(_equal?(lhs, rhs))
           else
             recurse.call(:fold_bool)
           end
@@ -192,7 +203,13 @@ class Destruct
             recurse.call(:remove_redundant_tests)
           end
         when :and
-          _and(*x.children.reject { |c| c == true }.map { |c| remove_redundant_tests(c) })
+          if x.children.size == 0
+            true
+          elsif x.children.size == 1
+            x.children.first
+          else
+            _and(*x.children.reject { |c| c == true }.map { |c| remove_redundant_tests(c) })
+          end
         else
           recurse.call(:remove_redundant_tests)
         end
@@ -242,6 +259,24 @@ class Destruct
       nil
     end
 
+    def squash_begins(x)
+      map_form(x) do |recurse|
+        if x.type == :begin
+          squashed_children =
+              x.children
+                  .map { |c| squash_begins(c) }
+                  .reject { |c| c.is_a?(Form) && c.type == :begin && c.children.none? }
+          if squashed_children.size == 1
+            squashed_children.first
+          else
+            _begin(*squashed_children)
+          end
+        else
+          recurse.call { |c| squash_begins(c) }
+        end
+      end
+    end
+
     def literal_val?(x)
       [TrueClass, FalseClass, NilClass, Numeric, String, Symbol].any? { |c| x.is_a?(c) }
     end
@@ -262,27 +297,31 @@ class Destruct
             "end" ].join("\n")
         when :equal?
           lhs, rhs = x.children
-          "#{eref(lhs)} == #{eref(rhs)}\n"
+          "#{emit3(lhs)} == #{emit3(rhs)}\n"
+        when :not_equal?
+          lhs, rhs = x.children
+          "#{emit3(lhs)} != #{emit3(rhs)}\n"
         when :ident
           eref(x)
         when :begin
           x.children.map { |x| emit3(x) }.join
         when :and
-          x.children.map { |c| emit3(c) }.join(" && ")
+          x.children.map { |c| "(" + emit3(c) + ")" }.join(" && ")
         when :not
-          "!#{emit3(x.children.first)}"
+          "!(#{emit3(x.children.first)})"
         when :set_field
           recv, meth, val = x.children
           "#{emit3(recv)}.#{meth} = #{emit3(val)}\n"
+        when :get_field
+          recv, meth = x.children
+          "#{emit3(recv)}.#{meth}"
         else
           raise "emit3: unexpected: #{x}"
         end
-      when ->(v) { literal_val?(v) }
-        eref(x)
       when MakeEnv
         "_make_env.()"
       else
-        raise "emit3: unexpected: #{x.class}"
+        eref(x)
       end
     end
 
@@ -326,13 +365,22 @@ class Destruct
     def bind(env, sym, x)
       new_env = ident("new_env")
       _if(_not(env),
-           env,
-           _if(_equal?(env, true),
-                _let(new_env, make_env,
-                     _begin(set_field(new_env, sym, x),
-                            new_env)),
-                _begin(set_field(env, sym, x),
-                       env)))
+          env,
+          _if(_equal?(env, true),
+              _let(new_env, make_env,
+                   bind_with_full_env(new_env, sym, x)),
+              bind_with_full_env(env, sym, x)))
+    end
+
+    def bind_with_full_env(env, sym, x)
+      existing = ident("existing")
+      _let(existing, _get_field(env, sym),
+           _if(_equal?(existing, Env::UNBOUND),
+               _begin(_set_field(env, sym, x),
+                      env),
+               _if(_not(_equal?(existing, x)),
+                   nil,
+                   env)))
     end
 
     def _let(var, val, body)
@@ -343,8 +391,12 @@ class Destruct
       MakeEnv
     end
 
-    def set_field(recv, meth, val)
+    def _set_field(recv, meth, val)
       Form.new(:set_field, recv, meth, val)
+    end
+
+    def _get_field(recv, meth)
+      Form.new(:get_field, recv, meth)
     end
 
     def _noop
@@ -384,6 +436,10 @@ class Destruct
 
     def _equal?(lhs, rhs)
       Form.new(:equal?, lhs, rhs)
+    end
+
+    def _not_equal?(lhs, rhs)
+      Form.new(:not_equal?, lhs, rhs)
     end
 
     def _not(x)
