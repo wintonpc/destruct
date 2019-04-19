@@ -86,7 +86,7 @@ class Destruct
             c = fold_bool(c)
             c = remove_redundant_tests(c)
           end
-          c = emit3(c).join("\n")
+          c = emit3(c)
           emit c
         end
       end
@@ -252,35 +252,35 @@ class Destruct
         case x.type
         when :set!
           lhs, rhs = x.children
-          ["#{eref(lhs)} = #{multival(emit3(rhs))}"]
+          "#{eref(lhs)} = #{emit3(rhs)}\n"
         when :if
           cond, cons, alt = x.children
-          [ "if #{multival(emit3(cond))}",
-            *emit3(cons),
+          [ "if #{emit3(cond)}",
+            emit3(cons),
             "else",
-            *emit3(alt),
-            "end" ]
+            emit3(alt),
+            "end" ].join("\n")
         when :equal?
           lhs, rhs = x.children
-          [ "#{eref(lhs)} == #{eref(rhs)}" ]
+          "#{eref(lhs)} == #{eref(rhs)}\n"
         when :ident
-          [eref(x)]
+          eref(x)
         when :begin
-          x.children.flat_map { |x| emit3(x) }
+          x.children.map { |x| emit3(x) }.join
         when :and
-          [ x.children.map { |c| emit3(c) }.join(" && ") ]
+          x.children.map { |c| emit3(c) }.join(" && ")
         when :not
-          [ "!#{multival(emit3(x.children.first))}" ]
+          "!#{emit3(x.children.first)}"
         when :set_field
           recv, meth, val = x.children
-          [ "#{multival(emit3(recv))}.#{meth} = #{multival(emit3(val))}" ]
+          "#{emit3(recv)}.#{meth} = #{emit3(val)}\n"
         else
           raise "emit3: unexpected: #{x}"
         end
       when ->(v) { literal_val?(v) }
-        [eref(x)]
+        eref(x)
       when MakeEnv
-        [ "_make_env.()" ]
+        "_make_env.()"
       else
         raise "emit3: unexpected: #{x.class}"
       end
@@ -320,9 +320,7 @@ class Destruct
       env = ident("env")
       binding = ident("binding")
       _lambda([x, env, binding],
-              _if(env,
-              bind(env, pat.name, x),
-              nil))
+              bind(env, pat.name, x))
     end
 
     def bind(env, sym, x)
