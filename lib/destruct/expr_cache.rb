@@ -101,7 +101,16 @@ class Destruct
         end
       else
         ast = @asts_by_file.fetch(region.path) do
-          @asts_by_file[region.path] = Parser::CurrentRuby.parse(File.read(region.path))
+          puts "Parser::CurrentRuby.parse(File.read(#{region.path}))"
+          puts "region = #{region}"
+          path = region.path
+          code =
+              if path.is_a?(Array) && File.basename(path.first, ".rb") =~ /boot(\d+)?/
+                $boot_code.fetch(File.basename(path.first, ".rb"))
+              else
+                File.read(path)
+              end
+          @asts_by_file[path] = Parser::CurrentRuby.parse(code)
         end
         [ast, region]
       end

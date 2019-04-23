@@ -75,9 +75,9 @@ class Destruct
     it 'compiles ORs with Vars' do
       given_pattern [Var.new(:a), Or.new([1, Var.new(:b)], [2, Var.new(:c)])]
       expect_success_on [3, [1, 7]],
-                        a: 3, b: 7, c: ::Destruct::Env::UNBOUND
+                        a: 3, b: 7, c: Destruct::Env::UNBOUND
       expect_success_on [3, [2, 8]],
-                        a: 3, b: ::Destruct::Env::UNBOUND, c: 8
+                        a: 3, b: Destruct::Env::UNBOUND, c: 8
 
       given_pattern [Var.new(:a), Or.new([1, Var.new(:a)], [2, Var.new(:a)])]
       expect_success_on [3, [1, 3]]
@@ -85,7 +85,7 @@ class Destruct
 
       given_pattern Or.new([Var.new(:a), Or.new([1, Var.new(:b)], [2, Var.new(:c)])])
       expect_success_on [3, [1, 7]],
-                        a: 3, b: 7, c: ::Destruct::Env::UNBOUND
+                        a: 3, b: 7, c: Destruct::Env::UNBOUND
     end
     it 'compiles hashes' do
       given_pattern({a: 1, b: Var.new(:v)})
@@ -94,7 +94,7 @@ class Destruct
       expect_failure_on({a: 1}) # missing values are not
 
       # require absence
-      given_pattern({a: 1, b: ::Destruct::NOTHING})
+      given_pattern({a: 1, b: Destruct::NOTHING})
       expect_success_on({a: 1})
       expect_failure_on({a: 1, b: nil}) # nil is not absence
     end
@@ -230,7 +230,7 @@ class Destruct
       given pattern: [1, Splat.new(:x)], expect_failure_on: []
     end
     it 'compiles open-ended splat with enumerable' do
-      $show_code = true
+      Destruct.show_code = true
       en = (1..3).cycle
       e = compile([Var.new(:head), Splat.new(:tail)]).match(en)
       expect(e[:head]).to eql 1

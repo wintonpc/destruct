@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
 require 'unparser'
-require_relative 'rule_sets/destruct'
+require_relative 'destruct'
 require_relative './code_gen'
-require_relative './util'
+require_relative './monkeypatch'
 
 class Destruct
   include CodeGen
@@ -11,6 +11,8 @@ class Destruct
   NOTHING = make_singleton("#<NOTHING>")
 
   class << self
+    attr_accessor :show_code, :show_transformations
+
     def instance
       Thread.current[:destruct_cache_instance] ||= Destruct.new
     end

@@ -52,7 +52,7 @@ class Destruct
       @var_counts = var_counts(pat)
       @var_names = @var_counts.keys
       if @var_names.any?
-        get_ref(::Destruct::Env.new_class(*@var_names).method(:new), "_make_env")
+        get_ref(Destruct::Env.new_class(*@var_names).method(:new), "_make_env")
       end
 
       x = get_temp("x")
@@ -248,7 +248,7 @@ class Destruct
       match_env = get_temp("env")
       test(s, "#{s.x}.is_a?(String) || #{s.x}.is_a?(Symbol)") do
         emit "#{m} = #{get_ref(s.pat)}.match(#{s.x})"
-        emit "#{match_env} = ::Destruct::Env.new(#{m}) if #{m}"
+        emit "#{match_env} = Destruct::Env.new(#{m}) if #{m}"
         test(s, match_env)
         merge(s, match_env, dynamic: true)
       end
@@ -295,7 +295,7 @@ class Destruct
     def match_unquote(s)
       temp_env = get_temp("env")
       emit "raise 'binding must be provided' if _binding.nil?"
-      emit "#{temp_env} = ::Destruct.match(_binding.eval('#{s.pat.code_expr}'), #{s.x}, _binding)"
+      emit "#{temp_env} = Destruct.match(_binding.eval('#{s.pat.code_expr}'), #{s.x}, _binding)"
       test(s, temp_env)
       merge(s, temp_env, dynamic: true)
     end
@@ -367,7 +367,7 @@ class Destruct
     end
 
     def nothing_ref
-      get_ref(::Destruct::NOTHING)
+      get_ref(Destruct::NOTHING)
     end
 
     def match_hash_or_obj(s, type_str, pairs, make_x_sub, strict_test=nil)

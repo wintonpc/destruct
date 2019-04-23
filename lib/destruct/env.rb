@@ -20,9 +20,9 @@ class Destruct
         @extras[name_str[0..-2].to_sym] = args[0]
       else
         if @extras.nil?
-          ::Destruct::Env::UNBOUND
+          Destruct::Env::UNBOUND
         else
-          @extras.fetch(name) { ::Destruct::Env::UNBOUND }
+          @extras.fetch(name) { Destruct::Env::UNBOUND }
         end
       end
     end
