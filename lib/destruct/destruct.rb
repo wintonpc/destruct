@@ -14,7 +14,7 @@ class Destruct
     attr_accessor :show_code, :show_transformations
 
     def instance
-      Thread.current[:destruct_cache_instance] ||= Destruct.new
+      Thread.current[:__destruct_cache_instance__] ||= Destruct.new
     end
 
     def get_compiled(p, get_binding=nil)
@@ -33,19 +33,24 @@ class Destruct
     Compiler.compile(pat).match(x, binding)
   end
 
+  def initialize(rule_set=RuleSets::StandardPattern)
+    @rule_set = rule_set
+  end
+
   def get_compiled(p, get_binding)
     @cpats_by_proc_id ||= {}
     key = p.source_location_id
     @cpats_by_proc_id.fetch(key) do
       binding = get_binding.call # obtaining the proc binding allocates heap, so only do so when necessary
-      @cpats_by_proc_id[key] = Compiler.compile(RuleSets::StandardPattern.transform(binding: binding, &p))
+      @cpats_by_proc_id[key] = Compiler.compile(@rule_set.transform(binding: binding, &p))
     end
   end
 
   def destruct(value, &block)
-    context = contexts.pop
+    context = contexts.pop || Context.new
     begin
-      context.init(value) { block.binding }
+      cached_binding = nil
+      context.init(self, value) { cached_binding ||= block.binding }
       context.instance_exec(&block)
     ensure
       contexts.push(context)
@@ -54,13 +59,14 @@ class Destruct
 
   def contexts
     # Avoid allocations by keeping a stack for each thread. Maximum stack depth of 100 should be plenty.
-    Thread.current[:destruct_contexts] ||= Array.new(100) { Context.new }
+    Thread.current[:__destruct_contexts__] ||= [] # Array.new(100) { Context.new }
   end
 
   class Context
     # BE CAREFUL TO MAKE SURE THAT init() clears all instance vars
 
-    def init(value, &get_outer_binding)
+    def init(parent, value, &get_outer_binding)
+      @parent = parent
       @value = value
       @get_outer_binding = get_outer_binding
       @env = nil
@@ -68,8 +74,9 @@ class Destruct
       @outer_self = nil
     end
 
-    def match(&pat_proc)
-      @env = Destruct.get_compiled(pat_proc, @get_outer_binding).match(@value)
+    def match(pat=nil, &pat_proc)
+      cpat = pat ? Compiler.compile(pat) : @parent.get_compiled(pat_proc, @get_outer_binding)
+      @env = cpat.match(@value, @get_outer_binding)
     end
 
     def outer_binding

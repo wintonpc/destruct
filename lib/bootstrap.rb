@@ -15,6 +15,7 @@ class Bootstrap
     squash_file(root_file_path)
     writeln "end"
     code = (@monkeypatch ? @monkeypatch + "\n" : "") + op.string
+    code = code.gsub(/:__([\w_]+)__/, ":__#{base_namespace.downcase}_\\1__")
     code = Destruct::RBeautify.beautify_string(code.lines).first
     code += <<~EOD
       $boot_code ||= {}
@@ -26,7 +27,7 @@ class Bootstrap
     puts code
     File.write(out_path + ".rb", code)
     iseq = RubyVM::InstructionSequence.compile_file(out_path + ".rb")
-    File.delete(out_path + ".rb")
+    # File.delete(out_path + ".rb")
     File.write(out_path, iseq.to_binary)
     puts "Wrote #{base_namespace} to #{out_path}"
   end

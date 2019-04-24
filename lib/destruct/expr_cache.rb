@@ -8,7 +8,7 @@ class Destruct
   class ExprCache
     class << self
       def instance
-        Thread.current[:syntax_cache_instance] ||= ExprCache.new
+        Thread.current[:__syntax_cache_instance__] ||= ExprCache.new
       end
 
       def get(p, &k)
@@ -101,8 +101,6 @@ class Destruct
         end
       else
         ast = @asts_by_file.fetch(region.path) do
-          puts "Parser::CurrentRuby.parse(File.read(#{region.path}))"
-          puts "region = #{region}"
           path = region.path
           code =
               if path.is_a?(Array) && File.basename(path.first, ".rb") =~ /boot(\d+)?/

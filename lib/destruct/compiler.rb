@@ -15,7 +15,7 @@ class Destruct
         if pat.is_a?(CompiledPattern)
           pat
         else
-          compiled_patterns.fetch(pat) do
+          compiled_patterns.fetch(pat) do # TODO: consider caching by object_id
             compiled_patterns[pat] = begin
               cp = Compiler.new.compile(pat)
               on_compile_handlers.each { |h| h.(pat) }
@@ -26,7 +26,7 @@ class Destruct
       end
 
       def compiled_patterns
-        Thread.current[:destruct_compiled_patterns] ||= {}
+        Thread.current[:__destruct_compiled_patterns__] ||= {}
       end
 
       def match(pat, x)
@@ -295,7 +295,7 @@ class Destruct
     def match_unquote(s)
       temp_env = get_temp("env")
       emit "raise 'binding must be provided' if _binding.nil?"
-      emit "#{temp_env} = Destruct.match(_binding.eval('#{s.pat.code_expr}'), #{s.x}, _binding)"
+      emit "#{temp_env} = Destruct.match((_binding.respond_to?(:call) ? _binding.call : _binding).eval('#{s.pat.code_expr}'), #{s.x}, _binding)"
       test(s, temp_env)
       merge(s, temp_env, dynamic: true)
     end
