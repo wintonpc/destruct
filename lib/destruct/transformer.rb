@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require 'active_support/core_ext/object/deep_dup'
-require 'destruct/types'
+require_relative 'types'
 require 'stringio'
 require_relative './compiler'
 
@@ -42,7 +42,7 @@ class Destruct
       def transform(x, rule_set, binding)
         txr = Transformer.new(rule_set, binding)
         result = txr.transform(x)
-        if DEBUG || $show_transformations
+        if DEBUG || Destruct.show_transformations
           puts "\nRules:"
           dump_rules(rule_set.rules)
           puts "\nTransformations:"

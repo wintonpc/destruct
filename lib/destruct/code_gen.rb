@@ -36,7 +36,7 @@ class Destruct
       begin
         result = eval(code, nil, filename, line - 2).call(code, filename, refs, *refs.values)
         gc = GeneratedCode.new(result, code, filename)
-        show_code(gc) if $show_code
+        show_code(gc) if Destruct.show_code
         gc
       rescue SyntaxError
         show_code(code, filename, refs, fancy: false, include_vm: false)
@@ -57,7 +57,7 @@ class Destruct
       emit_begin do
         yield
       end.rescue do
-        emit "::Destruct::CodeGen.show_code(_code, _filename, _refs, fancy: false)"
+        emit "Destruct::CodeGen.show_code(_code, _filename, _refs, fancy: false)"
         emit "raise"
       end.end
     end

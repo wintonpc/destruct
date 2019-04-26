@@ -27,9 +27,9 @@ class Destruct
       expect(x_const).to be_a RuleSets::Ruby::ConstRef
       expect(x_const.fqn).to eql 'Destruct::TFoo'
 
-      x_const = tx.call { ::Destruct::TFoo }
+      x_const = tx.call { Destruct::TFoo }
       expect(x_const).to be_a RuleSets::Ruby::ConstRef
-      expect(x_const.fqn).to eql '::Destruct::TFoo'
+      expect(x_const.fqn).to eql 'Destruct::TFoo'
     end
   end
 end
