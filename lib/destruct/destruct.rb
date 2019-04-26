@@ -11,7 +11,7 @@ class Destruct
   NOTHING = make_singleton("#<NOTHING>")
 
   class << self
-    attr_accessor :show_code, :show_transformations
+    attr_accessor :show_code, :show_transformations, :optimize, :debug_compile, :print_passes
 
     def instance
       Thread.current[:__destruct_cache_instance__] ||= Destruct.new

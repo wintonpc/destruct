@@ -6,8 +6,10 @@ require 'securerandom'
 class Destruct
   describe Compiler do
     it 'compiles literals' do
-      $show_code = true
-      $optimize = true
+      Destruct.show_code = true
+      Destruct.optimize = true
+      # Destruct.print_passes = true
+      # Boot1::Destruct.show_transformations = true
       given_pattern 1
       expect_success_on 1
       expect_failure_on 2
@@ -22,9 +24,11 @@ class Destruct
       expect_failure_on Object.new
     end
     it 'compiles vars' do
-      $show_code = true
-      $debug_compile = true
-      $optimize = true
+      Destruct.show_code = true
+      Destruct.debug_compile = true
+      Destruct.optimize = true
+      # Boot1::Destruct.show_code = true
+      # Boot1::Destruct.show_transformations = true
 
       given_pattern Var.new(:foo)
       expect_success_on 1, foo: 1

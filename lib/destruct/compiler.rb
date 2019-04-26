@@ -4,7 +4,10 @@ require "pp"
 require_relative './types'
 require_relative './rbeautify'
 require_relative './code_gen'
+require_relative './rule_set'
 require "set"
+
+RubyVM::InstructionSequence.load_from_binary(File.read("boot1")).eval
 
 class Destruct
   class Compiler
@@ -55,10 +58,26 @@ class Destruct
 
       def to_s
         if type == :ident
-          "〈#{children.first}〉"
+          "❲#{children.first}❳"
         else
           "(#{type} #{children.map(&:to_s).join(" ")})"
         end
+      end
+    end
+
+    class CompilerPatternRules
+      include Boot1::Destruct::RuleSet
+
+      def initialize
+        meta_rule_set Boot1::Destruct::RuleSets::AstToPattern
+        add_rule(->{ form(type, *children) }) do |type:, children:|
+          Boot1::Destruct::Obj.new(Form, type: type, children: children)
+        end
+        add_rule_set(Boot1::Destruct::RuleSets::StandardPattern)
+      end
+
+      def validate(x)
+        Boot1::Destruct::RuleSets::PatternValidator.validate(x)
       end
     end
 
@@ -82,21 +101,25 @@ class Destruct
       emit_lambda(ident_name(x), ident_name(binding)) do
         show_code_on_error do
           c = apply(matcher(pat), x, true, binding)
-          c = emit2(c)
-          if $optimize
-            c = remove_redundant_assignments(c, {})
-            c = remove_redundant_tests(c)
-            c = inline_stuff(c)
-            c = fold_bool(c)
-            c = remove_redundant_tests(c)
-            c = squash_begins(c)
+          c = emit2(c).tap(&print_pass("emit2"))
+          if Destruct.optimize
+            c = remove_redundant_assignments(c, {}).tap(&print_pass("remove_redundant_assignments"))
+            c = remove_redundant_tests(c).tap(&print_pass("remove_redundant_tests"))
+            c = inline_stuff(c).tap(&print_pass("inline_stuff"))
+            c = fold_bool(c).tap(&print_pass("fold_bool"))
+            c = remove_redundant_tests(c).tap(&print_pass("remove_redundant_tests"))
+            c = squash_begins(c).tap(&print_pass("squash_begins"))
           end
-          c = emit3(c)
+          c = emit3(c).tap(&print_pass("emit3"))
           emit c
         end
       end
       g = generate("Matcher for: #{pat.inspect.gsub(/\s+/, " ")}")
       CompiledPattern.new(pat, g, @var_names)
+    end
+
+    def print_pass(name)
+      proc { |c| puts "#{name}: #{c}" if Destruct.print_passes }
     end
 
     def map_form(x)
@@ -117,17 +140,16 @@ class Destruct
 
     def emit2(x)
       map_form(x) do |recurse|
-        if x.type == :apply && lambda?(x.children.first)
-          proc, *args = x.children
-          params, body = proc.children
-          _begin(*params.zip(args).map { |(p, a)| _set!(p, a) }, emit2(body))
-        elsif x.type == :if
-          cond, cons, alt = x.children
-          tval = ident
-          _begin(_set!(tval, emit2(cond)),
-                 _if(tval, emit2(cons), emit2(alt)))
-        else
-          recurse.call(:emit2)
+        destruct(x) do
+          if match { form(:apply, form(:lambda, params, body), ~args) }
+            _begin(*params.zip(args).map { |(p, a)| _set!(p, a) }, emit2(body))
+          elsif match { form(:if, cond, cons, alt) }
+            tval = ident
+            _begin(_set!(tval, emit2(cond)),
+                   _if(tval, emit2(cons), emit2(alt)))
+          else
+            recurse.call(:emit2)
+          end
         end
       end
     end
@@ -143,19 +165,15 @@ class Destruct
     # remove redundant assignments
     def remove_redundant_assignments(x, map)
       map_form(x) do |recurse|
-        case x.type
-        when :set!
-          lhs, rhs = x.children
-          if ident?(rhs) || literal_val?(rhs)
+        destruct(x) do
+          if match { form(:set!, lhs, rhs <= form(:ident, _) | !literal_pattern) }
             map[lhs] = remove_redundant_assignments(rhs, map)
             _noop
+          elsif match { form(:ident, _) }
+            map.fetch(x, x)
           else
             recurse.call { |c| remove_redundant_assignments(c, map) }
           end
-        when :ident
-          map.fetch(x, x)
-        else
-          recurse.call { |c| remove_redundant_assignments(c, map) }
         end
       end
     end
@@ -281,47 +299,52 @@ class Destruct
       [TrueClass, FalseClass, NilClass, Numeric, String, Symbol].any? { |c| x.is_a?(c) }
     end
 
+    def literal_pattern
+      @literal_pattern ||= any(true, false, nil, is_a(Numeric), is_a(String), is_a(Symbol))
+    end
+
+    def any(*pats)
+      Boot1::Destruct::Or.new(*pats)
+    end
+
+    def is_a(klass)
+      Boot1::Destruct::Obj.new(klass)
+    end
+
     def emit3(x)
-      case x
-      when Form
-        case x.type
-        when :set!
-          lhs, rhs = x.children
+      destruct(x) do
+        case
+        when match { form(:set!, lhs, rhs) }
           "#{eref(lhs)} = #{emit3(rhs)}\n"
-        when :if
-          cond, cons, alt = x.children
+        when match { form(:if, cond, cons, alt) }
           [ "if #{emit3(cond)}",
             emit3(cons),
             "else",
             emit3(alt),
             "end" ].join("\n")
-        when :equal?
-          lhs, rhs = x.children
+        when match { form(:equal?, lhs, rhs) }
           "#{emit3(lhs)} == #{emit3(rhs)}\n"
-        when :not_equal?
-          lhs, rhs = x.children
+        when match { form(:not_equal?, lhs, rhs) }
           "#{emit3(lhs)} != #{emit3(rhs)}\n"
-        when :ident
+        when match { form(:ident, _) }
           eref(x)
-        when :begin
-          x.children.map { |x| emit3(x) }.join
-        when :and
-          x.children.map { |c| "(" + emit3(c) + ")" }.join(" && ")
-        when :not
+        when match { form(:begin, ~children) }
+          children.map { |x| emit3(x) }.join
+        when match { form(:and, ~children) }
+          children.map { |c| "(" + emit3(c) + ")" }.join(" && ")
+        when match { form(:not, x) }
           "!(#{emit3(x.children.first)})"
-        when :set_field
-          recv, meth, val = x.children
+        when match { form(:set_field, recv, meth, val) }
           "#{emit3(recv)}.#{meth} = #{emit3(val)}\n"
-        when :get_field
-          recv, meth = x.children
+        when match { form(:get_field, recv, meth) }
           "#{emit3(recv)}.#{meth}"
-        else
+        when match { Form[] }
           raise "emit3: unexpected: #{x}"
+        when match(MakeEnv)
+          "_make_env.()"
+        else
+          eref(x)
         end
-      when MakeEnv
-        "_make_env.()"
-      else
-        eref(x)
       end
     end
 
@@ -339,18 +362,30 @@ class Destruct
       elsif literal_val?(x)
         x.inspect
       else
-        if $debug_compile
-          raise "eref: unexpected: #{x.class}"
+        if Destruct.debug_compile
+          raise "eref: unexpected: #{x.class} : #{x}"
         else
           get_ref(x)
         end
       end
     end
 
+    def destruct_instance
+      Thread.current[:__compiler_destruct_instance__] ||= Boot1::Destruct.new(CompilerPatternRules)
+    end
+
+    def destruct(value, &block)
+      destruct_instance.destruct(value, &block)
+    end
+
     def matcher(pat)
-      case pat
-      when Var then var_matcher(pat)
-      else value_matcher(pat)
+      destruct(pat) do
+        case
+        when match { Var[] }
+          var_matcher(pat)
+        else
+          value_matcher(pat)
+        end
       end
     end
 
@@ -368,10 +403,11 @@ class Destruct
           env,
           _if(_equal?(env, true),
               _let(new_env, make_env,
-                   bind_with_full_env(new_env, sym, x)),
+                   bind_with_new_env(new_env, sym, x)),
               bind_with_full_env(env, sym, x)))
     end
 
+    # "full" means an Env object as opposed to `true`
     def bind_with_full_env(env, sym, x)
       existing = ident("existing")
       _let(existing, _get_field(env, sym),
@@ -381,6 +417,12 @@ class Destruct
                _if(_not(_equal?(existing, x)),
                    nil,
                    env)))
+    end
+
+    # a new env is guaranteed to have no symbols bound, thus no conflicts
+    def bind_with_new_env(env, sym, x)
+      _begin(_set_field(env, sym, x),
+             env)
     end
 
     def _let(var, val, body)

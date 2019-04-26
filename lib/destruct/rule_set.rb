@@ -67,7 +67,7 @@ class Destruct
       if rule_set.is_a?(Class)
         rule_set = rule_set.instance
       end
-      rule_set.rules.each { |r| rules << r }
+      rule_set.rules.each { |r| rules << r } # TODO: fix: this discards the rule sets meta rule set (and validator)
     end
   end
 end
