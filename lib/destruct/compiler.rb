@@ -142,12 +142,14 @@ class Destruct
           c = _apply(matcher(pat), x, true, binding).tap(&print_pass("initial"))
           c = normalize(c).tap(&print_pass("normalize"))
           c = inline(c).tap(&print_pass("inline"))
+          c = fixed_point(c) do |c|
+            c = remove_redundant_tests(c).then(&method(:inline)).tap(&print_pass("remove_redundant_tests"))
+            fold_bool(c).tap(&print_pass("fold_bool"))
+          end
           if Destruct.optimize
             # c = squash_begins(c).tap(&print_pass("squash_begins"))
             # c = remove_redundant_tests(c).tap(&print_pass("remove_redundant_tests"))
             # c = inline_stuff(c).tap(&print_pass("inline_stuff"))
-            # c = fold_bool(c).tap(&print_pass("fold_bool"))
-            c = remove_redundant_tests(c).then(&method(:inline)).tap(&print_pass("remove_redundant_tests"))
             # c = squash_begins(c).tap(&print_pass("squash_begins"))
           end
           # c = normalize(c).tap(&print_pass("normalize"))
@@ -224,7 +226,13 @@ class Destruct
     end
 
     def inlineable?(var, val, body)
-      literal_val?(val) || ident?(val) || (ident_count(var, body) <= 1 && !appears_in_if_condition(var, body))
+      literal_val?(val) ||
+          ident?(val) ||
+          (ident_count(var, body) <= 1 && (can_be_condition?(val) || !appears_in_if_condition(var, body)))
+    end
+
+    def can_be_condition?(x)
+      !x.is_a?(Form) || (%i[and or ident equal? not_equal? not array_get is_type get_field].include?(x.type) && x.children.all? { |c| can_be_condition?(c) })
     end
 
     def ident_count(var, x)
@@ -274,6 +282,8 @@ class Destruct
             false
           elsif match { form(:not, false) }
             true
+          elsif match { form(:not, form(:not, exp)) }
+            fold_bool(exp)
           elsif match { form(:not, form(:equal?, lhs, rhs)) }
             fold_bool(_not_equal?(lhs, rhs))
           elsif match { form(:not, form(:not_equal?, lhs, rhs)) }
@@ -291,6 +301,8 @@ class Destruct
         destruct(x) do
           if match { form(:if, cond, true, false | nil) }
             remove_redundant_tests(cond)
+          elsif match { form(:if, cond, false | nil, true) }
+            remove_redundant_tests(_not(cond))
           elsif match { form(:if, true, cons, _) }
             remove_redundant_tests(cons)
           elsif match { form(:if, false, _, alt) }
@@ -403,11 +415,11 @@ class Destruct
         when match { form(:begin, ~children) }
           children.map { |x| emit3(x) }.join
         when match { form(:and, ~children) }
-          children.map { |c| "(" + emit3(c) + ")" }.join(" && ")
+          children.map { |c| maybe_parenthesize(c) }.join(" && ")
         when match { form(:or, ~children) }
-          children.map { |c| "(" + emit3(c) + ")" }.join(" || ")
+          children.map { |c| maybe_parenthesize(c) }.join(" || ")
         when match { form(:not, x) }
-          "!(#{emit3(x.children.first)})"
+          "!#{maybe_parenthesize(x.children.first)}"
         when match { form(:set_field, recv, meth, val) }
           "#{emit3(recv)}.#{meth} = #{emit3(val)}\n"
         when match { form(:get_field, recv, meth) }
@@ -423,6 +435,14 @@ class Destruct
         else
           eref(x)
         end
+      end
+    end
+
+    def maybe_parenthesize(x)
+      if x.is_a?(Form) && %i(and or).include?(x.type)
+        "(#{emit3(x)})"
+      else
+        emit3(x)
       end
     end
 
@@ -491,9 +511,9 @@ class Destruct
         v = ident("v")
         _let(v, _array_get(x, index),
              _let(new_env, _apply(matcher(pat.first), v, env, binding),
-                  _if(new_env,
-                      array_matcher_helper(pat.drop(1), x, env, binding, index + 1),
-                      nil)))
+                  _if(_not(new_env),
+                      nil,
+                      array_matcher_helper(pat.drop(1), x, env, binding, index + 1))))
       end
     end
 
@@ -569,7 +589,7 @@ class Destruct
       x = ident("x")
       env = ident("env")
       binding = ident("binding")
-      _lambda([x, env, binding], _if(_and(env, _equal?(x, pat)), env, nil))
+      _lambda([x, env, binding], _if(_not(_and(env, _equal?(x, pat))), nil, env))
     end
 
     def _and(*clauses)
