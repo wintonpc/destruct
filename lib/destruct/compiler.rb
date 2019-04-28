@@ -142,9 +142,7 @@ class Destruct
           c = _apply(matcher(pat), x, true, binding).tap(&print_pass("initial"))
           c = normalize(c).tap(&print_pass("normalize"))
           c = inline(c).tap(&print_pass("inline"))
-          # c = normalize(c).tap(&print_pass("normalize"))
           if Destruct.optimize
-            # c = remove_redundant_assignments(c, {}).tap(&print_pass("remove_redundant_assignments"))
             # c = squash_begins(c).tap(&print_pass("squash_begins"))
             # c = remove_redundant_tests(c).tap(&print_pass("remove_redundant_tests"))
             # c = inline_stuff(c).tap(&print_pass("inline_stuff"))
@@ -226,7 +224,7 @@ class Destruct
     end
 
     def inlineable?(var, val, body)
-      literal_val?(val) || (ident_count(var, body) <= 1 && !appears_in_if_condition(var, body))
+      literal_val?(val) || ident?(val) || (ident_count(var, body) <= 1 && !appears_in_if_condition(var, body))
     end
 
     def ident_count(var, x)
@@ -265,22 +263,6 @@ class Destruct
 
     def ident?(x)
       x.is_a?(Form) && x.type == :ident
-    end
-
-    # remove redundant assignments
-    def remove_redundant_assignments(x, map)
-      map_form(x) do |recurse|
-        destruct(x) do
-          if match { form(:set!, lhs, rhs <= form(:ident, _) | !literal_pattern) }
-            map[lhs] = remove_redundant_assignments(rhs, map)
-            _noop
-          elsif match { form(:ident, _) }
-            map.fetch(x, x)
-          else
-            recurse.call { |c| remove_redundant_assignments(c, map) }
-          end
-        end
-      end
     end
 
     def fold_bool(x)
