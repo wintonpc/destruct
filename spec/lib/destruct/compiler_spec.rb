@@ -23,6 +23,17 @@ class Destruct
       expect_success_on obj
       expect_failure_on Object.new
     end
+    it 'compiles simple arrays' do
+      Destruct.show_code = true
+      Destruct.debug_compile = true
+      Destruct.optimize = true
+      Destruct.print_passes = true
+
+      given_pattern [1, 2]
+      expect_success_on [1, 2]
+      # expect_failure_on [1, 1]
+      # expect_failure_on [2, 2]
+    end
     it 'compiles vars' do
       Destruct.show_code = true
       Destruct.debug_compile = true

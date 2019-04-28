@@ -100,7 +100,7 @@ class Destruct
       binding = ident("binding")
       emit_lambda(ident_name(x), ident_name(binding)) do
         show_code_on_error do
-          c = apply(matcher(pat), x, true, binding)
+          c = _apply(matcher(pat), x, true, binding)
           c = emit2(c).tap(&print_pass("emit2"))
           if Destruct.optimize
             c = remove_redundant_assignments(c, {}).tap(&print_pass("remove_redundant_assignments"))
@@ -212,7 +212,7 @@ class Destruct
             true
           elsif match { form(:and, v) }
             remove_redundant_tests(v)
-          elsif match { form(:and, ~children) }
+          elsif match { form(:and, ~children) } && children.any? { |c| c == true }
             remove_redundant_tests(_and(*children.reject { |c| c == true }))
           else
             recurse.call(:remove_redundant_tests)
@@ -279,7 +279,7 @@ class Destruct
     end
 
     def literal_val?(x)
-      [TrueClass, FalseClass, NilClass, Numeric, String, Symbol].any? { |c| x.is_a?(c) }
+      [TrueClass, FalseClass, NilClass, Numeric, String, Symbol, Module].any? { |c| x.is_a?(c) }
     end
 
     def literal_pattern
@@ -315,12 +315,16 @@ class Destruct
           children.map { |x| emit3(x) }.join
         when match { form(:and, ~children) }
           children.map { |c| "(" + emit3(c) + ")" }.join(" && ")
+        when match { form(:or, ~children) }
+          children.map { |c| "(" + emit3(c) + ")" }.join(" || ")
         when match { form(:not, x) }
           "!(#{emit3(x.children.first)})"
         when match { form(:set_field, recv, meth, val) }
           "#{emit3(recv)}.#{meth} = #{emit3(val)}\n"
         when match { form(:get_field, recv, meth) }
           "#{emit3(recv)}.#{meth}"
+        when match { form(:is_type, recv, klass) }
+          "#{emit3(recv)}.is_a?(#{emit3(klass)})"
         when match { Form[] }
           raise "emit3: unexpected: #{x}"
         when match(MakeEnv)
@@ -363,12 +367,38 @@ class Destruct
 
     def matcher(pat)
       destruct(pat) do
-        case
-        when match { Var[] }
+        if pat.is_a?(Var)
           var_matcher(pat)
+        elsif pat.is_a?(Array)
+          array_matcher(pat)
         else
           value_matcher(pat)
         end
+      end
+    end
+
+    def array_matcher(pat)
+      x = ident("x")
+      env = ident("env")
+      binding = ident("binding")
+      _lambda([x, env, binding],
+              _if(_or(_not(_is_type(x, Array)),
+                      _not_equal?(_get_field(x, :size), pat.size)),
+                  nil,
+                  array_matcher_helper(pat, x, env, binding)))
+    end
+
+    def array_matcher_helper(pat, x, env, binding, index = 0)
+      if pat.none?
+        _noop
+      else
+        new_env = ident("env")
+        v = ident("v")
+        _let(v, _array_get(x, index),
+             _let(new_env, _apply(matcher(pat.first), v, env, binding),
+                  _if(new_env,
+                      array_matcher_helper(pat.drop(1), x, env, binding, index + 1),
+                      nil)))
       end
     end
 
@@ -409,11 +439,15 @@ class Destruct
     end
 
     def _let(var, val, body)
-      apply(_lambda([var], body), val)
+      _apply(_lambda([var], body), val)
     end
 
     def make_env
       MakeEnv
+    end
+
+    def _is_type(x, klass)
+      Form.new(:is_type, x, klass)
     end
 
     def _set_field(recv, meth, val)
@@ -422,6 +456,10 @@ class Destruct
 
     def _get_field(recv, meth)
       Form.new(:get_field, recv, meth)
+    end
+
+    def _array_get(arr, index)
+      Form.new(:array_get, arr, index)
     end
 
     def _noop
@@ -443,11 +481,15 @@ class Destruct
       Form.new(:and, *clauses)
     end
 
+    def _or(*clauses)
+      Form.new(:or, *clauses)
+    end
+
     def _set!(lhs, rhs)
       Form.new(:set!, lhs, rhs)
     end
 
-    def apply(proc, *args)
+    def _apply(proc, *args)
       Form.new(:apply, proc, *args)
     end
 
