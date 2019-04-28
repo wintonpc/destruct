@@ -61,7 +61,7 @@ class Destruct
         if type == :ident
           "❲#{children.first}❳"
         else
-          "(#{type} #{children.map { |c| c.is_a?(Form) ? c.to_s(fancy_ident) : c.inspect }.join(" ")})"
+          "(#{type} #{children.map { |c| c.is_a?(Form) ? c.to_s : c.inspect }.join(" ")})"
         end
       end
     end
@@ -87,6 +87,8 @@ class Destruct
           "(#{type} #{children.map { |c| to_sexp(c) }.join(" ")})"
         elsif x.is_a?(Array)
           "#(#{x.map { |c| to_sexp(c) }.join(" ")})"
+        elsif x.is_a?(Symbol)
+          "'#{x}"
         else
           x.inspect
         end
@@ -129,9 +131,10 @@ class Destruct
       emit_lambda(ident_name(x), ident_name(binding)) do
         show_code_on_error do
           c = _apply(matcher(pat), x, true, binding).tap(&print_pass("initial"))
-          c = unlet(c).tap(&print_pass("unlet"))
-          c = emit2(c).tap(&print_pass("emit2"))
-          if Destruct.optimize
+          c = normalize(c).tap(&print_pass("normalize"))
+          # c = unlet(c).tap(&print_pass("unlet"))
+          # c = emit2(c).tap(&print_pass("emit2"))
+          if false && Destruct.optimize
             c = remove_redundant_assignments(c, {}).tap(&print_pass("remove_redundant_assignments"))
             c = squash_begins(c).tap(&print_pass("squash_begins"))
             c = remove_redundant_tests(c).tap(&print_pass("remove_redundant_tests"))
@@ -140,7 +143,7 @@ class Destruct
             c = remove_redundant_tests(c).tap(&print_pass("remove_redundant_tests"))
             c = squash_begins(c).tap(&print_pass("squash_begins"))
           end
-          c = emit3(c).tap(&print_pass("emit3"))
+          c = emit3(c)
           emit c
         end
       end
@@ -166,6 +169,29 @@ class Destruct
 
     def ident_name(ident)
       ident.children[0]
+    end
+
+    def normalize(x)
+      map_form(x) do |recurse|
+        destruct(x) do
+          if match { form(:apply, form(:lambda, params, body), ~args) }
+            params.size == args.size or raise "mismatched params/args: #{params} #{args}"
+            if params.none?
+              normalize(body)
+            else
+              var, *vars = params
+              val, *vals = args
+              _let(var, val, normalize(_apply(_lambda(vars, body), *vals)))
+            end
+          elsif match { form(:if, cond, cons, alt) }
+            tval = ident
+            _let(tval, normalize(cond),
+                 _if(tval, normalize(cons), normalize(alt)))
+          else
+            recurse.call(:normalize)
+          end
+        end
+      end
     end
 
     def unlet(x)
@@ -339,8 +365,10 @@ class Destruct
     def emit3(x)
       destruct(x) do
         case
-        when match { form(:set!, lhs, rhs) }
-          "#{eref(lhs)} = #{emit3(rhs)}\n"
+        when match { form(:let, var, val <= form(:let | :if, ~children), body) }
+          "#{eref(var)} = begin\n#{emit3(val)}\nend\n#{emit3(body)}"
+        when match { form(:let, var, val, body) }
+          "#{eref(var)} = #{emit3(val)}\n#{emit3(body)}"
         when match { form(:if, cond, cons, alt) }
           ["if #{emit3(cond)}",
            emit3(cons),
@@ -348,11 +376,11 @@ class Destruct
            emit3(alt),
            "end"].join("\n")
         when match { form(:equal?, lhs, rhs) }
-          "#{emit3(lhs)} == #{emit3(rhs)}\n"
+          "#{emit3(lhs)} == #{emit3(rhs)}"
         when match { form(:not_equal?, lhs, rhs) }
-          "#{emit3(lhs)} != #{emit3(rhs)}\n"
+          "#{emit3(lhs)} != #{emit3(rhs)}"
         when match { form(:ident, _) }
-          eref(x)
+          eref(x).to_s
         when match { form(:begin, ~children) }
           children.map { |x| emit3(x) }.join
         when match { form(:and, ~children) }
@@ -365,6 +393,8 @@ class Destruct
           "#{emit3(recv)}.#{meth} = #{emit3(val)}\n"
         when match { form(:get_field, recv, meth) }
           "#{emit3(recv)}.#{meth}"
+        when match { form(:array_get, arr, index) }
+          "#{emit3(arr)}[#{emit3(index)}]"
         when match { form(:is_type, recv, klass) }
           "#{emit3(recv)}.is_a?(#{emit3(klass)})"
         when match { Form[] }

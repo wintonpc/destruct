@@ -8,7 +8,7 @@ class Destruct
     it 'compiles literals' do
       Destruct.show_code = true
       Destruct.optimize = true
-      # Destruct.print_passes = true
+      Destruct.print_passes = true
       # Boot1::Destruct.show_transformations = true
       given_pattern 1
       expect_success_on 1
