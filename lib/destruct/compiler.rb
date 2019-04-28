@@ -408,7 +408,7 @@ class Destruct
     end
 
     def continue_with(x, &k)
-      
+
     end
 
     def _set!(var, val)
@@ -418,8 +418,8 @@ class Destruct
     def emit3(x)
       destruct(x) do
         case
-        when match { form(:set!, var, val) }
-          "#{eref(var)} = #{emit3(val)}"
+        when match { form(:let, var, val, body) }
+          "#{eref(var)} = begin\n#{emit3(val)}\nend\n#{emit3(body)}"
         when match { form(:if, cond, cons, alt) }
           ["if #{emit3(cond)}",
            emit3(cons),
@@ -439,7 +439,7 @@ class Destruct
         when match { form(:or, ~children) }
           children.map { |c| maybe_parenthesize(c) }.join(" || ")
         when match { form(:not, x) }
-          "!#{maybe_parenthesize(x.children.first)}"
+          "!(#{maybe_parenthesize(x.children.first)})"
         when match { form(:set_field, recv, meth, val) }
           "#{emit3(recv)}.#{meth} = #{emit3(val)}\n"
         when match { form(:get_field, recv, meth) }
@@ -533,7 +533,7 @@ class Destruct
              _let(new_env, _apply(matcher(pat.first), v, env, binding),
                   _if(_not(new_env),
                       nil,
-                      array_matcher_helper(pat.drop(1), x, env, binding, index + 1))))
+                      array_matcher_helper(pat.drop(1), x, new_env, binding, index + 1))))
       end
     end
 
