@@ -57,24 +57,38 @@ class Destruct
         self.children = children
       end
 
-      def to_s(fancy_ident = true)
+      def to_s
         if type == :ident
-          if fancy_ident
-            "❲#{children.first}❳"
-          else
-            children.first.to_s
-          end
+          "❲#{children.first}❳"
         else
           "(#{type} #{children.map { |c| c.is_a?(Form) ? c.to_s(fancy_ident) : c.inspect }.join(" ")})"
         end
       end
+    end
 
-      def pretty
-        require 'open3'
-        Open3.popen3("scheme -q") do |i, o, e, t|
-          i.write "(pretty-print '#{to_s(false)})"
-          i.close
-          return o.read
+    def self.pretty_sexp(x)
+      require 'open3'
+      Open3.popen3("scheme -q") do |i, o, e, t|
+        i.write "(pretty-print '#{to_sexp(x)})"
+        i.close
+        return o.read
+      end
+    end
+
+    def self.to_sexp(x)
+      destruct(x) do
+        if match { form(:ident, name) }
+          name.to_s
+        elsif match { form(:lambda, args, body) }
+          "(lambda (#{args.map { |a| to_sexp(a) }.join(" ")}) #{to_sexp(body)})"
+        elsif match { form(:let, var, val, body) }
+          "(let ([#{to_sexp(var)} #{to_sexp(val)}]) #{to_sexp(body)})"
+        elsif match { form(type, ~children) }
+          "(#{type} #{children.map { |c| to_sexp(c) }.join(" ")})"
+        elsif x.is_a?(Array)
+          "#(#{x.map { |c| to_sexp(c) }.join(" ")})"
+        else
+          x.inspect
         end
       end
     end
@@ -84,7 +98,7 @@ class Destruct
 
       def initialize
         meta_rule_set Boot1::Destruct::RuleSets::AstToPattern
-        add_rule(->{ form(type, *children) }) do |type:, children:|
+        add_rule(-> { form(type, *children) }) do |type:, children:|
           Boot1::Destruct::Obj.new(Form, type: type, children: children)
         end
         add_rule_set(Boot1::Destruct::RuleSets::StandardPattern)
@@ -95,7 +109,7 @@ class Destruct
       end
     end
 
-    def ident(prefix="t")
+    def ident(prefix = "t")
       Form.new(:ident, get_temp(prefix).to_sym)
     end
 
@@ -114,10 +128,12 @@ class Destruct
       binding = ident("binding")
       emit_lambda(ident_name(x), ident_name(binding)) do
         show_code_on_error do
-          c = _apply(matcher(pat), x, true, binding)
+          c = _apply(matcher(pat), x, true, binding).tap(&print_pass("initial"))
+          c = unlet(c).tap(&print_pass("unlet"))
           c = emit2(c).tap(&print_pass("emit2"))
           if Destruct.optimize
             c = remove_redundant_assignments(c, {}).tap(&print_pass("remove_redundant_assignments"))
+            c = squash_begins(c).tap(&print_pass("squash_begins"))
             c = remove_redundant_tests(c).tap(&print_pass("remove_redundant_tests"))
             c = inline_stuff(c).tap(&print_pass("inline_stuff"))
             c = fold_bool(c).tap(&print_pass("fold_bool"))
@@ -133,7 +149,7 @@ class Destruct
     end
 
     def print_pass(name)
-      proc { |c| puts "#{name}:\n#{c.is_a?(Form) ? c.pretty : c.to_s}" if Destruct.print_passes }
+      proc { |c| puts "#{name}:\n#{Compiler.pretty_sexp(c)}\n" if Destruct.print_passes }
     end
 
     def map_form(x)
@@ -150,6 +166,18 @@ class Destruct
 
     def ident_name(ident)
       ident.children[0]
+    end
+
+    def unlet(x)
+      map_form(x) do |recurse|
+        destruct(x) do
+          if match { form(:let, var, val, body) }
+            _apply(_lambda([unlet(var)], unlet(body)), unlet(val))
+          else
+            recurse.call(:unlet)
+          end
+        end
+      end
     end
 
     def emit2(x)
@@ -314,11 +342,11 @@ class Destruct
         when match { form(:set!, lhs, rhs) }
           "#{eref(lhs)} = #{emit3(rhs)}\n"
         when match { form(:if, cond, cons, alt) }
-          [ "if #{emit3(cond)}",
-            emit3(cons),
-            "else",
-            emit3(alt),
-            "end" ].join("\n")
+          ["if #{emit3(cond)}",
+           emit3(cons),
+           "else",
+           emit3(alt),
+           "end"].join("\n")
         when match { form(:equal?, lhs, rhs) }
           "#{emit3(lhs)} == #{emit3(rhs)}\n"
         when match { form(:not_equal?, lhs, rhs) }
@@ -457,7 +485,7 @@ class Destruct
     end
 
     def _let(var, val, body)
-      _apply(_lambda([var], body), val)
+      Form.new(:let, var, val, body)
     end
 
     def make_env
@@ -501,10 +529,6 @@ class Destruct
 
     def _or(*clauses)
       Form.new(:or, *clauses)
-    end
-
-    def _set!(lhs, rhs)
-      Form.new(:set!, lhs, rhs)
     end
 
     def _apply(proc, *args)
@@ -581,8 +605,7 @@ class Destruct
         match_strict(s)
       elsif is_literal_val?(s.pat)
         match_literal(s)
-      elsif
-      match_other(s)
+      elsif match_other(s)
       end
     end
 
@@ -676,7 +699,7 @@ class Destruct
               emit "end"
               bind(s, s.pat[splat_index], splat)
 
-              s.pat[(splat_index+1)...(s.pat.size)].each do |item_pat|
+              s.pat[(splat_index + 1)...(s.pat.size)].each do |item_pat|
                 x = localize(item_pat, "#{en}.next")
                 match(Frame.new(item_pat, x, s.env, s))
               end
@@ -769,7 +792,7 @@ class Destruct
       bind(s, s.pat, s.x)
     end
 
-    def bind_old(s, var, val, val_could_be_unbound_sentinel=false)
+    def bind_old(s, var, val, val_could_be_unbound_sentinel = false)
       var_name = var.is_a?(Binder) ? var.name : var
 
       # emit "# bind #{var_name}"
@@ -833,7 +856,7 @@ class Destruct
       get_ref(Destruct::NOTHING)
     end
 
-    def match_hash_or_obj(s, type_str, pairs, make_x_sub, strict_test=nil)
+    def match_hash_or_obj(s, type_str, pairs, make_x_sub, strict_test = nil)
       test(s, "#{s.x}.is_a?(#{type_str})") do
         keep_matching = proc do
           pairs
@@ -906,7 +929,7 @@ class Destruct
 
     private
 
-    def localize(pat, x, prefix="t")
+    def localize(pat, x, prefix = "t")
       prefix = prefix.to_s.gsub(/[^\w\d_]/, '')
       if (pat.nil? && x =~ /\.\[\]/) || multi?(pat) || (pat.is_a?(Binder) && x =~ /\.fetch|\.next/)
         t = get_temp(prefix)
@@ -930,7 +953,7 @@ class Destruct
 
     alias_method :inspect, :to_s
 
-    def match(x, binding=nil)
+    def match(x, binding = nil)
       Compiler.compile(pat).match(x, binding)
     end
   end
@@ -944,7 +967,7 @@ class Destruct
       @var_names = var_names
     end
 
-    def match(x, binding=nil)
+    def match(x, binding = nil)
       @generated_code.proc.(x, binding)
     end
 
