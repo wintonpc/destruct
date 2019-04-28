@@ -6,6 +6,7 @@ require_relative './rbeautify'
 require_relative './code_gen'
 require_relative './rule_set'
 require "set"
+require "stringio"
 
 RubyVM::InstructionSequence.load_from_binary(File.read("boot1")).eval
 
@@ -56,11 +57,24 @@ class Destruct
         self.children = children
       end
 
-      def to_s
+      def to_s(fancy_ident = true)
         if type == :ident
-          "❲#{children.first}❳"
+          if fancy_ident
+            "❲#{children.first}❳"
+          else
+            children.first.to_s
+          end
         else
-          "(#{type} #{children.map(&:to_s).join(" ")})"
+          "(#{type} #{children.map { |c| c.is_a?(Form) ? c.to_s(fancy_ident) : c.inspect }.join(" ")})"
+        end
+      end
+
+      def pretty
+        require 'open3'
+        Open3.popen3("scheme -q") do |i, o, e, t|
+          i.write "(pretty-print '#{to_s(false)})"
+          i.close
+          return o.read
         end
       end
     end
@@ -119,7 +133,7 @@ class Destruct
     end
 
     def print_pass(name)
-      proc { |c| puts "#{name}: #{c}" if Destruct.print_passes }
+      proc { |c| puts "#{name}:\n#{c.is_a?(Form) ? c.pretty : c.to_s}" if Destruct.print_passes }
     end
 
     def map_form(x)
@@ -142,7 +156,7 @@ class Destruct
       map_form(x) do |recurse|
         destruct(x) do
           if match { form(:apply, form(:lambda, params, body), ~args) }
-            _begin(*params.zip(args).map { |(p, a)| _set!(p, a) }, emit2(body))
+            _begin(*params.zip(args).map { |(p, a)| _set!(p, emit2(a)) }, emit2(body))
           elsif match { form(:if, cond, cons, alt) }
             tval = ident
             _begin(_set!(tval, emit2(cond)),
@@ -357,12 +371,16 @@ class Destruct
       end
     end
 
-    def destruct_instance
+    def self.destruct_instance
       Thread.current[:__compiler_destruct_instance__] ||= Boot1::Destruct.new(CompilerPatternRules)
     end
 
-    def destruct(value, &block)
+    def self.destruct(value, &block)
       destruct_instance.destruct(value, &block)
+    end
+
+    def destruct(value, &block)
+      Compiler.destruct(value, &block)
     end
 
     def matcher(pat)
@@ -390,7 +408,7 @@ class Destruct
 
     def array_matcher_helper(pat, x, env, binding, index = 0)
       if pat.none?
-        _noop
+        env
       else
         new_env = ident("env")
         v = ident("v")
