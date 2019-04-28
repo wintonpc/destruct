@@ -10,9 +10,18 @@ require "stringio"
 
 RubyVM::InstructionSequence.load_from_binary(File.read("boot1")).eval
 
+module Backport
+  refine Object do
+    def then
+      yield(self)
+    end
+  end
+end
+
 class Destruct
   class Compiler
     include CodeGen
+    using Backport
 
     class << self
       def compile(pat)
@@ -132,22 +141,33 @@ class Destruct
         show_code_on_error do
           c = _apply(matcher(pat), x, true, binding).tap(&print_pass("initial"))
           c = normalize(c).tap(&print_pass("normalize"))
+          c = inline(c).tap(&print_pass("inline"))
+          # c = normalize(c).tap(&print_pass("normalize"))
           if Destruct.optimize
-            c = inline(c) .tap(&print_pass("inline"))
             # c = remove_redundant_assignments(c, {}).tap(&print_pass("remove_redundant_assignments"))
             # c = squash_begins(c).tap(&print_pass("squash_begins"))
             # c = remove_redundant_tests(c).tap(&print_pass("remove_redundant_tests"))
             # c = inline_stuff(c).tap(&print_pass("inline_stuff"))
             # c = fold_bool(c).tap(&print_pass("fold_bool"))
-            # c = remove_redundant_tests(c).tap(&print_pass("remove_redundant_tests"))
+            c = remove_redundant_tests(c).then(&method(:inline)).tap(&print_pass("remove_redundant_tests"))
             # c = squash_begins(c).tap(&print_pass("squash_begins"))
           end
+          # c = normalize(c).tap(&print_pass("normalize"))
           c = emit3(c)
           emit c
         end
       end
       g = generate("Matcher for: #{pat.inspect.gsub(/\s+/, " ")}")
       CompiledPattern.new(pat, g, @var_names)
+    end
+
+    def fixed_point(x)
+      last_x = Object.new
+      while x != last_x
+        last_x = x
+        x = yield(x)
+      end
+      x
     end
 
     def print_pass(name)
@@ -183,7 +203,7 @@ class Destruct
               _let(var, val, normalize(_apply(_lambda(vars, body), *vals)))
             end
           elsif match { form(:if, cond, cons, alt) }
-            tval = ident
+            tval = ident?(cond) ? cond : ident
             _let(tval, normalize(cond),
                  _if(tval, normalize(cons), normalize(alt)))
           else
@@ -196,13 +216,17 @@ class Destruct
     def inline(x)
       map_form(x) do |recurse|
         destruct(x) do
-          if match { form(:let, var, val, body) } && (literal_val?(val) || ident_count(var, body) <= 1)
+          if match { form(:let, var, val, body) } && inlineable?(var, val, body)
             inline(inline_ident(var, val, body))
           else
             recurse.call(:inline)
           end
         end
       end
+    end
+
+    def inlineable?(var, val, body)
+      literal_val?(val) || (ident_count(var, body) <= 1 && !appears_in_if_condition(var, body))
     end
 
     def ident_count(var, x)
@@ -212,6 +236,20 @@ class Destruct
         x.children.map { |c| ident_count(var, c) }.reduce(:+)
       else
         0
+      end
+    end
+
+    def appears_in_if_condition(var, x)
+      destruct(x) do
+        if match { form(:if, !var, _, _) }
+          true
+        elsif match { form(:if, _, cons, alt) }
+          appears_in_if_condition(var, cons) || appears_in_if_condition(var, alt)
+        elsif x.is_a?(Form)
+          x.children.any? { |c| appears_in_if_condition(var, c) }
+        else
+          false
+        end
       end
     end
 
