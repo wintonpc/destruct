@@ -180,27 +180,20 @@ class Destruct
 
     def fold_bool(x)
       map_form(x) do |recurse|
-        case x.type
-        when :equal?
-          lhs, rhs = x.children
-          lhs == rhs ? true : x
-        when :not
-          v = x.children.first
-          if v == true
+        destruct(x) do
+          if match { form(:equal?, lhs, rhs) }
+            lhs == rhs ? true : x
+          elsif match { form(:not, true) }
             false
-          elsif v == false
+          elsif match { form(:not, false) }
             true
-          elsif v.is_a?(Form) && v.type == :equal?
-            lhs, rhs = v.children
+          elsif match { form(:not, form(:equal?, lhs, rhs)) }
             fold_bool(_not_equal?(lhs, rhs))
-          elsif v.is_a?(Form) && v.type == :not_equal?
-            lhs, rhs = v.children
+          elsif match { form(:not, form(:not_equal?, lhs, rhs)) }
             fold_bool(_equal?(lhs, rhs))
           else
             recurse.call(:fold_bool)
           end
-        else
-          recurse.call(:fold_bool)
         end
       end
     end
@@ -208,28 +201,22 @@ class Destruct
     # remove redundant tests
     def remove_redundant_tests(x)
       map_form(x) do |recurse|
-        case x.type
-        when :if
-          cond, cons, alt = x.children
-          if cons == true && !alt
+        destruct(x) do
+          if match { form(:if, cond, true, false | nil) }
             remove_redundant_tests(cond)
-          elsif cond == true
+          elsif match { form(:if, true, cons, _) }
             remove_redundant_tests(cons)
-          elsif cond == false
+          elsif match { form(:if, false, _, alt) }
             remove_redundant_tests(alt)
+          elsif match { form(:and) }
+            true
+          elsif match { form(:and, v) }
+            remove_redundant_tests(v)
+          elsif match { form(:and, ~children) }
+            remove_redundant_tests(_and(*children.reject { |c| c == true }))
           else
             recurse.call(:remove_redundant_tests)
           end
-        when :and
-          if x.children.size == 0
-            true
-          elsif x.children.size == 1
-            x.children.first
-          else
-            _and(*x.children.reject { |c| c == true }.map { |c| remove_redundant_tests(c) })
-          end
-        else
-          recurse.call(:remove_redundant_tests)
         end
       end
     end
@@ -245,33 +232,29 @@ class Destruct
 
     def inline(x, map)
       map_form(x) do |recurse|
-        case x.type
-        when :set!
-          lhs, _ = x.children
-          if map.keys.include?(lhs)
+        destruct(x) do
+          if match { form(:set!, lhs, _) } && map.keys.include?(lhs)
             _noop
+          elsif match { form(:ident, _) }
+            map.fetch(x, x)
           else
             recurse.call { |c| inline(c, map) }
           end
-        when :ident
-          map.fetch(x, x)
-        else
-          recurse.call { |c| inline(c, map) }
         end
       end
     end
 
     def count_refs!(x, counts, map)
       map_form(x) do |recurse|
-        case x.type
-        when :set!
-          lhs, rhs = x.children
-          map[lhs] = rhs
-          count_refs!(rhs, counts, map)
-        when :ident
-          counts[x] += 1
-        else
-          recurse.call { |c| count_refs!(c, counts, map) }
+        destruct(x) do
+          if match { form(:set!, lhs, rhs) }
+            map[lhs] = rhs
+            count_refs!(rhs, counts, map)
+          elsif match { form(:ident, _) }
+            counts[x] += 1
+          else
+            recurse.call { |c| count_refs!(c, counts, map) }
+          end
         end
       end
       nil
