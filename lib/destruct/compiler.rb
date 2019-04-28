@@ -132,16 +132,15 @@ class Destruct
         show_code_on_error do
           c = _apply(matcher(pat), x, true, binding).tap(&print_pass("initial"))
           c = normalize(c).tap(&print_pass("normalize"))
-          # c = unlet(c).tap(&print_pass("unlet"))
-          # c = emit2(c).tap(&print_pass("emit2"))
-          if false && Destruct.optimize
-            c = remove_redundant_assignments(c, {}).tap(&print_pass("remove_redundant_assignments"))
-            c = squash_begins(c).tap(&print_pass("squash_begins"))
-            c = remove_redundant_tests(c).tap(&print_pass("remove_redundant_tests"))
-            c = inline_stuff(c).tap(&print_pass("inline_stuff"))
-            c = fold_bool(c).tap(&print_pass("fold_bool"))
-            c = remove_redundant_tests(c).tap(&print_pass("remove_redundant_tests"))
-            c = squash_begins(c).tap(&print_pass("squash_begins"))
+          if Destruct.optimize
+            c = inline(c) .tap(&print_pass("inline"))
+            # c = remove_redundant_assignments(c, {}).tap(&print_pass("remove_redundant_assignments"))
+            # c = squash_begins(c).tap(&print_pass("squash_begins"))
+            # c = remove_redundant_tests(c).tap(&print_pass("remove_redundant_tests"))
+            # c = inline_stuff(c).tap(&print_pass("inline_stuff"))
+            # c = fold_bool(c).tap(&print_pass("fold_bool"))
+            # c = remove_redundant_tests(c).tap(&print_pass("remove_redundant_tests"))
+            # c = squash_begins(c).tap(&print_pass("squash_begins"))
           end
           c = emit3(c)
           emit c
@@ -194,31 +193,31 @@ class Destruct
       end
     end
 
-    def unlet(x)
+    def inline(x)
       map_form(x) do |recurse|
         destruct(x) do
-          if match { form(:let, var, val, body) }
-            _apply(_lambda([unlet(var)], unlet(body)), unlet(val))
+          if match { form(:let, var, val, body) } && (literal_val?(val) || ident_count(var, body) <= 1)
+            inline(inline_ident(var, val, body))
           else
-            recurse.call(:unlet)
+            recurse.call(:inline)
           end
         end
       end
     end
 
-    def emit2(x)
+    def ident_count(var, x)
+      if x == var
+        1
+      elsif x.is_a?(Form)
+        x.children.map { |c| ident_count(var, c) }.reduce(:+)
+      else
+        0
+      end
+    end
+
+    def inline_ident(var, val, x)
       map_form(x) do |recurse|
-        destruct(x) do
-          if match { form(:apply, form(:lambda, params, body), ~args) }
-            _begin(*params.zip(args).map { |(p, a)| _set!(p, emit2(a)) }, emit2(body))
-          elsif match { form(:if, cond, cons, alt) }
-            tval = ident
-            _begin(_set!(tval, emit2(cond)),
-                   _if(tval, emit2(cons), emit2(alt)))
-          else
-            recurse.call(:emit2)
-          end
-        end
+        x == var ? val : recurse.call { |c| inline_ident(var, val, c) }
       end
     end
 
@@ -298,19 +297,19 @@ class Destruct
       inline(x, map)
     end
 
-    def inline(x, map)
-      map_form(x) do |recurse|
-        destruct(x) do
-          if match { form(:set!, lhs, _) } && map.keys.include?(lhs)
-            _noop
-          elsif match { form(:ident, _) }
-            map.fetch(x, x)
-          else
-            recurse.call { |c| inline(c, map) }
-          end
-        end
-      end
-    end
+    # def inline(x, map)
+    #   map_form(x) do |recurse|
+    #     destruct(x) do
+    #       if match { form(:set!, lhs, _) } && map.keys.include?(lhs)
+    #         _noop
+    #       elsif match { form(:ident, _) }
+    #         map.fetch(x, x)
+    #       else
+    #         recurse.call { |c| inline(c, map) }
+    #       end
+    #     end
+    #   end
+    # end
 
     def count_refs!(x, counts, map)
       map_form(x) do |recurse|
