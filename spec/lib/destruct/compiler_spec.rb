@@ -31,21 +31,22 @@ class Destruct
 
       given_pattern [1, 2]
       expect_success_on [1, 2]
-      # expect_failure_on [1, 1]
-      # expect_failure_on [2, 2]
+      expect_failure_on [1, 1]
+      expect_failure_on [2, 2]
     end
     it 'compiles vars' do
       Destruct.show_code = true
       Destruct.debug_compile = true
       Destruct.optimize = true
+      Destruct.print_passes = true
       # Boot1::Destruct.show_code = true
       # Boot1::Destruct.show_transformations = true
 
-      given_pattern Var.new(:foo)
-      expect_success_on 1, foo: 1
+      # given_pattern Var.new(:foo)
+      # expect_success_on 1, foo: 1
 
-      # given_pattern [Var.new(:foo), Var.new(:bar)]
-      # expect_success_on [1, 2], foo: 1, bar: 2
+      given_pattern [Var.new(:foo), Var.new(:bar)]
+      expect_success_on [1, 2], foo: 1, bar: 2
       #
       # given_pattern [Var.new(:foo), Var.new(:foo)]
       # expect_success_on [1, 1]

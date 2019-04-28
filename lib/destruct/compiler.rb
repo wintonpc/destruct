@@ -98,6 +98,8 @@ class Destruct
           "#(#{x.map { |c| to_sexp(c) }.join(" ")})"
         elsif x.is_a?(Symbol)
           "'#{x}"
+        elsif x == MakeEnv
+          "(make-env)"
         else
           x.inspect
         end
@@ -343,21 +345,21 @@ class Destruct
     #   end
     # end
 
-    def count_refs!(x, counts, map)
-      map_form(x) do |recurse|
-        destruct(x) do
-          if match { form(:set!, lhs, rhs) }
-            map[lhs] = rhs
-            count_refs!(rhs, counts, map)
-          elsif match { form(:ident, _) }
-            counts[x] += 1
-          else
-            recurse.call { |c| count_refs!(c, counts, map) }
-          end
-        end
-      end
-      nil
-    end
+    # def count_refs!(x, counts, map)
+    #   map_form(x) do |recurse|
+    #     destruct(x) do
+    #       if match { form(:set!, lhs, rhs) }
+    #         map[lhs] = rhs
+    #         count_refs!(rhs, counts, map)
+    #       elsif match { form(:ident, _) }
+    #         counts[x] += 1
+    #       else
+    #         recurse.call { |c| count_refs!(c, counts, map) }
+    #       end
+    #     end
+    #   end
+    #   nil
+    # end
 
     def squash_begins(x)
       map_form(x) do |recurse|
@@ -393,13 +395,31 @@ class Destruct
       Boot1::Destruct::Obj.new(klass)
     end
 
+    def let_to_set(x)
+      map_form(x) do |recurse|
+        destruct(x) do
+          if match { form(:let, var, val, body) }
+            _begin(continue_with(let_to_set(val)) { |x| _set!(var, x) }, let_to_set(body))
+          else
+            recurse.call(:let_to_set)
+          end
+        end
+      end
+    end
+
+    def continue_with(x, &k)
+      
+    end
+
+    def _set!(var, val)
+      Form.new(:set!, var, val)
+    end
+
     def emit3(x)
       destruct(x) do
         case
-        when match { form(:let, var, val <= form(:let | :if, ~children), body) }
-          "#{eref(var)} = begin\n#{emit3(val)}\nend\n#{emit3(body)}"
-        when match { form(:let, var, val, body) }
-          "#{eref(var)} = #{emit3(val)}\n#{emit3(body)}"
+        when match { form(:set!, var, val) }
+          "#{eref(var)} = #{emit3(val)}"
         when match { form(:if, cond, cons, alt) }
           ["if #{emit3(cond)}",
            emit3(cons),
