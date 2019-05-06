@@ -395,11 +395,13 @@ class Destruct
       Boot1::Destruct::Obj.new(klass)
     end
 
-    def let_to_set(x)
+    def denest_let(x)
       map_form(x) do |recurse|
         destruct(x) do
           if match { form(:let, var, val, body) }
-            _begin(continue_with(let_to_set(val)) { |x| _set!(var, x) }, let_to_set(body))
+            t = ident
+            _begin(_set!(t, val),
+                   _let(var, t, body))
           else
             recurse.call(:let_to_set)
           end
@@ -419,7 +421,11 @@ class Destruct
       destruct(x) do
         case
         when match { form(:let, var, val, body) }
-          "#{eref(var)} = begin\n#{emit3(val)}\nend\n#{emit3(body)}"
+          if contains_forms?(%i(if let begin), val)
+            "#{eref(var)} = begin\n#{emit3(val)}\nend\n#{emit3(body)}"
+          else
+            "#{eref(var)} = #{emit3(val)}\n#{emit3(body)}"
+          end
         when match { form(:if, cond, cons, alt) }
           ["if #{emit3(cond)}",
            emit3(cons),
@@ -456,6 +462,10 @@ class Destruct
           eref(x)
         end
       end
+    end
+
+    def contains_forms?(fs, x)
+      x.is_a?(Form) && (fs.include?(x.type) || x.children.any? { |c| contains_forms?(fs, c) })
     end
 
     def maybe_parenthesize(x)
