@@ -57,22 +57,52 @@ class Destruct
 
     Frame = Struct.new(:pat, :x, :env, :parent)
 
-    MakeEnv = make_singleton("#<MakeEnv>")
+    module HasMeta
+      def meta
+        @meta ||= {}
+      end
+
+      def with_meta(props)
+        meta.merge!(props)
+        self
+      end
+    end
 
     Form = Struct.new(:type, :children)
     class Form
+      include HasMeta
+
       def initialize(type, *children)
         self.type = type
         self.children = children
       end
 
       def to_s
-        if type == :ident
-          "❲#{children.first}❳"
-        else
-          "(#{type} #{children.map { |c| c.is_a?(Form) ? c.to_s : c.inspect }.join(" ")})"
-        end
+        "(#{type} #{children.map { |c| c.is_a?(HasMeta) ? c.to_s : c.inspect }.join(" ")})"
       end
+    end
+
+    Ident = Struct.new(:name)
+    class Ident
+      include HasMeta
+
+      def to_s
+        name.to_s
+      end
+    end
+
+    class MakeEnvClass
+      include HasMeta
+
+      def to_s
+        "#<MakeEnv>"
+      end
+    end
+
+    MakeEnv = MakeEnvClass.new
+
+    def meta(x)
+      x.is_a?(HasMeta) ? x.meta : {}
     end
 
     def self.pretty_sexp(x)
@@ -86,8 +116,8 @@ class Destruct
 
     def self.to_sexp(x)
       destruct(x) do
-        if match { form(:ident, name) }
-          name.to_s
+        if ident?(x)
+          x.name.to_s
         elsif match { form(:lambda, args, body) }
           "(lambda (#{args.map { |a| to_sexp(a) }.join(" ")}) #{to_sexp(body)})"
         elsif match { form(:let, var, val, body) }
@@ -123,7 +153,7 @@ class Destruct
     end
 
     def ident(prefix = "t")
-      Form.new(:ident, get_temp(prefix).to_sym)
+      Ident.new(get_temp(prefix).to_sym)
     end
 
     def initialize
@@ -188,8 +218,17 @@ class Destruct
       end
     end
 
+    def tx(x, method_name=nil, &block)
+      if x.is_a?(Form)
+        block ||= method(method_name)
+        Form.new(x.type, *x.children.map(&block))
+      else
+        x
+      end
+    end
+
     def ident_name(ident)
-      ident.children[0]
+      ident.name
     end
 
     def normalize(x)
@@ -227,6 +266,10 @@ class Destruct
       end
     end
 
+    def inline_ident(var, val, x)
+      x == var ? val : tx(x) { |c| inline_ident(var, val, c) }
+    end
+
     def inlineable?(var, val, body)
       literal_val?(val) ||
           ident?(val) ||
@@ -261,18 +304,16 @@ class Destruct
       end
     end
 
-    def inline_ident(var, val, x)
-      map_form(x) do |recurse|
-        x == var ? val : recurse.call { |c| inline_ident(var, val, c) }
-      end
-    end
-
     def lambda?(x)
       x.is_a?(Form) && x.type == :lambda
     end
 
+    def self.ident?(x)
+      x.is_a?(Ident)
+    end
+
     def ident?(x)
-      x.is_a?(Form) && x.type == :ident
+      x.is_a?(Ident)
     end
 
     def fold_bool(x)
@@ -436,7 +477,7 @@ class Destruct
           "#{emit3(lhs)} == #{emit3(rhs)}"
         when match { form(:not_equal?, lhs, rhs) }
           "#{emit3(lhs)} != #{emit3(rhs)}"
-        when match { form(:ident, _) }
+        when ident?(x)
           eref(x).to_s
         when match { form(:begin, ~children) }
           children.map { |x| emit3(x) }.join
