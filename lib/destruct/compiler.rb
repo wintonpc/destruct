@@ -206,18 +206,6 @@ class Destruct
       proc { |c| puts "#{name}:\n#{Compiler.pretty_sexp(c)}\n" if Destruct.print_passes }
     end
 
-    def map_form(x)
-      if x.is_a?(Form)
-        recurse = proc do |method_name, &map_child|
-          block = map_child || method(method_name)
-          Form.new(x.type, *x.children.map(&block))
-        end
-        yield recurse
-      else
-        x
-      end
-    end
-
     def tx(x, method_name=nil, &block)
       if x.is_a?(Form)
         block ||= method(method_name)
@@ -232,36 +220,32 @@ class Destruct
     end
 
     def normalize(x)
-      map_form(x) do |recurse|
-        destruct(x) do
-          if match { form(:apply, form(:lambda, params, body), ~args) }
-            params.size == args.size or raise "mismatched params/args: #{params} #{args}"
-            if params.none?
-              normalize(body)
-            else
-              var, *vars = params
-              val, *vals = args
-              _let(var, val, normalize(_apply(_lambda(vars, body), *vals)))
-            end
-          elsif match { form(:if, cond, cons, alt) }
-            tval = ident?(cond) ? cond : ident
-            _let(tval, normalize(cond),
-                 _if(tval, normalize(cons), normalize(alt)))
+      destruct(x) do
+        if match { form(:apply, form(:lambda, params, body), ~args) }
+          params.size == args.size or raise "mismatched params/args: #{params} #{args}"
+          if params.none?
+            normalize(body)
           else
-            recurse.call(:normalize)
+            var, *vars = params
+            val, *vals = args
+            _let(var, val, normalize(_apply(_lambda(vars, body), *vals)))
           end
+        elsif match { form(:if, cond, cons, alt) }
+          tval = ident?(cond) ? cond : ident
+          _let(tval, normalize(cond),
+               _if(tval, normalize(cons), normalize(alt)))
+        else
+          tx(x, :normalize)
         end
       end
     end
 
     def inline(x)
-      map_form(x) do |recurse|
-        destruct(x) do
-          if match { form(:let, var, val, body) } && inlineable?(var, val, body)
-            inline(inline_ident(var, val, body))
-          else
-            recurse.call(:inline)
-          end
+      destruct(x) do
+        if match { form(:let, var, val, body) } && inlineable?(var, val, body)
+          inline(inline_ident(var, val, body))
+        else
+          tx(x, :inline)
         end
       end
     end
@@ -317,48 +301,44 @@ class Destruct
     end
 
     def fold_bool(x)
-      map_form(x) do |recurse|
-        destruct(x) do
-          if match { form(:equal?, lhs, rhs) }
-            lhs == rhs ? true : x
-          elsif match { form(:not, true) }
-            false
-          elsif match { form(:not, false) }
-            true
-          elsif match { form(:not, form(:not, exp)) }
-            fold_bool(exp)
-          elsif match { form(:not, form(:equal?, lhs, rhs)) }
-            fold_bool(_not_equal?(lhs, rhs))
-          elsif match { form(:not, form(:not_equal?, lhs, rhs)) }
-            fold_bool(_equal?(lhs, rhs))
-          else
-            recurse.call(:fold_bool)
-          end
+      destruct(x) do
+        if match { form(:equal?, lhs, rhs) }
+          lhs == rhs ? true : x
+        elsif match { form(:not, true) }
+          false
+        elsif match { form(:not, false) }
+          true
+        elsif match { form(:not, form(:not, exp)) }
+          fold_bool(exp)
+        elsif match { form(:not, form(:equal?, lhs, rhs)) }
+          fold_bool(_not_equal?(lhs, rhs))
+        elsif match { form(:not, form(:not_equal?, lhs, rhs)) }
+          fold_bool(_equal?(lhs, rhs))
+        else
+          tx(x, :fold_bool)
         end
       end
     end
 
     # remove redundant tests
     def remove_redundant_tests(x)
-      map_form(x) do |recurse|
-        destruct(x) do
-          if match { form(:if, cond, true, false | nil) }
-            remove_redundant_tests(cond)
-          elsif match { form(:if, cond, false | nil, true) }
-            remove_redundant_tests(_not(cond))
-          elsif match { form(:if, true, cons, _) }
-            remove_redundant_tests(cons)
-          elsif match { form(:if, false, _, alt) }
-            remove_redundant_tests(alt)
-          elsif match { form(:and) }
-            true
-          elsif match { form(:and, v) }
-            remove_redundant_tests(v)
-          elsif match { form(:and, ~children) } && children.any? { |c| c == true }
-            remove_redundant_tests(_and(*children.reject { |c| c == true }))
-          else
-            recurse.call(:remove_redundant_tests)
-          end
+      destruct(x) do
+        if match { form(:if, cond, true, false | nil) }
+          remove_redundant_tests(cond)
+        elsif match { form(:if, cond, false | nil, true) }
+          remove_redundant_tests(_not(cond))
+        elsif match { form(:if, true, cons, _) }
+          remove_redundant_tests(cons)
+        elsif match { form(:if, false, _, alt) }
+          remove_redundant_tests(alt)
+        elsif match { form(:and) }
+          true
+        elsif match { form(:and, v) }
+          remove_redundant_tests(v)
+        elsif match { form(:and, ~children) } && children.any? { |c| c == true }
+          remove_redundant_tests(_and(*children.reject { |c| c == true }))
+        else
+          tx(x, :remove_redundant_tests)
         end
       end
     end
@@ -403,20 +383,18 @@ class Destruct
     # end
 
     def squash_begins(x)
-      map_form(x) do |recurse|
-        if x.type == :begin
-          squashed_children =
-              x.children
-                  .map { |c| squash_begins(c) }
-                  .reject { |c| c.is_a?(Form) && c.type == :begin && c.children.none? }
-          if squashed_children.size == 1
-            squashed_children.first
-          else
-            _begin(*squashed_children)
-          end
+      if x.type == :begin
+        squashed_children =
+            x.children
+                .map { |c| squash_begins(c) }
+                .reject { |c| c.is_a?(Form) && c.type == :begin && c.children.none? }
+        if squashed_children.size == 1
+          squashed_children.first
         else
-          recurse.call { |c| squash_begins(c) }
+          _begin(*squashed_children)
         end
+      else
+        tx(x, :squash_begins)
       end
     end
 
@@ -437,15 +415,13 @@ class Destruct
     end
 
     def denest_let(x)
-      map_form(x) do |recurse|
-        destruct(x) do
-          if match { form(:let, var, val, body) }
-            t = ident
-            _begin(_set!(t, val),
-                   _let(var, t, body))
-          else
-            recurse.call(:let_to_set)
-          end
+      destruct(x) do
+        if match { form(:let, var, val, body) }
+          t = ident
+          _begin(_set!(t, val),
+                 _let(var, t, body))
+        else
+          tx(x, :let_to_set)
         end
       end
     end
