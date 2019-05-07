@@ -62,10 +62,25 @@ class Destruct
         @meta ||= {}
       end
 
-      def with_meta(props)
-        meta.merge!(props)
+      def meta_in_scope(scope_path)
+        meta.values_at(*scope_path).select(&:itself).reduce({}) { |acc, m| acc.merge(m) }
+      end
+
+      def with_meta(scope, props)
+        if props.any?
+          meta.fetch(scope) { meta[scope] = {} }.merge!(props)
+        end
         self
       end
+
+      def merge_meta(other)
+        other.meta.each { |scope, props| with_meta(scope, props) }
+        self
+      end
+    end
+
+    def meta(x, scope)
+      x.is_a?(HasMeta) ? x.meta[scope] : {}
     end
 
     Form = Struct.new(:type, :children)
@@ -94,6 +109,10 @@ class Destruct
     class MakeEnvClass
       include HasMeta
 
+      def initialize
+        with_meta(:top, type: :env)
+      end
+
       def to_s
         "#<MakeEnv>"
       end
@@ -101,31 +120,32 @@ class Destruct
 
     MakeEnv = MakeEnvClass.new
 
-    def meta(x)
-      x.is_a?(HasMeta) ? x.meta : {}
-    end
-
     def self.pretty_sexp(x)
       require 'open3'
       Open3.popen3("scheme -q") do |i, o, e, t|
-        i.write "(pretty-print '#{to_sexp(x)})"
+        i.write "(pretty-print '#{to_sexp(x, [])})"
         i.close
         return o.read
       end
     end
 
-    def self.to_sexp(x)
+    def self.to_sexp(x, path)
       destruct(x) do
         if ident?(x)
-          x.name.to_s
+          scoped_meta = x.meta_in_scope(path)
+          if scoped_meta.any?
+            "'#(#{x.name} #{scoped_meta.map { |k, v| "(#{k} . #{v})"}.join(" ")})"
+          else
+            x.name.to_s
+          end
         elsif match { form(:lambda, args, body) }
-          "(lambda (#{args.map { |a| to_sexp(a) }.join(" ")}) #{to_sexp(body)})"
+          "(lambda (#{args.map { |a| to_sexp(a, epath(x, path)) }.join(" ")}) #{to_sexp(body, epath(x, path))})"
         elsif match { form(:let, var, val, body) }
-          "(let ([#{to_sexp(var)} #{to_sexp(val)}]) #{to_sexp(body)})"
+          "(let ([#{to_sexp(var, epath(x, path))} #{to_sexp(val, epath(x, path))}]) #{to_sexp(body, epath(x, path))})"
         elsif match { form(type, ~children) }
-          "(#{type} #{children.map { |c| to_sexp(c) }.join(" ")})"
+          "(#{type} #{children.map { |c| to_sexp(c, epath(x, path)) }.join(" ")})"
         elsif x.is_a?(Array)
-          "#(#{x.map { |c| to_sexp(c) }.join(" ")})"
+          "#(#{x.map { |c| to_sexp(c, epath(x, path)) }.join(" ")})"
         elsif x.is_a?(Symbol)
           "'#{x}"
         elsif x == MakeEnv
@@ -136,6 +156,14 @@ class Destruct
       end
     end
 
+    def self.epath(x, ls)
+      ls.dup.unshift(x)
+    end
+
+    def epath(x, ls)
+      ls.dup.unshift(x)
+    end
+
     class CompilerPatternRules
       include Boot1::Destruct::RuleSet
 
@@ -143,6 +171,9 @@ class Destruct
         meta_rule_set Boot1::Destruct::RuleSets::AstToPattern
         add_rule(-> { form(type, *children) }) do |type:, children:|
           Boot1::Destruct::Obj.new(Form, type: type, children: children)
+        end
+        add_rule(-> { ident(name) }) do |name:|
+          Boot1::Destruct::Obj.new(Ident, name: name)
         end
         add_rule_set(Boot1::Destruct::RuleSets::StandardPattern)
       end
@@ -175,8 +206,10 @@ class Destruct
           c = normalize(c).tap(&print_pass("normalize"))
           c = inline(c).tap(&print_pass("inline"))
           c = fixed_point(c) do |c|
-            c = remove_redundant_tests(c).then(&method(:inline)).tap(&print_pass("remove_redundant_tests"))
-            fold_bool(c).tap(&print_pass("fold_bool"))
+            c = remove_redundant_tests(c, []).then(&method(:inline)).tap(&print_pass("remove_redundant_tests"))
+            flow_meta!(c).tap(&print_pass("flow_meta!"))
+            c = fold_bool(c).tap(&print_pass("fold_bool"))
+            flow_meta!(c).tap(&print_pass("flow_meta!"))
           end
           if Destruct.optimize
             # c = squash_begins(c).tap(&print_pass("squash_begins"))
@@ -185,7 +218,7 @@ class Destruct
             # c = squash_begins(c).tap(&print_pass("squash_begins"))
           end
           # c = normalize(c).tap(&print_pass("normalize"))
-          c = emit3(c)
+          c = emit_ruby(c)
           emit c
         end
       end
@@ -300,6 +333,24 @@ class Destruct
       x.is_a?(Ident)
     end
 
+    def flow_meta!(x)
+      destruct(x) do
+        if match { form(:let, var, val, body) }
+          var.merge_meta(flow_meta!(val))
+          x.merge_meta(flow_meta!(body))
+        elsif match { form(:if, form(:not, id <= ident(_)), cons, alt) }
+          id.with_meta(cons, boolness: false) if cons.is_a?(Form)
+          id.with_meta(alt, boolness: true) if alt.is_a?(Form)
+          flow_meta!(cons)
+          flow_meta!(alt)
+          x
+        else
+          tx(x, :flow_meta!)
+        end
+      end
+      x
+    end
+
     def fold_bool(x)
       destruct(x) do
         if match { form(:equal?, lhs, rhs) }
@@ -321,26 +372,30 @@ class Destruct
     end
 
     # remove redundant tests
-    def remove_redundant_tests(x)
+    def remove_redundant_tests(x, path)
       destruct(x) do
         if match { form(:if, cond, true, false | nil) }
-          remove_redundant_tests(cond)
+          remove_redundant_tests(cond, epath(x, path))
         elsif match { form(:if, cond, false | nil, true) }
-          remove_redundant_tests(_not(cond))
+          remove_redundant_tests(_not(cond), epath(x, path))
         elsif match { form(:if, true, cons, _) }
-          remove_redundant_tests(cons)
+          remove_redundant_tests(cons, epath(x, path))
         elsif match { form(:if, false, _, alt) }
-          remove_redundant_tests(alt)
+          remove_redundant_tests(alt, epath(x, path))
         elsif match { form(:and) }
           true
         elsif match { form(:and, v) }
-          remove_redundant_tests(v)
-        elsif match { form(:and, ~children) } && children.any? { |c| c == true }
-          remove_redundant_tests(_and(*children.reject { |c| c == true }))
+          remove_redundant_tests(v, epath(x, path))
+        elsif match { form(:and, ~children) } && children.any? { |c| c == true || truthy_in_scope?(c, path) }
+          remove_redundant_tests(_and(*children.reject { |c| c == true || truthy_in_scope?(c, path) }), epath(x, path))
         else
-          tx(x, :remove_redundant_tests)
+          tx(x) { |c| remove_redundant_tests(c, epath(x, path)) }
         end
       end
+    end
+
+    def truthy_in_scope?(x, scope_path)
+      x.meta_in_scope(scope_path)[:boolness] == true
     end
 
     # inline stuff
@@ -426,37 +481,33 @@ class Destruct
       end
     end
 
-    def continue_with(x, &k)
-
-    end
-
     def _set!(var, val)
       Form.new(:set!, var, val)
     end
 
-    def emit3(x)
+    def emit_ruby(x)
       destruct(x) do
         case
         when match { form(:let, var, val, body) }
           if contains_forms?(%i(if let begin), val)
-            "#{eref(var)} = begin\n#{emit3(val)}\nend\n#{emit3(body)}"
+            "#{eref(var)} = begin\n#{emit_ruby(val)}\nend\n#{emit_ruby(body)}"
           else
-            "#{eref(var)} = #{emit3(val)}\n#{emit3(body)}"
+            "#{eref(var)} = #{emit_ruby(val)}\n#{emit_ruby(body)}"
           end
         when match { form(:if, cond, cons, alt) }
-          ["if #{emit3(cond)}",
-           emit3(cons),
+          ["if #{emit_ruby(cond)}",
+           emit_ruby(cons),
            "else",
-           emit3(alt),
+           emit_ruby(alt),
            "end"].join("\n")
         when match { form(:equal?, lhs, rhs) }
-          "#{emit3(lhs)} == #{emit3(rhs)}"
+          "#{emit_ruby(lhs)} == #{emit_ruby(rhs)}"
         when match { form(:not_equal?, lhs, rhs) }
-          "#{emit3(lhs)} != #{emit3(rhs)}"
+          "#{emit_ruby(lhs)} != #{emit_ruby(rhs)}"
         when ident?(x)
           eref(x).to_s
         when match { form(:begin, ~children) }
-          children.map { |x| emit3(x) }.join
+          children.map { |x| emit_ruby(x) }.join
         when match { form(:and, ~children) }
           children.map { |c| maybe_parenthesize(c) }.join(" && ")
         when match { form(:or, ~children) }
@@ -464,13 +515,13 @@ class Destruct
         when match { form(:not, x) }
           "!(#{maybe_parenthesize(x.children.first)})"
         when match { form(:set_field, recv, meth, val) }
-          "#{emit3(recv)}.#{meth} = #{emit3(val)}\n"
+          "#{emit_ruby(recv)}.#{meth} = #{emit_ruby(val)}\n"
         when match { form(:get_field, recv, meth) }
-          "#{emit3(recv)}.#{meth}"
+          "#{emit_ruby(recv)}.#{meth}"
         when match { form(:array_get, arr, index) }
-          "#{emit3(arr)}[#{emit3(index)}]"
+          "#{emit_ruby(arr)}[#{emit_ruby(index)}]"
         when match { form(:is_type, recv, klass) }
-          "#{emit3(recv)}.is_a?(#{emit3(klass)})"
+          "#{emit_ruby(recv)}.is_a?(#{emit_ruby(klass)})"
         when match { Form[] }
           raise "emit3: unexpected: #{x}"
         when match(MakeEnv)
@@ -487,9 +538,9 @@ class Destruct
 
     def maybe_parenthesize(x)
       if x.is_a?(Form) && %i(and or).include?(x.type)
-        "(#{emit3(x)})"
+        "(#{emit_ruby(x)})"
       else
-        emit3(x)
+        emit_ruby(x)
       end
     end
 
