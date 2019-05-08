@@ -134,7 +134,7 @@ class Destruct
         if ident?(x)
           scoped_meta = x.meta_in_scope(path)
           if scoped_meta.any?
-            "'#(#{x.name} #{scoped_meta.map { |k, v| "(#{k} . #{v})"}.join(" ")})"
+            "'#(#{x.name} #{scoped_meta.map { |k, v| "(#{k} . #{v})" }.join(" ")})"
           else
             x.name.to_s
           end
@@ -206,10 +206,12 @@ class Destruct
           c = normalize(c).tap(&print_pass("normalize"))
           c = inline(c).tap(&print_pass("inline"))
           c = fixed_point(c) do |c|
+            clear_meta!(c).tap(&print_pass("clear_meta!"))
+            flow_meta!(c).tap(&print_pass("flow_meta!"))
             c = remove_redundant_tests(c, []).then(&method(:inline)).tap(&print_pass("remove_redundant_tests"))
+            clear_meta!(c).tap(&print_pass("clear_meta!"))
             flow_meta!(c).tap(&print_pass("flow_meta!"))
             c = fold_bool(c).tap(&print_pass("fold_bool"))
-            flow_meta!(c).tap(&print_pass("flow_meta!"))
           end
           if Destruct.optimize
             # c = squash_begins(c).tap(&print_pass("squash_begins"))
@@ -239,7 +241,7 @@ class Destruct
       proc { |c| puts "#{name}:\n#{Compiler.pretty_sexp(c)}\n" if Destruct.print_passes }
     end
 
-    def tx(x, method_name=nil, &block)
+    def tx(x, method_name = nil, &block)
       if x.is_a?(Form)
         block ||= method(method_name)
         Form.new(x.type, *x.children.map(&block))
@@ -333,6 +335,12 @@ class Destruct
       x.is_a?(Ident)
     end
 
+    def clear_meta!(x)
+      x.meta.clear if x.is_a?(HasMeta)
+      tx(x, :clear_meta!)
+      x
+    end
+
     def flow_meta!(x)
       destruct(x) do
         if match { form(:let, var, val, body) }
@@ -341,6 +349,12 @@ class Destruct
         elsif match { form(:if, form(:not, id <= ident(_)), cons, alt) }
           id.with_meta(cons, boolness: false) if cons.is_a?(Form)
           id.with_meta(alt, boolness: true) if alt.is_a?(Form)
+          flow_meta!(cons)
+          flow_meta!(alt)
+          x
+        elsif match { form(:if, id <= ident(_), cons, alt) }
+          id.with_meta(cons, boolness: true) if cons.is_a?(Form)
+          id.with_meta(alt, boolness: false) if alt.is_a?(Form)
           flow_meta!(cons)
           flow_meta!(alt)
           x
@@ -373,29 +387,46 @@ class Destruct
 
     # remove redundant tests
     def remove_redundant_tests(x, path)
-      destruct(x) do
-        if match { form(:if, cond, true, false | nil) }
+      if x.to_s.start_with?("(and")
+        "".to_s
+      end
+      result = destruct(x) do
+        truthy = proc { |v| truthy_in_scope?(v, epath(x, path)) }
+        falsey = proc { |v| falsey_in_scope?(v, epath(x, path)) }
+        if match { form(:if, cond, cons, alt) } && falsey.(cons) && truthy.(alt)
+          _and(_not(remove_redundant_tests(cond, epath(x, path))), remove_redundant_tests(alt, epath(x, path)))
+        elsif match { form(:if, cond, true, alt) } && falsey.(alt)
           remove_redundant_tests(cond, epath(x, path))
-        elsif match { form(:if, cond, false | nil, true) }
+        elsif match { form(:if, cond, cons, true) } && falsey.(cons)
           remove_redundant_tests(_not(cond), epath(x, path))
-        elsif match { form(:if, true, cons, _) }
+        elsif match { form(:if, cond, cons, _) } && truthy.(cond)
           remove_redundant_tests(cons, epath(x, path))
-        elsif match { form(:if, false, _, alt) }
+        elsif match { form(:if, cond, _, alt) } && falsey.(cond)
           remove_redundant_tests(alt, epath(x, path))
+        elsif match { form(:if, id <= ident(_), id, alt) } && falsey.(alt)
+          id
+        elsif match { form(:if, form(:not, id <= ident(_)), cons, id) } && falsey.(cons)
+          id
         elsif match { form(:and) }
           true
         elsif match { form(:and, v) }
           remove_redundant_tests(v, epath(x, path))
-        elsif match { form(:and, ~children) } && children.any? { |c| c == true || truthy_in_scope?(c, path) }
-          remove_redundant_tests(_and(*children.reject { |c| c == true || truthy_in_scope?(c, path) }), epath(x, path))
+        elsif match { form(:and, ~children) } && children.any? { |c| truthy.(c) }
+          remove_redundant_tests(_and(*children.reject { |c| truthy.(c) }), epath(x, path))
         else
           tx(x) { |c| remove_redundant_tests(c, epath(x, path)) }
         end
       end
+      puts "#{x}\n=> #{result}"
+      result
     end
 
     def truthy_in_scope?(x, scope_path)
-      x.meta_in_scope(scope_path)[:boolness] == true
+      x == true || (x.is_a?(HasMeta) && x.meta_in_scope(scope_path)[:boolness] == true)
+    end
+
+    def falsey_in_scope?(x, scope_path)
+      x == false || x == nil || (x.is_a?(HasMeta) && x.meta_in_scope(scope_path)[:boolness] == false)
     end
 
     # inline stuff
