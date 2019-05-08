@@ -63,7 +63,7 @@ class Destruct
       end
 
       def meta_in_scope(scope_path)
-        meta.values_at(*scope_path).select(&:itself).reduce({}) { |acc, m| acc.merge(m) }
+        meta.values_at(:top, *scope_path).select(&:itself).reduce({}) { |acc, m| acc.merge(m) }
       end
 
       def with_meta(scope, props)
@@ -108,10 +108,6 @@ class Destruct
 
     class MakeEnvClass
       include HasMeta
-
-      def initialize
-        with_meta(:top, type: :env)
-      end
 
       def to_s
         "#<MakeEnv>"
@@ -346,6 +342,9 @@ class Destruct
         if match { form(:let, var, val, body) }
           var.merge_meta(flow_meta!(val))
           x.merge_meta(flow_meta!(body))
+        elsif match { form(:begin, ~bodies) }
+          bodies.each { |b| flow_meta!(b) }
+          x.merge_meta(bodies.last) if bodies.last.is_a?(HasMeta)
         elsif match { form(:if, form(:not, id <= ident(_)), cons, alt) }
           id.with_meta(cons, boolness: false) if cons.is_a?(Form)
           id.with_meta(alt, boolness: true) if alt.is_a?(Form)
@@ -358,6 +357,8 @@ class Destruct
           flow_meta!(cons)
           flow_meta!(alt)
           x
+        elsif x == MakeEnv
+          x.with_meta(:top, type: :env)
         else
           tx(x, :flow_meta!)
         end
