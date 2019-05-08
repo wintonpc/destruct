@@ -383,6 +383,8 @@ class Destruct
           fold_bool(_and(*children.flat_map { |c| and?(c) ? c.children : [c] }))
         elsif match { form(:not, form(:or, ~children)) } && children.size > 1
           fold_bool(_and(*children.map { |c| _not(c) }))
+        elsif match { form(:not, form(:and, ~children)) } && children.size > 1
+          fold_bool(_or(*children.map { |c| _not(c) }))
         else
           tx(x, :fold_bool)
         end
