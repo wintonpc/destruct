@@ -27,7 +27,7 @@ class Destruct
       Destruct.show_code = true
       Destruct.debug_compile = true
       Destruct.optimize = true
-      Destruct.print_passes = true
+      # Destruct.print_passes = true
 
       given_pattern [1, 2]
       expect_success_on [1, 2]

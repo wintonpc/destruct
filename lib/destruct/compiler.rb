@@ -397,7 +397,7 @@ class Destruct
     end
 
     def remove_redundant_tests(x, path)
-      puts "=> #{x}"
+      # puts "=> #{x}"
       path = epath(x, path)
       result = destruct(x) do
         truthy = proc { |v| truthy_in_scope?(v, path) }
@@ -434,7 +434,7 @@ class Destruct
           tx(x) { |c| remove_redundant_tests(c, path) }
         end
       end
-      puts "<= #{result}"
+      # puts "<= #{result}"
       result
     end
 
