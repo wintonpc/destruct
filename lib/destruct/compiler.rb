@@ -396,26 +396,29 @@ class Destruct
       x.is_a?(Form) && x.type == :and
     end
 
-    # remove redundant tests
     def remove_redundant_tests(x, path)
       path = epath(x, path)
       result = destruct(x) do
         truthy = proc { |v| truthy_in_scope?(v, path) }
         falsey = proc { |v| falsey_in_scope?(v, path) }
         if match { form(:if, cond, cons, alt) } && falsey.(cons) && !contains_complex_forms?(alt)
-          _and(_not(remove_redundant_tests(cond, path)), remove_redundant_tests(alt, path))
-        elsif match { form(:if, cond, true, alt) } && falsey.(alt)
-          remove_redundant_tests(cond, path)
-        elsif match { form(:if, cond, cons, true) } && falsey.(cons)
-          remove_redundant_tests(_not(cond), path)
-        elsif match { form(:if, cond, cons, _) } && truthy.(cond)
-          remove_redundant_tests(cons, path)
-        elsif match { form(:if, cond, _, alt) } && falsey.(cond)
-          remove_redundant_tests(alt, path)
-        elsif match { form(:if, id <= ident(_), id, alt) } && falsey.(alt)
-          id
-        elsif match { form(:if, form(:not, id <= ident(_)), cons, id) } && falsey.(cons)
-          id
+          if falsey.(cons) && !contains_complex_forms?(alt)
+            _and(_not(remove_redundant_tests(cond, path)), remove_redundant_tests(alt, path))
+          elsif cons == true && falsey.(alt)
+            remove_redundant_tests(cond, path)
+          elsif alt == true && falsey.(cons)
+            remove_redundant_tests(_not(cond), path)
+          elsif truthy.(cond)
+            remove_redundant_tests(cons, path)
+          elsif falsey.(cond)
+            remove_redundant_tests(alt, path)
+          elsif ident?(cond) && cons == cond && falsey.(alt)
+            id
+          elsif ident?(cond) && alt == cond && falsey.(cons)
+            id
+          else
+            tx(x) { |c| remove_redundant_tests(c, path) }
+          end
         elsif match { form(:and) }
           true
         elsif match { form(:and, v) }
