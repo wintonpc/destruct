@@ -119,7 +119,7 @@ class Destruct
     def self.pretty_sexp(x)
       require 'open3'
       Open3.popen3("scheme -q") do |i, o, e, t|
-        i.write "(pretty-print '#{to_sexp(x, [])})"
+        i.write "(pretty-line-length 140) (pretty-print '#{to_sexp(x, [])})"
         i.close
         return o.read
       end
@@ -358,7 +358,7 @@ class Destruct
           flow_meta!(alt)
           x
         elsif x == MakeEnv
-          x.with_meta(:top, type: :env)
+          x.with_meta(:top, boolness: true, type: :env)
         else
           tx(x, :flow_meta!)
         end
@@ -397,11 +397,12 @@ class Destruct
     end
 
     def remove_redundant_tests(x, path)
+      puts "=> #{x}"
       path = epath(x, path)
       result = destruct(x) do
         truthy = proc { |v| truthy_in_scope?(v, path) }
         falsey = proc { |v| falsey_in_scope?(v, path) }
-        if match { form(:if, cond, cons, alt) } && falsey.(cons) && !contains_complex_forms?(alt)
+        if match { form(:if, cond, cons, alt) }
           if falsey.(cons) && !contains_complex_forms?(alt)
             _and(_not(remove_redundant_tests(cond, path)), remove_redundant_tests(alt, path))
           elsif cons == true && falsey.(alt)
@@ -419,6 +420,10 @@ class Destruct
           else
             tx(x) { |c| remove_redundant_tests(c, path) }
           end
+        elsif match { form(:not, c) } && truthy.(c)
+          false
+        elsif match { form(:equal?, lhs, rhs) } && env?(lhs, path) && rhs == true
+          false
         elsif match { form(:and) }
           true
         elsif match { form(:and, v) }
@@ -429,7 +434,7 @@ class Destruct
           tx(x) { |c| remove_redundant_tests(c, path) }
         end
       end
-      # puts "#{x}\n=> #{result}"
+      puts "<= #{result}"
       result
     end
 
@@ -447,6 +452,10 @@ class Destruct
 
     def falsey_in_scope?(x, scope_path)
       x == false || x == nil || (x.is_a?(HasMeta) && x.meta_in_scope(scope_path)[:boolness] == false)
+    end
+
+    def env?(x, scope_path)
+      x == MakeEnv || (x.is_a?(HasMeta) && x.meta_in_scope(scope_path)[:type] == :env)
     end
 
     # inline stuff
