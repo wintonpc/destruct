@@ -206,10 +206,10 @@ class Destruct
           c = normalize(c).tap(&print_pass("normalize"))
           c = inline(c).tap(&print_pass("inline"))
           c = fixed_point(c) do |c|
-            clear_meta!(c).tap(&print_pass("clear_meta!"))
+            clear_meta!(c)#.tap(&print_pass("clear_meta!"))
             flow_meta!(c).tap(&print_pass("flow_meta!"))
             c = remove_redundant_tests(c, []).then(&method(:inline)).tap(&print_pass("remove_redundant_tests"))
-            clear_meta!(c).tap(&print_pass("clear_meta!"))
+            clear_meta!(c)#.tap(&print_pass("clear_meta!"))
             flow_meta!(c).tap(&print_pass("flow_meta!"))
             c = fold_bool(c).tap(&print_pass("fold_bool"))
           end
@@ -379,30 +379,36 @@ class Destruct
           fold_bool(_not_equal?(lhs, rhs))
         elsif match { form(:not, form(:not_equal?, lhs, rhs)) }
           fold_bool(_equal?(lhs, rhs))
+        elsif match { form(:and, ~children) } && children.any? { |c| and?(c) }
+          fold_bool(_and(*children.flat_map { |c| and?(c) ? c.children : [c] }))
+        elsif match { form(:not, form(:or, ~children)) } && children.size > 1
+          fold_bool(_and(*children.map { |c| _not(c) }))
         else
           tx(x, :fold_bool)
         end
       end
     end
 
+    def and?(x)
+      x.is_a?(Form) && x.type == :and
+    end
+
     # remove redundant tests
     def remove_redundant_tests(x, path)
-      if x.to_s.start_with?("(and")
-        "".to_s
-      end
+      path = epath(x, path)
       result = destruct(x) do
-        truthy = proc { |v| truthy_in_scope?(v, epath(x, path)) }
-        falsey = proc { |v| falsey_in_scope?(v, epath(x, path)) }
-        if match { form(:if, cond, cons, alt) } && falsey.(cons) && truthy.(alt)
-          _and(_not(remove_redundant_tests(cond, epath(x, path))), remove_redundant_tests(alt, epath(x, path)))
+        truthy = proc { |v| truthy_in_scope?(v, path) }
+        falsey = proc { |v| falsey_in_scope?(v, path) }
+        if match { form(:if, cond, cons, alt) } && falsey.(cons) && !contains_complex_forms?(alt)
+          _and(_not(remove_redundant_tests(cond, path)), remove_redundant_tests(alt, path))
         elsif match { form(:if, cond, true, alt) } && falsey.(alt)
-          remove_redundant_tests(cond, epath(x, path))
+          remove_redundant_tests(cond, path)
         elsif match { form(:if, cond, cons, true) } && falsey.(cons)
-          remove_redundant_tests(_not(cond), epath(x, path))
+          remove_redundant_tests(_not(cond), path)
         elsif match { form(:if, cond, cons, _) } && truthy.(cond)
-          remove_redundant_tests(cons, epath(x, path))
+          remove_redundant_tests(cons, path)
         elsif match { form(:if, cond, _, alt) } && falsey.(cond)
-          remove_redundant_tests(alt, epath(x, path))
+          remove_redundant_tests(alt, path)
         elsif match { form(:if, id <= ident(_), id, alt) } && falsey.(alt)
           id
         elsif match { form(:if, form(:not, id <= ident(_)), cons, id) } && falsey.(cons)
@@ -410,15 +416,23 @@ class Destruct
         elsif match { form(:and) }
           true
         elsif match { form(:and, v) }
-          remove_redundant_tests(v, epath(x, path))
-        elsif match { form(:and, ~children) } && children.any? { |c| truthy.(c) }
-          remove_redundant_tests(_and(*children.reject { |c| truthy.(c) }), epath(x, path))
+          remove_redundant_tests(v, path)
+        elsif match { form(:and, ~children) } && (children.any? { |c| truthy.(c) } || contains_duplicates?(children))
+          remove_redundant_tests(_and(*children.reject { |c| truthy.(c) }.uniq), path)
         else
-          tx(x) { |c| remove_redundant_tests(c, epath(x, path)) }
+          tx(x) { |c| remove_redundant_tests(c, path) }
         end
       end
-      puts "#{x}\n=> #{result}"
+      # puts "#{x}\n=> #{result}"
       result
+    end
+
+    def contains_duplicates?(xs)
+      xs.uniq.size < xs.size
+    end
+
+    def contains_complex_forms?(x)
+      contains_forms?(%i(if let begin), x)
     end
 
     def truthy_in_scope?(x, scope_path)
@@ -520,7 +534,7 @@ class Destruct
       destruct(x) do
         case
         when match { form(:let, var, val, body) }
-          if contains_forms?(%i(if let begin), val)
+          if contains_complex_forms?(val)
             "#{eref(var)} = begin\n#{emit_ruby(val)}\nend\n#{emit_ruby(body)}"
           else
             "#{eref(var)} = #{emit_ruby(val)}\n#{emit_ruby(body)}"
