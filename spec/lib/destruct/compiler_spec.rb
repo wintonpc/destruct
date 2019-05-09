@@ -38,15 +38,20 @@ class Destruct
       Destruct.show_code = true
       Destruct.debug_compile = true
       Destruct.optimize = true
-      # Destruct.print_passes = true
+      Destruct.print_passes = true
       # Boot1::Destruct.show_code = true
       # Boot1::Destruct.show_transformations = true
 
       # given_pattern Var.new(:foo)
       # expect_success_on 1, foo: 1
 
-      given_pattern [Var.new(:foo), Var.new(:bar)]
-      expect_success_on [1, 2], foo: 1, bar: 2
+      # $max_iters = 0
+      # loop do
+        # puts "$max_iters = #{$max_iters}"
+        given_pattern [Var.new(:foo), 2, Var.new(:bar)]
+        expect_success_on [1, 2, 3], foo: 1, bar: 3
+        # $max_iters += 1
+      # end
 
       #
       # given_pattern [Var.new(:foo), Var.new(:foo)]

@@ -30,6 +30,7 @@ class Destruct
         else
           compiled_patterns.fetch(pat) do # TODO: consider caching by object_id
             compiled_patterns[pat] = begin
+                                       # begin
               cp = Compiler.new.compile(pat)
               on_compile_handlers.each { |h| h.(pat) }
               cp
@@ -212,18 +213,8 @@ class Destruct
             clear_meta!(c)#.tap(&print_pass("clear_meta!"))
             flow_meta!(c).tap(&print_pass("flow_meta!"))
             c = remove_redundant_tests(c, []).then(&method(:inline)).tap(&print_pass("remove_redundant_tests"))
-            clear_meta!(c)#.tap(&print_pass("clear_meta!"))
-            flow_meta!(c).tap(&print_pass("flow_meta!"))
             c = fold_bool(c).tap(&print_pass("fold_bool"))
           end
-          if Destruct.optimize
-            # c = squash_begins(c).tap(&print_pass("squash_begins"))
-            # c = remove_redundant_tests(c).tap(&print_pass("remove_redundant_tests"))
-            # c = inline_stuff(c).tap(&print_pass("inline_stuff"))
-            # c = squash_begins(c).tap(&print_pass("squash_begins"))
-          end
-          # c = normalize(c).tap(&print_pass("normalize"))
-          # c = remove_bind(c).tap(&print_pass("remove_bind"))
           c = emit_ruby(c)
           emit c
         end
@@ -232,11 +223,12 @@ class Destruct
       CompiledPattern.new(pat, g, @var_names)
     end
 
-    def fixed_point(x)
+    def fixed_point(x, max_iters = $max_iters || 1000)
       last_x = Object.new
-      while x != last_x
+      while x != last_x && max_iters > 0
         last_x = x
         x = yield(x)
+        max_iters -= 1
       end
       x
     end
@@ -442,8 +434,13 @@ class Destruct
           true
         elsif match { form(:and, v) }
           remove_redundant_tests(v, path)
-        elsif match { form(:and, ~children) } && (children.any? { |c| truthy.(c) } || contains_duplicates?(children))
-          remove_redundant_tests(_and(*children.reject { |c| truthy.(c) }.uniq), path)
+        elsif match { form(:and, ~children) } && has_redundant_and_children?(children, truthy)
+          # If the last is an env, it's truthy but we can't eliminate it because it
+          # becomes the value of the && expression
+          new_children =
+              (children.take(children.size - 1).reject { |c| truthy.(c) } +
+                  children.drop(children.size-1).reject { |c| c == true }).uniq
+          _and(*new_children.map { |c| remove_redundant_tests(c, path) })
         elsif match { form(:get_field, obj, sym) } && env?(obj, path)
           bound_names = obj.meta_in_scope(path)[:bound_names] || []
           if !bound_names.include?(sym)
@@ -457,6 +454,10 @@ class Destruct
       end
       # puts "<= #{result}"
       result
+    end
+
+    def has_redundant_and_children?(children, truthy)
+      children.take(children.size - 1).any? { |c| truthy.(c) } || children.last == true || contains_duplicates?(children)
     end
 
     def contains_duplicates?(xs)
