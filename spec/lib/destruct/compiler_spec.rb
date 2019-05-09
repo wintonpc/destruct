@@ -48,8 +48,10 @@ class Destruct
       # $max_iters = 0
       # loop do
         # puts "$max_iters = #{$max_iters}"
-        given_pattern [Var.new(:foo), 2, Var.new(:bar)]
-        expect_success_on [1, 2, 3], foo: 1, bar: 3
+      # given_pattern [Var.new(:foo), Var.new(:bar)]
+      # expect_success_on [1, 2], foo: 1, bar: 2
+      given_pattern [Var.new(:foo), 2, Var.new(:bar)]
+      expect_success_on [1, 2, 3], foo: 1, bar: 3
         # $max_iters += 1
       # end
 
