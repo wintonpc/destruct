@@ -55,6 +55,11 @@ class Destruct
       self.send(:"#{var_name}=", value)
     end
 
+    def bind(var, val)
+      send(:"#{var}=", val)
+      self
+    end
+
     def to_s
       kv_strs = []
       env_each do |k, v|

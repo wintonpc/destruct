@@ -68,7 +68,14 @@ class Destruct
 
       def with_meta(scope, props)
         if props.any?
-          meta.fetch(scope) { meta[scope] = {} }.merge!(props)
+          scoped = meta.fetch(scope) { meta[scope] = {} }
+          scoped.merge!(props) do |k, a, b|
+            if a.is_a?(Array) && b.is_a?(Array)
+              a + b
+            else
+              b
+            end
+          end
         end
         self
       end
@@ -216,6 +223,7 @@ class Destruct
             # c = squash_begins(c).tap(&print_pass("squash_begins"))
           end
           # c = normalize(c).tap(&print_pass("normalize"))
+          # c = remove_bind(c).tap(&print_pass("remove_bind"))
           c = emit_ruby(c)
           emit c
         end
@@ -357,6 +365,12 @@ class Destruct
           flow_meta!(cons)
           flow_meta!(alt)
           x
+        elsif match { form(:bind, env, sym, val) }
+          x.with_meta(:top, bound_names: [sym])
+          flow_meta!(env)
+          flow_meta!(sym)
+          flow_meta!(val)
+          x.merge_meta(env) if env == MakeEnv
         elsif x == MakeEnv
           x.with_meta(:top, boolness: true, type: :env)
         else
@@ -430,6 +444,13 @@ class Destruct
           remove_redundant_tests(v, path)
         elsif match { form(:and, ~children) } && (children.any? { |c| truthy.(c) } || contains_duplicates?(children))
           remove_redundant_tests(_and(*children.reject { |c| truthy.(c) }.uniq), path)
+        elsif match { form(:get_field, obj, sym) } && env?(obj, path)
+          bound_names = obj.meta_in_scope(path)[:bound_names] || []
+          if !bound_names.include?(sym)
+            :__unbound__
+          else
+            x
+          end
         else
           tx(x) { |c| remove_redundant_tests(c, path) }
         end
@@ -545,6 +566,22 @@ class Destruct
       Form.new(:set!, var, val)
     end
 
+    # def remove_bind(x)
+    #   destruct(x) do
+    #     if match { form(:bind, env, sym, val) }
+    #       if ident?(env)
+    #         _begin(_set_field(env, sym, val), env)
+    #       else
+    #         t = ident("env")
+    #         _let(t, remove_bind(env),
+    #              _begin(_set_field(t, sym, val), t))
+    #       end
+    #     else
+    #       tx(x, :remove_bind)
+    #     end
+    #   end
+    # end
+
     def emit_ruby(x)
       destruct(x) do
         case
@@ -582,6 +619,8 @@ class Destruct
           "#{emit_ruby(arr)}[#{emit_ruby(index)}]"
         when match { form(:is_type, recv, klass) }
           "#{emit_ruby(recv)}.is_a?(#{emit_ruby(klass)})"
+        when match { form(:bind, env, sym, val) }
+          "#{emit_ruby(env)}.bind(#{emit_ruby(sym)}, #{emit_ruby(val)})"
         when match { Form[] }
           raise "emit3: unexpected: #{x}"
         when match(MakeEnv)
@@ -684,12 +723,12 @@ class Destruct
     end
 
     def bind(env, sym, x)
-      new_env = ident("new_env")
+      new_env = ident("env")
       _if(_not(env),
           env,
           _if(_equal?(env, true),
               _let(new_env, make_env,
-                   bind_with_new_env(new_env, sym, x)),
+                   bind_form(new_env, sym, x)),
               bind_with_full_env(env, sym, x)))
     end
 
@@ -698,17 +737,10 @@ class Destruct
       existing = ident("existing")
       _let(existing, _get_field(env, sym),
            _if(_equal?(existing, Env::UNBOUND),
-               _begin(_set_field(env, sym, x),
-                      env),
+               bind_form(env, sym, x),
                _if(_not(_equal?(existing, x)),
                    nil,
                    env)))
-    end
-
-    # a new env is guaranteed to have no symbols bound, thus no conflicts
-    def bind_with_new_env(env, sym, x)
-      _begin(_set_field(env, sym, x),
-             env)
     end
 
     def _let(var, val, body)
@@ -780,6 +812,10 @@ class Destruct
 
     def _not(x)
       Form.new(:not, x)
+    end
+
+    def bind_form(env, sym, val)
+      Form.new(:bind, env, sym, val)
     end
 
     def var_counts(pat)

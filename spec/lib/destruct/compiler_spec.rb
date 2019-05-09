@@ -8,7 +8,7 @@ class Destruct
     it 'compiles literals' do
       Destruct.show_code = true
       Destruct.optimize = true
-      Destruct.print_passes = true
+      # Destruct.print_passes = true
       # Boot1::Destruct.show_transformations = true
       given_pattern 1
       expect_success_on 1
@@ -38,7 +38,7 @@ class Destruct
       Destruct.show_code = true
       Destruct.debug_compile = true
       Destruct.optimize = true
-      Destruct.print_passes = true
+      # Destruct.print_passes = true
       # Boot1::Destruct.show_code = true
       # Boot1::Destruct.show_transformations = true
 
@@ -47,6 +47,7 @@ class Destruct
 
       given_pattern [Var.new(:foo), Var.new(:bar)]
       expect_success_on [1, 2], foo: 1, bar: 2
+
       #
       # given_pattern [Var.new(:foo), Var.new(:foo)]
       # expect_success_on [1, 1]
