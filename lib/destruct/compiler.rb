@@ -72,7 +72,7 @@ class Destruct
           scoped = meta.fetch(scope) { meta[scope] = {} }
           scoped.merge!(props) do |k, a, b|
             if k == :possible_values
-              (a + b).uniq
+              b
             else
               b
             end
@@ -138,7 +138,7 @@ class Destruct
         if ident?(x)
           scoped_meta = x.meta_in_scope(path)
           if scoped_meta.any?
-            "'#(#{x.name} #{scoped_meta.map { |k, v| "(#{k} . #{v})" }.join(" ")})"
+            "'#(#{x.name} #{scoped_meta.map { |k, v| "(#{k} . #{to_sexp(v, [])})" }.join(" ")})"
           else
             x.name.to_s
           end
@@ -210,8 +210,8 @@ class Destruct
           c = normalize(c).tap(&print_pass("normalize"))
           c = inline(c).tap(&print_pass("inline"))
           c = fixed_point(c) do |c|
-            clear_meta!(c)#.tap(&print_pass("clear_meta!"))
-            flow_meta!(c).tap(&print_pass("flow_meta!"))
+            clear_meta!(c) #.tap(&print_pass("clear_meta!"))
+            flow_meta!(c, []).tap(&print_pass("flow_meta!"))
             c = remove_redundant_tests(c, []).then(&method(:inline)).tap(&print_pass("remove_redundant_tests"))
             c = fold_bool(c).tap(&print_pass("fold_bool"))
           end
@@ -337,39 +337,48 @@ class Destruct
       x
     end
 
-    def flow_meta!(x)
+    def flow_meta!(x, path)
+      path = epath(x, path)
+      flow = proc { |x| flow_meta!(x, path) }
       destruct(x) do
         if match { form(:let, var, val, body) }
-          var.merge_meta(flow_meta!(val))
-          x.merge_meta(flow_meta!(body))
+          var.merge_meta(flow.(val))
+          x.merge_meta(flow.(body))
         elsif match { form(:begin, ~bodies) }
-          bodies.each { |b| flow_meta!(b) }
+          bodies.each { |b| flow.(b, path) }
           x.merge_meta(bodies.last) if bodies.last.is_a?(HasMeta)
         elsif match { form(:if, form(:not, id <= ident(_)), cons, alt) }
           id.with_meta(cons, possible_values: [false, nil]) if cons.is_a?(Form)
           id.with_meta(alt, possible_values: [:truthy]) if alt.is_a?(Form)
-          flow_meta!(cons)
-          flow_meta!(alt)
+          flow.(cons)
+          flow.(alt)
           x
         elsif match { form(:if, id <= ident(_), cons, alt) }
           id.with_meta(cons, possible_values: [:truthy]) if cons.is_a?(Form)
           id.with_meta(alt, possible_values: [false, nil]) if alt.is_a?(Form)
-          flow_meta!(cons)
-          flow_meta!(alt)
+          flow.(cons)
+          flow.(alt)
           x
         elsif match { form(:bind, env, sym, val) }
           x.with_meta(:top, bound_names: [sym])
-          flow_meta!(env)
-          flow_meta!(sym)
-          flow_meta!(val)
+          flow.(env)
+          flow.(sym)
+          flow.(val)
           x.merge_meta(env) if env == MakeEnv
+        elsif match { form(:and, ~children) }
+          children.each { |c| flow.(c) }
+          x.with_meta(:top, possible_values: [false, nil, *possible_values(children.last, path)])
         elsif x == MakeEnv
           x.with_meta(:top, possible_values: [:env])
         else
-          tx(x, :flow_meta!)
+          tx(x) { |c| flow_meta!(c, path) }
         end
       end
       x
+    end
+
+    def possible_values(x, scope)
+      (x.is_a?(HasMeta) && x.meta_in_scope(scope)[:possible_values]) || []
     end
 
     def fold_bool(x)
@@ -439,7 +448,7 @@ class Destruct
           # becomes the value of the && expression
           new_children =
               (children.take(children.size - 1).reject { |c| truthy.(c) } +
-                  children.drop(children.size-1).reject { |c| c == true }).reverse.uniq.reverse
+                  children.drop(children.size - 1).reject { |c| c == true }).reverse.uniq.reverse
           _and(*new_children.map { |c| remove_redundant_tests(c, path) })
         elsif match { form(:get_field, obj, sym) } && env?(obj, path)
           bound_names = obj.meta_in_scope(path)[:bound_names] || []
@@ -469,15 +478,15 @@ class Destruct
     end
 
     def truthy_in_scope?(x, scope_path)
-      x == true || (x.is_a?(HasMeta) && (x.meta_in_scope(scope_path)[:possible] || []).any? { |p| p == :truthy || p == :env})
+      x == true || (x.is_a?(HasMeta) && (x.meta_in_scope(scope_path)[:possible_values] || []).any? { |p| p == :truthy || p == :env })
     end
 
     def falsey_in_scope?(x, scope_path)
-      x == false || x == nil || (x.is_a?(HasMeta) && (x.meta_in_scope(scope_path)[:possible] || []).any? { |p| p == :false || p == :nil})
+      x == false || x == nil || (x.is_a?(HasMeta) && (x.meta_in_scope(scope_path)[:possible_values] || []).any? { |p| p == :false || p == :nil })
     end
 
     def env?(x, scope_path)
-      x == MakeEnv || (x.is_a?(HasMeta) && x.meta_in_scope(scope_path)[:possible] == [:env])
+      x == MakeEnv || (x.is_a?(HasMeta) && x.meta_in_scope(scope_path)[:possible_values] == [:env])
     end
 
     # inline stuff
