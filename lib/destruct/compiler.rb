@@ -203,11 +203,13 @@ class Destruct
         show_code_on_error do
           c = _apply(matcher(pat), x, true, binding).tap(&print_pass("initial"))
           c = normalize(c).tap(&print_pass("normalize"))
-          c = inline(c).tap(&print_pass("inline"))
-          c = fixed_point(c) do |c|
-            c = flow_meta(c, []).tap(&print_pass("flow_meta"))
-            c = remove_redundant_tests(c, []).then(&method(:inline)).tap(&print_pass("remove_redundant_tests"))
-            c = fold_bool(c).tap(&print_pass("fold_bool"))
+          if Destruct.optimize
+            c = inline(c).tap(&print_pass("inline"))
+            c = fixed_point(c) do |c|
+              c = flow_meta(c, []).tap(&print_pass("flow_meta"))
+              c = remove_redundant_tests(c, []).then(&method(:inline)).tap(&print_pass("remove_redundant_tests"))
+              c = fold_bool(c).tap(&print_pass("fold_bool"))
+            end
           end
           c = emit_ruby(c)
           emit c
