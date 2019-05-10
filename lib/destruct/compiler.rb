@@ -410,41 +410,6 @@ class Destruct
         else
           x
         end
-        # if match { form(:let, var, val, body) }
-        #   val, m = flow_meta(val, m)
-        #   m = m.merge(val => Meta.new(m.values.flat_map(&:env_bindings).uniq))
-        #   flow_meta(body, m)
-        # # elsif match { form(:begin, ~bodies) }
-        # #   bodies.each { |b| flow.(b, path) }
-        # #   x.merge_meta(bodies.last) if bodies.last.is_a?(HasMeta)
-        # # elsif match { form(:if, form(:not, id <= ident(_)), cons, alt) }
-        # #   id.with_meta(cons, possible_values: [false, nil]) if cons.is_a?(Form)
-        # #   id.with_meta(alt, possible_values: [:truthy]) if alt.is_a?(Form)
-        # #   flow.(cons)
-        # #   flow.(alt)
-        # #   x
-        # # elsif match { form(:if, id <= ident(_), cons, alt) }
-        # #   id.with_meta(cons, possible_values: [:truthy]) if cons.is_a?(Form)
-        # #   id.with_meta(alt, possible_values: [false, nil]) if alt.is_a?(Form)
-        # #   flow.(cons)
-        # #   flow.(alt)
-        # #   x
-        # elsif match { form(:bind, env, sym, val) }
-        #   val, m = flow_me
-        #   x.with_meta(:top, bound_names: [sym])
-        #   flow.(env)
-        #   flow.(sym)
-        #   flow.(val)
-        #   x.merge_meta(env) if env == MakeEnv
-        # # elsif match { form(:and, ~children) }
-        # #   children.each { |c| flow.(c) }
-        # #   x.with_meta(:top, possible_values: [false, nil, *possible_values(children.last, path)])
-        # # elsif x == MakeEnv
-        # #   x.with_meta(:top, possible_values: [:env])
-        # else
-        #   Form.new(x.type, *x.children.map(&block))
-        #   tx(x) { |c| flow_meta(c, m) }
-        # end
       end
     end
 
