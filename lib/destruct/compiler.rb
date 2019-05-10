@@ -66,12 +66,13 @@ class Destruct
       end
 
       def possible_values=(x)
+        raise "oops" unless x.is_a?(Array)
         @possible_values = x
       end
 
       def with_possible_values(pvs)
         r = dup
-        r.possible_values = pvs
+        r.possible_values = pvs.uniq
         r
       end
     end
@@ -115,7 +116,6 @@ class Destruct
       require 'open3'
       Open3.popen3("scheme -q") do |i, o, e, t|
         i.write "(pretty-line-length 140) (pretty-print '#{to_sexp(x, [])})"
-        puts "(pretty-line-length 140) (pretty-print '#{to_sexp(x, [])})"
         i.close
         return o.read
       end
@@ -147,7 +147,7 @@ class Destruct
                    x.inspect
                  end
         pvs = possible_values(x)
-        if x.is_a?(HasMeta) && pvs.any?
+        if x.is_a?(HasMeta) && !x.is_a?(Ident) && pvs.any?
           "#(#{to_sexp(pvs, [])} #{result})"
         else
           result
@@ -206,8 +206,8 @@ class Destruct
           c = inline(c).tap(&print_pass("inline"))
           c = fixed_point(c) do |c|
             c = flow_meta(c, []).tap(&print_pass("flow_meta"))
-            # c = remove_redundant_tests(c, []).then(&method(:inline)).tap(&print_pass("remove_redundant_tests"))
-            # c = fold_bool(c).tap(&print_pass("fold_bool"))
+            c = remove_redundant_tests(c, []).then(&method(:inline)).tap(&print_pass("remove_redundant_tests"))
+            c = fold_bool(c).tap(&print_pass("fold_bool"))
           end
           c = emit_ruby(c)
           emit c
@@ -330,7 +330,7 @@ class Destruct
     end
 
     def possible_values(x)
-      x.is_a?(HasMeta) ? x.possible_values : []
+      self.class.possible_values(x)
     end
 
     def self.possible_values(x)
@@ -349,17 +349,21 @@ class Destruct
 
     def flow_meta(x, let_bindings)
       destruct(x) do
-        if match { form(:bind, env, sym, val) } && env.is_a?(MakeEnvClass)
+        if match { form(:bind, env, sym, val) } && (env.is_a?(MakeEnvClass) || env.is_a?(Ident))
+          if sym == :bar && env.is_a?(Ident)
+            "".to_s
+          end
+          new_env = flow_meta(env, let_bindings)
           new_val = flow_meta(val, let_bindings)
-          new_env_bindings = (env_bindings(env) + [sym]).uniq
-          new_possible_values = env.possible_values.reject { |pv| pv.is_a?(EnvInfo) } + [EnvInfo.new(new_env_bindings)]
-          result = bind_form(env, sym, new_val).with_possible_values(new_possible_values)
+          new_env_bindings = (env_bindings(new_env) + [sym]).uniq
+          new_possible_values = new_env.possible_values.reject { |pv| pv.is_a?(EnvInfo) } + [EnvInfo.new(new_env_bindings)]
+          result = bind_form(new_env, sym, new_val).with_possible_values(new_possible_values)
           result
         elsif match { form(:let, var, val, body) }
           new_val = flow_meta(val, let_bindings)
           new_var = var.with_possible_values(possible_values(new_val))
           new_body = flow_meta(body, let_bindings + [new_var])
-          _let(new_var, new_val, new_body)
+          _let(new_var, new_val, new_body).with_possible_values(possible_values(new_body))
         elsif match { form(:if, cond, cons, alt) }
           new_cond = flow_meta(cond, let_bindings)
           new_cons = flow_meta(cons, let_bindings)
@@ -368,6 +372,9 @@ class Destruct
           _if(new_cond, new_cons, new_alt).with_possible_values(new_possible_values)
         elsif ident?(x) && let_bindings.include?(x)
           x.with_possible_values(possible_values(let_bindings.find { |lb| lb == x}))
+        elsif match { form(:and, ~children) }
+          new_children = children.map { |c| flow_meta(c, let_bindings) }
+          _and(*new_children).with_possible_values([false, nil, *possible_values(children.last)])
         elsif x.is_a?(Form)
           Form.new(x.type, *x.children.map { |c| flow_meta(c, let_bindings) })
         else
