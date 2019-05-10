@@ -530,13 +530,13 @@ class Destruct
               (children.take(children.size - 1).reject { |c| known_truthy?(c) } +
                   children.drop(children.size - 1).reject { |c| c == true }).reverse.uniq.reverse
           _and(*new_children.map { |c| remove_redundant_tests(c, path) })
-          # elsif match { form(:get_field, obj, sym) } && env?(obj, path)
-          #   bound_names = obj.meta_in_scope(path)[:bound_names] || []
-          #   if !bound_names.include?(sym)
-          #     :__unbound__
-          #   else
-          #     x
-          #   end
+        elsif match { form(:get_field, obj, sym) } && known_env?(obj)
+          env_info = possible_values(obj)[0]
+          if !env_info.bindings.include?(sym)
+            :__unbound__
+          else
+            x
+          end
         else
           tx(x) { |c| remove_redundant_tests(c, path) }
         end
