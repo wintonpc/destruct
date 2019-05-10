@@ -58,7 +58,7 @@ class Destruct
 
     Frame = Struct.new(:pat, :x, :env, :parent)
 
-    EnvInfo = Struct.new(:bound_names)
+    EnvInfo = Struct.new(:bindings)
 
     module HasMeta
       def possible_values
@@ -67,6 +67,12 @@ class Destruct
 
       def possible_values=(x)
         @possible_values = x
+      end
+
+      def with_possible_values(pvs)
+        r = dup
+        r.possible_values = pvs
+        r
       end
     end
 
@@ -105,12 +111,11 @@ class Destruct
       end
     end
 
-    MakeEnv = MakeEnvClass.new
-
     def self.pretty_sexp(x)
       require 'open3'
       Open3.popen3("scheme -q") do |i, o, e, t|
         i.write "(pretty-line-length 140) (pretty-print '#{to_sexp(x, [])})"
+        puts "(pretty-line-length 140) (pretty-print '#{to_sexp(x, [])})"
         i.close
         return o.read
       end
@@ -118,26 +123,34 @@ class Destruct
 
     def self.to_sexp(x, path)
       destruct(x) do
-        if ident?(x)
-          if x.possible_values.any?
-            "#(#{x.name} #{to_sexp(x.possible_values, [])})"
-          else
-            x.name.to_s
-          end
-        elsif match { form(:lambda, args, body) }
-          "(lambda (#{args.map { |a| to_sexp(a, epath(x, path)) }.join(" ")}) #{to_sexp(body, epath(x, path))})"
-        elsif match { form(:let, var, val, body) }
-          "(let ([#{to_sexp(var, epath(x, path))} #{to_sexp(val, epath(x, path))}]) #{to_sexp(body, epath(x, path))})"
-        elsif match { form(type, ~children) }
-          "(#{type} #{children.map { |c| to_sexp(c, epath(x, path)) }.join(" ")})"
-        elsif x.is_a?(Array)
-          "#(#{x.map { |c| to_sexp(c, epath(x, path)) }.join(" ")})"
-        elsif x.is_a?(Symbol)
-          "'#{x}"
-        elsif x == MakeEnv
-          "(make-env)"
+        result = if ident?(x)
+                   if x.possible_values.any?
+                     "#(#{x.name} #{to_sexp(x.possible_values, [])})"
+                   else
+                     x.name.to_s
+                   end
+                 elsif match { form(:lambda, args, body) }
+                   "(lambda (#{args.map { |a| to_sexp(a, epath(x, path)) }.join(" ")}) #{to_sexp(body, epath(x, path))})"
+                 elsif match { form(:let, var, val, body) }
+                   "(let ([#{to_sexp(var, epath(x, path))} #{to_sexp(val, epath(x, path))}]) #{to_sexp(body, epath(x, path))})"
+                 elsif match { form(type, ~children) }
+                   "(#{type} #{children.map { |c| to_sexp(c, epath(x, path)) }.join(" ")})"
+                 elsif x.is_a?(Array)
+                   "#(#{x.map { |c| to_sexp(c, epath(x, path)) }.join(" ")})"
+                 elsif x.is_a?(Symbol)
+                   "'#{x}"
+                 elsif x.is_a?(MakeEnvClass)
+                   "(make-env)"
+                 elsif x.is_a?(EnvInfo)
+                   "(EnvInfo #{to_sexp(x.bindings, [])})"
+                 else
+                   x.inspect
+                 end
+        pvs = possible_values(x)
+        if x.is_a?(HasMeta) && pvs.any?
+          "#(#{to_sexp(pvs, [])} #{result})"
         else
-          x.inspect
+          result
         end
       end
     end
@@ -192,9 +205,9 @@ class Destruct
           c = normalize(c).tap(&print_pass("normalize"))
           c = inline(c).tap(&print_pass("inline"))
           c = fixed_point(c) do |c|
-            c = flow_meta(c).tap(&print_pass("flow_meta"))
-            c = remove_redundant_tests(c, []).then(&method(:inline)).tap(&print_pass("remove_redundant_tests"))
-            c = fold_bool(c).tap(&print_pass("fold_bool"))
+            c = flow_meta(c, []).tap(&print_pass("flow_meta"))
+            # c = remove_redundant_tests(c, []).then(&method(:inline)).tap(&print_pass("remove_redundant_tests"))
+            # c = fold_bool(c).tap(&print_pass("fold_bool"))
           end
           c = emit_ruby(c)
           emit c
@@ -312,25 +325,51 @@ class Destruct
       x.is_a?(Ident)
     end
 
-    def bound_names(x)
-      if x.is_a?(HasMeta)
-        x.possible_values.find { |pv| pv.is_a?(EnvInfo) }&.bound_names || []
+    def env_bindings(x)
+      possible_values(x).find { |pv| pv.is_a?(EnvInfo) }&.bindings || []
+    end
+
+    def possible_values(x)
+      x.is_a?(HasMeta) ? x.possible_values : []
+    end
+
+    def self.possible_values(x)
+      if x == true
+        [true]
+      elsif x == false
+        [false]
+      elsif x == nil
+        [nil]
+      elsif x.is_a?(HasMeta)
+        x.possible_values
       else
         []
       end
     end
 
-    def flow_meta(x)
+    def flow_meta(x, let_bindings)
       destruct(x) do
-        if match { form(:bind, env, sym, val) }
-          new_val = flow_meta(val)
-          new_bound_names = (bound_names(env) + [sym]).uniq
-          new_possible_values = env.possible_values.reject { |pv| pv.is_a?(EnvInfo) } + [EnvInfo.new(new_bound_names)]
-          new_x = bind_form(env, sym, new_val)
-          new_x.possible_values = new_possible_values
-          new_x
+        if match { form(:bind, env, sym, val) } && env.is_a?(MakeEnvClass)
+          new_val = flow_meta(val, let_bindings)
+          new_env_bindings = (env_bindings(env) + [sym]).uniq
+          new_possible_values = env.possible_values.reject { |pv| pv.is_a?(EnvInfo) } + [EnvInfo.new(new_env_bindings)]
+          result = bind_form(env, sym, new_val).with_possible_values(new_possible_values)
+          result
+        elsif match { form(:let, var, val, body) }
+          new_val = flow_meta(val, let_bindings)
+          new_var = var.with_possible_values(possible_values(new_val))
+          new_body = flow_meta(body, let_bindings + [new_var])
+          _let(new_var, new_val, new_body)
+        elsif match { form(:if, cond, cons, alt) }
+          new_cond = flow_meta(cond, let_bindings)
+          new_cons = flow_meta(cons, let_bindings)
+          new_alt = flow_meta(alt, let_bindings)
+          new_possible_values = (possible_values(new_cons) + possible_values(new_alt)).uniq
+          _if(new_cond, new_cons, new_alt).with_possible_values(new_possible_values)
+        elsif ident?(x) && let_bindings.include?(x)
+          x.with_possible_values(possible_values(let_bindings.find { |lb| lb == x}))
         elsif x.is_a?(Form)
-          Form.new(x.type, *x.children.map { |c| flow_meta(c) })
+          Form.new(x.type, *x.children.map { |c| flow_meta(c, let_bindings) })
         else
           x
         end
@@ -370,7 +409,6 @@ class Destruct
         #   tx(x) { |c| flow_meta(c, m) }
         # end
       end
-      x
     end
 
     def fold_bool(x)
@@ -574,46 +612,45 @@ class Destruct
 
     def emit_ruby(x)
       destruct(x) do
-        case
-        when match { form(:let, var, val, body) }
+        if match { form(:let, var, val, body) }
           if contains_complex_forms?(val)
             "#{eref(var)} = begin\n#{emit_ruby(val)}\nend\n#{emit_ruby(body)}"
           else
             "#{eref(var)} = #{emit_ruby(val)}\n#{emit_ruby(body)}"
           end
-        when match { form(:if, cond, cons, alt) }
+        elsif match { form(:if, cond, cons, alt) }
           ["if #{emit_ruby(cond)}",
            emit_ruby(cons),
            "else",
            emit_ruby(alt),
            "end"].join("\n")
-        when match { form(:equal?, lhs, rhs) }
+        elsif match { form(:equal?, lhs, rhs) }
           "#{emit_ruby(lhs)} == #{emit_ruby(rhs)}"
-        when match { form(:not_equal?, lhs, rhs) }
+        elsif match { form(:not_equal?, lhs, rhs) }
           "#{emit_ruby(lhs)} != #{emit_ruby(rhs)}"
-        when ident?(x)
+        elsif ident?(x)
           eref(x).to_s
-        when match { form(:begin, ~children) }
+        elsif match { form(:begin, ~children) }
           children.map { |x| emit_ruby(x) }.join
-        when match { form(:and, ~children) }
+        elsif match { form(:and, ~children) }
           children.map { |c| maybe_parenthesize(c) }.join(" && ")
-        when match { form(:or, ~children) }
+        elsif match { form(:or, ~children) }
           children.map { |c| maybe_parenthesize(c) }.join(" || ")
-        when match { form(:not, x) }
+        elsif match { form(:not, x) }
           "!(#{maybe_parenthesize(x.children.first)})"
-        when match { form(:set_field, recv, meth, val) }
+        elsif match { form(:set_field, recv, meth, val) }
           "#{emit_ruby(recv)}.#{meth} = #{emit_ruby(val)}\n"
-        when match { form(:get_field, recv, meth) }
+        elsif match { form(:get_field, recv, meth) }
           "#{emit_ruby(recv)}.#{meth}"
-        when match { form(:array_get, arr, index) }
+        elsif match { form(:array_get, arr, index) }
           "#{emit_ruby(arr)}[#{emit_ruby(index)}]"
-        when match { form(:is_type, recv, klass) }
+        elsif match { form(:is_type, recv, klass) }
           "#{emit_ruby(recv)}.is_a?(#{emit_ruby(klass)})"
-        when match { form(:bind, env, sym, val) }
+        elsif match { form(:bind, env, sym, val) }
           "#{emit_ruby(env)}.bind(#{emit_ruby(sym)}, #{emit_ruby(val)})"
-        when match { Form[] }
+        elsif match { Form[] }
           raise "emit3: unexpected: #{x}"
-        when match(MakeEnv)
+        elsif x.is_a?(MakeEnvClass)
           "_make_env.()"
         else
           eref(x)
@@ -738,7 +775,7 @@ class Destruct
     end
 
     def make_env
-      MakeEnv
+      MakeEnvClass.new
     end
 
     def _is_type(x, klass)
