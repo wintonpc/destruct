@@ -58,37 +58,16 @@ class Destruct
 
     Frame = Struct.new(:pat, :x, :env, :parent)
 
+    EnvInfo = Struct.new(:bound_names)
+
     module HasMeta
-      def meta
-        @meta ||= {}
+      def possible_values
+        @possible_values ||= []
       end
 
-      def meta_in_scope(scope_path)
-        meta.values_at(:top, *scope_path).select(&:itself).reduce({}) { |acc, m| acc.merge(m) }
+      def possible_values=(x)
+        @possible_values = x
       end
-
-      def with_meta(scope, props)
-        if props.any?
-          scoped = meta.fetch(scope) { meta[scope] = {} }
-          scoped.merge!(props) do |k, a, b|
-            if k == :possible_values
-              b
-            else
-              b
-            end
-          end
-        end
-        self
-      end
-
-      def merge_meta(other)
-        other.meta.each { |scope, props| with_meta(scope, props) }
-        self
-      end
-    end
-
-    def meta(x, scope)
-      x.is_a?(HasMeta) ? x.meta[scope] : {}
     end
 
     Form = Struct.new(:type, :children)
@@ -117,6 +96,10 @@ class Destruct
     class MakeEnvClass
       include HasMeta
 
+      def initialize
+        @possible_values = [Compiler::EnvInfo.new([])]
+      end
+
       def to_s
         "#<MakeEnv>"
       end
@@ -136,9 +119,8 @@ class Destruct
     def self.to_sexp(x, path)
       destruct(x) do
         if ident?(x)
-          scoped_meta = x.meta_in_scope(path)
-          if scoped_meta.any?
-            "#(#{x.name} #{scoped_meta.map { |k, v| "(#{k} . #{to_sexp(v, [])})" }.join(" ")})"
+          if x.possible_values.any?
+            "#(#{x.name} #{to_sexp(x.possible_values, [])})"
           else
             x.name.to_s
           end
@@ -210,8 +192,7 @@ class Destruct
           c = normalize(c).tap(&print_pass("normalize"))
           c = inline(c).tap(&print_pass("inline"))
           c = fixed_point(c) do |c|
-            clear_meta!(c) #.tap(&print_pass("clear_meta!"))
-            flow_meta!(c, []).tap(&print_pass("flow_meta!"))
+            c = flow_meta(c).tap(&print_pass("flow_meta"))
             c = remove_redundant_tests(c, []).then(&method(:inline)).tap(&print_pass("remove_redundant_tests"))
             c = fold_bool(c).tap(&print_pass("fold_bool"))
           end
@@ -331,54 +312,65 @@ class Destruct
       x.is_a?(Ident)
     end
 
-    def clear_meta!(x)
-      x.meta.clear if x.is_a?(HasMeta)
-      tx(x, :clear_meta!)
-      x
+    def bound_names(x)
+      if x.is_a?(HasMeta)
+        x.possible_values.find { |pv| pv.is_a?(EnvInfo) }&.bound_names || []
+      else
+        []
+      end
     end
 
-    def flow_meta!(x, path)
-      path = epath(x, path)
-      flow = proc { |x| flow_meta!(x, path) }
+    def flow_meta(x)
       destruct(x) do
-        if match { form(:let, var, val, body) }
-          var.merge_meta(flow.(val))
-          x.merge_meta(flow.(body))
-        elsif match { form(:begin, ~bodies) }
-          bodies.each { |b| flow.(b, path) }
-          x.merge_meta(bodies.last) if bodies.last.is_a?(HasMeta)
-        elsif match { form(:if, form(:not, id <= ident(_)), cons, alt) }
-          id.with_meta(cons, possible_values: [false, nil]) if cons.is_a?(Form)
-          id.with_meta(alt, possible_values: [:truthy]) if alt.is_a?(Form)
-          flow.(cons)
-          flow.(alt)
-          x
-        elsif match { form(:if, id <= ident(_), cons, alt) }
-          id.with_meta(cons, possible_values: [:truthy]) if cons.is_a?(Form)
-          id.with_meta(alt, possible_values: [false, nil]) if alt.is_a?(Form)
-          flow.(cons)
-          flow.(alt)
-          x
-        elsif match { form(:bind, env, sym, val) }
-          x.with_meta(:top, bound_names: [sym])
-          flow.(env)
-          flow.(sym)
-          flow.(val)
-          x.merge_meta(env) if env == MakeEnv
-        elsif match { form(:and, ~children) }
-          children.each { |c| flow.(c) }
-          x.with_meta(:top, possible_values: [false, nil, *possible_values(children.last, path)])
-        elsif x == MakeEnv
-          x.with_meta(:top, possible_values: [:env])
+        if match { form(:bind, env, sym, val) }
+          new_val = flow_meta(val)
+          new_bound_names = (bound_names(env) + [sym]).uniq
+          new_possible_values = env.possible_values.reject { |pv| pv.is_a?(EnvInfo) } + [EnvInfo.new(new_bound_names)]
+          new_x = bind_form(env, sym, new_val)
+          new_x.possible_values = new_possible_values
+          new_x
+        elsif x.is_a?(Form)
+          Form.new(x.type, *x.children.map { |c| flow_meta(c) })
         else
-          tx(x) { |c| flow_meta!(c, path) }
+          x
         end
+        # if match { form(:let, var, val, body) }
+        #   val, m = flow_meta(val, m)
+        #   m = m.merge(val => Meta.new(m.values.flat_map(&:env_bindings).uniq))
+        #   flow_meta(body, m)
+        # # elsif match { form(:begin, ~bodies) }
+        # #   bodies.each { |b| flow.(b, path) }
+        # #   x.merge_meta(bodies.last) if bodies.last.is_a?(HasMeta)
+        # # elsif match { form(:if, form(:not, id <= ident(_)), cons, alt) }
+        # #   id.with_meta(cons, possible_values: [false, nil]) if cons.is_a?(Form)
+        # #   id.with_meta(alt, possible_values: [:truthy]) if alt.is_a?(Form)
+        # #   flow.(cons)
+        # #   flow.(alt)
+        # #   x
+        # # elsif match { form(:if, id <= ident(_), cons, alt) }
+        # #   id.with_meta(cons, possible_values: [:truthy]) if cons.is_a?(Form)
+        # #   id.with_meta(alt, possible_values: [false, nil]) if alt.is_a?(Form)
+        # #   flow.(cons)
+        # #   flow.(alt)
+        # #   x
+        # elsif match { form(:bind, env, sym, val) }
+        #   val, m = flow_me
+        #   x.with_meta(:top, bound_names: [sym])
+        #   flow.(env)
+        #   flow.(sym)
+        #   flow.(val)
+        #   x.merge_meta(env) if env == MakeEnv
+        # # elsif match { form(:and, ~children) }
+        # #   children.each { |c| flow.(c) }
+        # #   x.with_meta(:top, possible_values: [false, nil, *possible_values(children.last, path)])
+        # # elsif x == MakeEnv
+        # #   x.with_meta(:top, possible_values: [:env])
+        # else
+        #   Form.new(x.type, *x.children.map(&block))
+        #   tx(x) { |c| flow_meta(c, m) }
+        # end
       end
       x
-    end
-
-    def possible_values(x, scope)
-      (x.is_a?(HasMeta) && x.meta_in_scope(scope)[:possible_values]) || []
     end
 
     def fold_bool(x)
@@ -415,8 +407,8 @@ class Destruct
       # puts "=> #{x}"
       path = epath(x, path)
       result = destruct(x) do
-        truthy = proc { |v| truthy_in_scope?(v, path) }
-        falsey = proc { |v| falsey_in_scope?(v, path) }
+        truthy = proc { |v| v == true } # truthy_in_scope?(v, path) }
+        falsey = proc { |v| v == false || v == nil } #falsey_in_scope?(v, path) }
         if match { form(:if, cond, cons, alt) }
           if falsey.(cons) && !contains_complex_forms?(alt)
             _and(_not(remove_redundant_tests(cond, path)), remove_redundant_tests(alt, path))
@@ -437,8 +429,8 @@ class Destruct
           end
         elsif match { form(:not, c) } && truthy.(c)
           false
-        elsif match { form(:equal?, lhs, rhs) } && env?(lhs, path) && rhs == true
-          false
+          # elsif match { form(:equal?, lhs, rhs) } && env?(lhs, path) && rhs == true
+          #   false
         elsif match { form(:and) }
           true
         elsif match { form(:and, v) }
@@ -450,13 +442,13 @@ class Destruct
               (children.take(children.size - 1).reject { |c| truthy.(c) } +
                   children.drop(children.size - 1).reject { |c| c == true }).reverse.uniq.reverse
           _and(*new_children.map { |c| remove_redundant_tests(c, path) })
-        elsif match { form(:get_field, obj, sym) } && env?(obj, path)
-          bound_names = obj.meta_in_scope(path)[:bound_names] || []
-          if !bound_names.include?(sym)
-            :__unbound__
-          else
-            x
-          end
+          # elsif match { form(:get_field, obj, sym) } && env?(obj, path)
+          #   bound_names = obj.meta_in_scope(path)[:bound_names] || []
+          #   if !bound_names.include?(sym)
+          #     :__unbound__
+          #   else
+          #     x
+          #   end
         else
           tx(x) { |c| remove_redundant_tests(c, path) }
         end
@@ -475,18 +467,6 @@ class Destruct
 
     def contains_complex_forms?(x)
       contains_forms?(%i(if let begin), x)
-    end
-
-    def truthy_in_scope?(x, scope_path)
-      x == true || (x.is_a?(HasMeta) && (x.meta_in_scope(scope_path)[:possible_values] || []).any? { |p| p == :truthy || p == :env })
-    end
-
-    def falsey_in_scope?(x, scope_path)
-      x == false || x == nil || (x.is_a?(HasMeta) && (x.meta_in_scope(scope_path)[:possible_values] || []).any? { |p| p == :false || p == :nil })
-    end
-
-    def env?(x, scope_path)
-      x == MakeEnv || (x.is_a?(HasMeta) && x.meta_in_scope(scope_path)[:possible_values] == [:env])
     end
 
     # inline stuff
