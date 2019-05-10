@@ -325,6 +325,10 @@ class Destruct
       x.is_a?(Ident)
     end
 
+    def not?(x)
+      x.is_a?(Form) && x.type == :not
+    end
+
     def env_bindings(x)
       possible_values(x).find { |pv| pv.is_a?(EnvInfo) }&.bindings || []
     end
@@ -350,9 +354,6 @@ class Destruct
     def flow_meta(x, let_bindings)
       destruct(x) do
         if match { form(:bind, env, sym, val) } && (env.is_a?(MakeEnvClass) || env.is_a?(Ident))
-          if sym == :bar && env.is_a?(Ident)
-            "".to_s
-          end
           new_env = flow_meta(env, let_bindings)
           new_val = flow_meta(val, let_bindings)
           new_env_bindings = (env_bindings(new_env) + [sym]).uniq
@@ -365,16 +366,43 @@ class Destruct
           new_body = flow_meta(body, let_bindings + [new_var])
           _let(new_var, new_val, new_body).with_possible_values(possible_values(new_body))
         elsif match { form(:if, cond, cons, alt) }
+          update_bindings = proc do |var, &update_pvs|
+            let_bindings.map do |lb|
+              if lb.name == var.name
+                lb.with_possible_values(update_pvs.(lb.possible_values))
+              else
+                lb
+              end
+            end
+          end
+          if ident?(cond)
+            id = cond
+            new_cons_bindings = update_bindings.(id) do |pvs|
+              pvs = pvs.reject { |pv| pv == false || pv == nil }
+              pvs.none? ? [:truthy] : pvs
+            end
+            new_alt_bindings = update_bindings.(id) { [false, nil] }
+          elsif not?(cond) && ident?(cond.children[0])
+            id = cond.children[0]
+            new_cons_bindings = update_bindings.(id) { [false, nil] }
+            new_alt_bindings = update_bindings.(id) do |pvs|
+              pvs = pvs.reject { |pv| pv == false || pv == nil }
+              pvs.none? ? [:truthy] : pvs
+            end
+          else
+            new_cons_bindings = let_bindings
+            new_alt_bindings = let_bindings
+          end
           new_cond = flow_meta(cond, let_bindings)
-          new_cons = flow_meta(cons, let_bindings)
-          new_alt = flow_meta(alt, let_bindings)
+          new_cons = flow_meta(cons, new_cons_bindings)
+          new_alt = flow_meta(alt, new_alt_bindings)
           new_possible_values = (possible_values(new_cons) + possible_values(new_alt)).uniq
           _if(new_cond, new_cons, new_alt).with_possible_values(new_possible_values)
         elsif ident?(x) && let_bindings.include?(x)
           x.with_possible_values(possible_values(let_bindings.find { |lb| lb == x}))
         elsif match { form(:and, ~children) }
           new_children = children.map { |c| flow_meta(c, let_bindings) }
-          _and(*new_children).with_possible_values([false, nil, *possible_values(children.last)])
+          _and(*new_children).with_possible_values([false, nil, *possible_values(new_children.last)])
         elsif x.is_a?(Form)
           Form.new(x.type, *x.children.map { |c| flow_meta(c, let_bindings) })
         else
@@ -448,43 +476,58 @@ class Destruct
       x.is_a?(Form) && x.type == :and
     end
 
+    def known_truthy?(x)
+      pvs = possible_values(x)
+      pvs.any? { |pv| pv == true || pv == :truthy || pv.is_a?(EnvInfo) } &&
+          pvs.none? { |pv| pv == false || pv == nil }
+    end
+
+    def known_falsey?(x)
+      pvs = possible_values(x)
+      pvs.any? { |pv| pv == false || pv == nil } &&
+          pvs.none? { |pv| pv == true || pv == :truthy || pv.is_a?(EnvInfo) }
+    end
+
+    def known_env?(x)
+      pvs = possible_values(x)
+      pvs.size == 1 && pvs[0].is_a?(EnvInfo)
+    end
+
     def remove_redundant_tests(x, path)
       # puts "=> #{x}"
       path = epath(x, path)
       result = destruct(x) do
-        truthy = proc { |v| v == true } # truthy_in_scope?(v, path) }
-        falsey = proc { |v| v == false || v == nil } #falsey_in_scope?(v, path) }
         if match { form(:if, cond, cons, alt) }
-          if falsey.(cons) && !contains_complex_forms?(alt)
+          if known_falsey?(cons) && !contains_complex_forms?(alt)
             _and(_not(remove_redundant_tests(cond, path)), remove_redundant_tests(alt, path))
-          elsif cons == true && falsey.(alt)
+          elsif cons == true && known_falsey?(alt)
             remove_redundant_tests(cond, path)
-          elsif alt == true && falsey.(cons)
+          elsif alt == true && known_falsey?(cons)
             remove_redundant_tests(_not(cond), path)
-          elsif truthy.(cond)
+          elsif known_truthy?(cond)
             remove_redundant_tests(cons, path)
-          elsif falsey.(cond)
+          elsif known_falsey?(cond)
             remove_redundant_tests(alt, path)
-          elsif ident?(cond) && cons == cond && falsey.(alt)
+          elsif ident?(cond) && cons == cond && known_falsey?(alt)
             id
-          elsif ident?(cond) && alt == cond && falsey.(cons)
+          elsif ident?(cond) && alt == cond && known_falsey?(cons)
             id
           else
             tx(x) { |c| remove_redundant_tests(c, path) }
           end
-        elsif match { form(:not, c) } && truthy.(c)
+        elsif match { form(:not, c) } && known_truthy?(c)
           false
-          # elsif match { form(:equal?, lhs, rhs) } && env?(lhs, path) && rhs == true
-          #   false
+        elsif match { form(:equal?, lhs, rhs) } && known_env?(lhs) && rhs == true
+          false
         elsif match { form(:and) }
           true
         elsif match { form(:and, v) }
           remove_redundant_tests(v, path)
-        elsif match { form(:and, ~children) } && has_redundant_and_children?(children, truthy)
+        elsif match { form(:and, ~children) } && has_redundant_and_children?(children)
           # If the last is an env, it's truthy but we can't eliminate it because it
           # becomes the value of the && expression
           new_children =
-              (children.take(children.size - 1).reject { |c| truthy.(c) } +
+              (children.take(children.size - 1).reject { |c| known_truthy?(c) } +
                   children.drop(children.size - 1).reject { |c| c == true }).reverse.uniq.reverse
           _and(*new_children.map { |c| remove_redundant_tests(c, path) })
           # elsif match { form(:get_field, obj, sym) } && env?(obj, path)
@@ -502,8 +545,8 @@ class Destruct
       result
     end
 
-    def has_redundant_and_children?(children, truthy)
-      children.take(children.size - 1).any? { |c| truthy.(c) } || children.last == true || contains_duplicates?(children)
+    def has_redundant_and_children?(children)
+      children.take(children.size - 1).any? { |c| known_truthy?(c) } || children.last == true || contains_duplicates?(children)
     end
 
     def contains_duplicates?(xs)
