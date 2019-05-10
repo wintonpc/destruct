@@ -138,7 +138,7 @@ class Destruct
         if ident?(x)
           scoped_meta = x.meta_in_scope(path)
           if scoped_meta.any?
-            "'#(#{x.name} #{scoped_meta.map { |k, v| "(#{k} . #{to_sexp(v, [])})" }.join(" ")})"
+            "#(#{x.name} #{scoped_meta.map { |k, v| "(#{k} . #{to_sexp(v, [])})" }.join(" ")})"
           else
             x.name.to_s
           end
