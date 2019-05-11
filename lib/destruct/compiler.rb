@@ -449,6 +449,12 @@ class Destruct
           pvs.none? { |pv| pv == false || pv == nil }
     end
 
+    def known_true?(x)
+      pvs = possible_values(x)
+      pvs.any? { |pv| pv == true || pv == :truthy } &&
+          pvs.none? { |pv| pv == false || pv == nil || pv.is_a?(EnvInfo) }
+    end
+
     def known_falsey?(x)
       pvs = possible_values(x)
       pvs.any? { |pv| pv == false || pv == nil } &&
@@ -486,6 +492,8 @@ class Destruct
           false
         elsif match { form(:equal?, lhs, rhs) } && known_env?(lhs) && rhs == true
           false
+        elsif match { form(:equal?, lhs, rhs) } && known_true?(lhs) && rhs == true
+          true
         elsif match { form(:and) }
           true
         elsif match { form(:and, v) }
@@ -737,24 +745,32 @@ class Destruct
       x = ident("x")
       env = ident("env")
       binding = ident("binding")
+      reordered_pat = pat.each_with_index.sort_by do |(p, _i)|
+        if p.is_a?(Var)
+          1
+        else
+          0
+        end
+      end
       _lambda([x, env, binding],
               _if(_or(_not(_is_type(x, Array)),
                       _not_equal?(_get_field(x, :size), pat.size)),
                   nil,
-                  array_matcher_helper(pat, x, env, binding)))
+                  array_matcher_helper(reordered_pat, x, env, binding)))
     end
 
-    def array_matcher_helper(pat, x, env, binding, index = 0)
-      if pat.none?
+    def array_matcher_helper(pat_with_indexes, x, env, binding)
+      if pat_with_indexes.none?
         env
       else
+        (pat, index), *pat_rest = pat_with_indexes
         new_env = ident("env")
         v = ident("v")
         _let(v, _array_get(x, index),
-             _let(new_env, _apply(matcher(pat.first), v, env, binding),
+             _let(new_env, _apply(matcher(pat), v, env, binding),
                   _if(_not(new_env),
                       nil,
-                      array_matcher_helper(pat.drop(1), x, new_env, binding, index + 1))))
+                      array_matcher_helper(pat_rest, x, new_env, binding))))
       end
     end
 
