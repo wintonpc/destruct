@@ -91,6 +91,16 @@ class Destruct
       expect_success_on 2
       expect_failure_on 3
     end
+    it 'compiles ORs (tricky)' do
+      Destruct.show_code = true
+      Destruct.debug_compile = true
+      Destruct.optimize = true
+      Destruct.print_passes = true
+
+      given_pattern Or.new([1, Var.new(:a)], [2, Var.new(:b)])
+      expect_success_on [1, 5], a: 5
+      expect_success_on [2, 5], b: 5
+    end
     it 'compiles deep ORs' do
       given_pattern Or.new(Obj.new(CFoo, a: 1), Obj.new(CFoo, a: 2))
       expect_success_on CFoo.new(1)

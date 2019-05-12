@@ -438,6 +438,9 @@ class Destruct
           fold_bool(_or(*children.map { |c| _not(c) }))
         elsif match { form(:if, id <= ident(_), id, alt) }
           _or(id, fold_bool(alt))
+        elsif match { form(:or, ~clauses) } && clauses.all? { |c| and?(c) } &&
+            clauses.map { |c| c.children[0] }.uniq.size == 1
+          _and(fold_bool(clauses[0].children[0]), fold_bool(_or(*clauses.map { |c| _and(*c.children.drop(1)) })))
         else
           tx(x, :fold_bool)
         end
