@@ -62,7 +62,7 @@ class Destruct
 
     module HasMeta
       def possible_values
-        @possible_values ||= [false, nil, :truthy]
+        @possible_values ||= [] #[false, nil, :truthy]
       end
 
       def possible_values=(x)
@@ -124,7 +124,7 @@ class Destruct
     def self.to_sexp(x, path)
       destruct(x) do
         result = if ident?(x)
-                   if false && x.possible_values.any?
+                   if x.possible_values.any?
                      "#(#{x.name} #{to_sexp(x.possible_values, [])})"
                    else
                      x.name.to_s
@@ -147,7 +147,7 @@ class Destruct
                    x.inspect
                  end
         pvs = possible_values(x)
-        if false && x.is_a?(HasMeta) && !x.is_a?(Ident) && pvs.any?
+        if x.is_a?(HasMeta) && !x.is_a?(Ident) && pvs.any?
           "#(#{to_sexp(pvs, [])} #{result})"
         else
           result
@@ -351,7 +351,7 @@ class Destruct
       elsif x.is_a?(HasMeta)
         x.possible_values
       else
-        [false, nil, :truthy]
+        [] #[false, nil, :truthy]
       end
     end
 
@@ -405,11 +405,11 @@ class Destruct
         elsif ident?(x) && let_bindings.include?(x)
           x.with_possible_values(possible_values(let_bindings.find { |lb| lb == x}))
         elsif match { form(:and, ~children) }
-          if children.size == 1
-            "".to_s
-          end
           new_children = children.map { |c| flow_meta(c, let_bindings) }
           _and(*new_children).with_possible_values([false, nil, *possible_values(new_children.last)])
+        elsif match { form(:or, ~children) }
+          new_children = children.map { |c| flow_meta(c, let_bindings) }
+          _or(*new_children).with_possible_values([false, nil] + new_children.flat_map { |c| possible_values(c) })
         elsif x.is_a?(Form)
           Form.new(x.type, *x.children.map { |c| flow_meta(c, let_bindings) })
         else
