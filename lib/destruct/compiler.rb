@@ -62,7 +62,7 @@ class Destruct
 
     module HasMeta
       def possible_values
-        @possible_values ||= []
+        @possible_values ||= [false, nil, :truthy]
       end
 
       def possible_values=(x)
@@ -349,7 +349,7 @@ class Destruct
       elsif x.is_a?(HasMeta)
         x.possible_values
       else
-        []
+        [false, nil, :truthy]
       end
     end
 
@@ -403,6 +403,9 @@ class Destruct
         elsif ident?(x) && let_bindings.include?(x)
           x.with_possible_values(possible_values(let_bindings.find { |lb| lb == x}))
         elsif match { form(:and, ~children) }
+          if children.size == 1
+            "".to_s
+          end
           new_children = children.map { |c| flow_meta(c, let_bindings) }
           _and(*new_children).with_possible_values([false, nil, *possible_values(new_children.last)])
         elsif x.is_a?(Form)
@@ -482,9 +485,9 @@ class Destruct
           elsif known_falsey?(cond)
             remove_redundant_tests(alt, path)
           elsif ident?(cond) && cons == cond && known_falsey?(alt)
-            id
+            cond
           elsif ident?(cond) && alt == cond && known_falsey?(cons)
-            id
+            cond
           else
             tx(x) { |c| remove_redundant_tests(c, path) }
           end
@@ -735,6 +738,8 @@ class Destruct
           var_matcher(pat)
         elsif pat.is_a?(Array)
           array_matcher(pat)
+        elsif pat.is_a?(Or)
+          or_matcher(pat)
         else
           value_matcher(pat)
         end
@@ -771,6 +776,27 @@ class Destruct
                   _if(_not(new_env),
                       nil,
                       array_matcher_helper(pat_rest, x, new_env, binding))))
+      end
+    end
+
+    def or_matcher(pat)
+      x = ident("x")
+      env = ident("env")
+      binding = ident("binding")
+      _lambda([x, env, binding],
+              or_matcher_helper(pat.patterns, x, env, binding))
+    end
+
+    def or_matcher_helper(pats, x, env, binding)
+      if pats.none?
+        nil
+      else
+        pat, *pats = pats
+        new_env = ident("env")
+        _let(new_env, _apply(matcher(pat), x, env, binding),
+             _if(new_env,
+                 new_env,
+                 or_matcher_helper(pats, x, env, binding)))
       end
     end
 

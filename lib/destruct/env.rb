@@ -10,7 +10,6 @@ class Destruct
   # Unquote, then the variables bound are generally not known until the pattern is matched
   # against a particular object at run time. The @extras hash is used to bind these variables.
   class Env
-    NIL = Object.new
     UNBOUND = :__unbound__
 
     def method_missing(name, *args, &block)
@@ -56,8 +55,9 @@ class Destruct
     end
 
     def bind(var, val)
-      send(:"#{var}=", val)
-      self
+      e = dup
+      e.send(:"#{var}=", val)
+      e
     end
 
     def to_s

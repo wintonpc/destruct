@@ -80,7 +80,12 @@ class Destruct
       given_pattern Obj.new(CFoo, a: 1, b: Obj.new(CFoo, a: 1, b: Var.new(:bvar)))
       expect_success_on CFoo.new(1, CFoo.new(1, 2)), bvar: 2
     end
-    it 'compiles ORs' do
+    it 'compiles ORs (basic)' do
+      Destruct.show_code = true
+      Destruct.debug_compile = true
+      Destruct.optimize = true
+      Destruct.print_passes = true
+
       given_pattern Or.new(1, 2)
       expect_success_on 1
       expect_success_on 2
