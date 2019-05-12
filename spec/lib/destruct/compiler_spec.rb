@@ -100,6 +100,11 @@ class Destruct
       given_pattern Or.new([1, Var.new(:a)], [2, Var.new(:b)])
       expect_success_on [1, 5], a: 5
       expect_success_on [2, 5], b: 5
+
+      given_pattern Or.new([1, Var.new(:a)], [2, Var.new(:b), Var.new(:c)])
+      expect_success_on [1, 5], a: 5
+      expect_failure_on [2, 5]
+      expect_success_on [2, 5, 6], b: 5, c: 6
     end
     it 'compiles deep ORs' do
       given_pattern Or.new(Obj.new(CFoo, a: 1), Obj.new(CFoo, a: 2))
@@ -331,6 +336,7 @@ class Destruct
 
     def expect_success_on(x, bindings={})
       env = @pat.match(x, @binding)
+      puts env.env_keys
       expect(env).to be_truthy
       bindings.each do |k, v|
         expect(env[k]).to eql v
