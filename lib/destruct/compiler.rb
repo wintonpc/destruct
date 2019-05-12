@@ -124,7 +124,7 @@ class Destruct
     def self.to_sexp(x, path)
       destruct(x) do
         result = if ident?(x)
-                   if x.possible_values.any?
+                   if false && x.possible_values.any?
                      "#(#{x.name} #{to_sexp(x.possible_values, [])})"
                    else
                      x.name.to_s
@@ -147,7 +147,7 @@ class Destruct
                    x.inspect
                  end
         pvs = possible_values(x)
-        if x.is_a?(HasMeta) && !x.is_a?(Ident) && pvs.any?
+        if false && x.is_a?(HasMeta) && !x.is_a?(Ident) && pvs.any?
           "#(#{to_sexp(pvs, [])} #{result})"
         else
           result
@@ -271,6 +271,8 @@ class Destruct
       destruct(x) do
         if match { form(:let, var, val, body) } && inlineable?(var, val, body)
           inline(inline_ident(var, val, body))
+        elsif match { form(:get_field, recv, :dup) } && !recv.is_a?(HasMeta)
+          recv
         else
           tx(x, :inline)
         end
@@ -459,7 +461,7 @@ class Destruct
 
     def known_true?(x)
       pvs = possible_values(x)
-      pvs.any? { |pv| pv == true || pv == :truthy } &&
+      pvs.any? { |pv| pv == true } &&
           pvs.none? { |pv| pv == false || pv == nil || pv.is_a?(EnvInfo) }
     end
 
@@ -798,6 +800,7 @@ class Destruct
       else
         pat, *pats = pats
         new_env = ident("env")
+        # or_env = might_bind?(pat) ? _get_field(env, :dup) : env
         _let(new_env, _apply(matcher(pat), x, env, binding),
              _if(new_env,
                  new_env,
@@ -933,6 +936,29 @@ class Destruct
         find_var_names_non_uniq(pat.pat)
       else
         []
+      end
+    end
+
+    def might_bind?(pat)
+      mb = method(:might_bind?)
+      if pat.is_a?(Obj)
+        pat.fields.values.any?(&mb)
+      elsif pat.is_a?(Or)
+        pat.patterns.any?(&mb)
+      elsif pat.is_a?(Binder)
+        true
+      elsif pat.is_a?(Hash)
+        pat.values.any?(&mb)
+      elsif pat.is_a?(Array)
+        pat.any?(&mb)
+      elsif pat.is_a?(Strict)
+        might_bind?(pat.pat)
+      elsif pat.is_a?(Regexp)
+        true
+      elsif pat.is_a?(Unquote)
+        true
+      else
+        false
       end
     end
 

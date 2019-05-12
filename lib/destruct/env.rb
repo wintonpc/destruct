@@ -12,6 +12,9 @@ class Destruct
   class Env
     UNBOUND = :__unbound__
 
+    attr_accessor :extras
+    protected :extras
+
     def method_missing(name, *args, &block)
       name_str = name.to_s
       if name_str.end_with?('=')
@@ -59,6 +62,12 @@ class Destruct
       e.send(:"#{var}=", val)
       e
     end
+
+    # def dup
+    #   duped = super
+    #   duped.extras = duped.extras.dup
+    #   duped
+    # end
 
     def to_s
       kv_strs = []

@@ -47,12 +47,12 @@ class Destruct
 
       # $max_iters = 0
       # loop do
-        # puts "$max_iters = #{$max_iters}"
+      # puts "$max_iters = #{$max_iters}"
       # given_pattern [Var.new(:foo), Var.new(:bar)]
       # expect_success_on [1, 2], foo: 1, bar: 2
       given_pattern [Var.new(:foo), 2, Var.new(:bar)]
       expect_success_on [1, 2, 3], foo: 1, bar: 3
-        # $max_iters += 1
+      # $max_iters += 1
       # end
 
       #
@@ -97,14 +97,14 @@ class Destruct
       Destruct.optimize = true
       Destruct.print_passes = true
 
-      given_pattern Or.new([1, Var.new(:a)], [2, Var.new(:b)])
-      expect_success_on [1, 5], a: 5
-      expect_success_on [2, 5], b: 5
+      # given_pattern Or.new([1, Var.new(:a)], [2, Var.new(:b)])
+      # expect_success_on [1, 5], a: 5
+      # expect_success_on [2, 5], b: 5
 
-      given_pattern Or.new([1, Var.new(:a)], [2, Var.new(:b), Var.new(:c)])
-      expect_success_on [1, 5], a: 5
-      expect_failure_on [2, 5]
-      expect_success_on [2, 5, 6], b: 5, c: 6
+      given_pattern [Var.new(:z), Or.new([1, Var.new(:a)], [2, Var.new(:b), Var.new(:c)])]
+      expect_success_on [9, [1, 5]], a: 5, z: 9
+      expect_failure_on [9, [2, 5]]
+      expect_success_on [9, [2, 5, 6]], b: 5, c: 6, z: 9
     end
     it 'compiles deep ORs' do
       given_pattern Or.new(Obj.new(CFoo, a: 1), Obj.new(CFoo, a: 2))
@@ -336,7 +336,6 @@ class Destruct
 
     def expect_success_on(x, bindings={})
       env = @pat.match(x, @binding)
-      puts env.env_keys
       expect(env).to be_truthy
       bindings.each do |k, v|
         expect(env[k]).to eql v
