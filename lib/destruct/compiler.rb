@@ -417,10 +417,11 @@ class Destruct
           expr_values = expr_values.any? ? [*expr_values, false, nil] : expr_values
           _or(*new_children).with_possible_values(expr_values)
         elsif x.is_a?(Form)
+          recurse = proc { Form.new(x.type, *x.children.map { |c| flow_meta(c, let_bindings) }) }
           if x.type == :equal?
-            x.with_possible_values([true, false])
+            recurse.().with_possible_values([true, false])
           else
-            Form.new(x.type, *x.children.map { |c| flow_meta(c, let_bindings) })
+            recurse.()
           end
         else
           x
@@ -559,6 +560,17 @@ class Destruct
                 (children.take(children.size - 1).reject { |c| known_truthy?(c) } +
                     children.drop(children.size - 1).reject { |c| c == true }).reverse.uniq.reverse
             remove_redundant_tests(_and(*new_children.map { |c| remove_redundant_tests(c, path) }), path)
+          end
+        elsif match { form(:get_field, obj, sym) } && known_not_env?(obj)
+          trace_rule(x, "rrt known_not_env?(obj).get_field => :__unbound__") do
+            :__unbound__
+          end
+        elsif match { form(:get_field, obj, sym) } && known_env?(obj)
+          env_info = possible_values(obj)[0]
+          if !env_info.bindings.include?(sym)
+            :__unbound__
+          else
+            x
           end
         elsif match { form(:get_field, obj, sym) } && known_not_env?(obj)
           trace_rule(x, "rrt known_not_env?(obj).get_field => :__unbound__") do
@@ -818,12 +830,14 @@ class Destruct
       x = ident("x")
       env = ident("env")
       binding = ident("binding")
-      reordered_pat = pat.each_with_index.sort_by do |(p, _i)|
-        if p.is_a?(Var)
-          1
-        else
-          0
-        end
+      reordered_pat = pat.each_with_index.sort_by do |(p, i)|
+        priority =
+            if p.is_a?(Var)
+              1
+            else
+              0
+            end
+        [priority, i]
       end
       _lambda([x, env, binding],
               _if(_or(_not(_is_type(x, Array)),
