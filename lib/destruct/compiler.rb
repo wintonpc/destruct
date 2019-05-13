@@ -114,43 +114,45 @@ class Destruct
 
     def self.pretty_sexp(x)
       require 'open3'
-      Open3.popen3("scheme -q") do |i, o, e, t|
-        i.write "(pretty-line-length 140) (pretty-print '#{to_sexp(x, [])})"
+      refs = {}
+      pretty = Open3.popen3("scheme -q") do |i, o, e, t|
+        refs
+        i.write "(pretty-line-length 140) (pretty-print '#{to_sexp(x, [], refs)})"
         i.close
-        return o.read
+        o.read
       end
+      refs = refs.invert
+      pretty.lines.map { |line| line.gsub(/\s+$/,'') }.map do |line|
+        rs = line.scan(/:\d+/)
+        "#{line.ljust(120,)} #{rs.map { |r| "#{r}: #{to_sexp(possible_values(ObjectSpace._id2ref(refs[r])), [], {}) }" }.join(', ') }"
+      end.join("\n") + "\n"
     end
 
-    def self.to_sexp(x, path)
+    def self.to_sexp(x, path, refs)
+      get_ref = proc { |x| possible_values(x).any? ? refs.fetch(x.object_id) { refs[x.object_id] = ":#{refs.size}" } : "" }
       destruct(x) do
-        result = if ident?(x)
-                   if x.possible_values.any?
-                     "#(#{x.name} #{to_sexp(x.possible_values, [])})"
-                   else
-                     x.name.to_s
-                   end
-                 elsif match { form(:lambda, args, body) }
-                   "(lambda (#{args.map { |a| to_sexp(a, epath(x, path)) }.join(" ")}) #{to_sexp(body, epath(x, path))})"
-                 elsif match { form(:let, var, val, body) }
-                   "(let ([#{to_sexp(var, epath(x, path))} #{to_sexp(val, epath(x, path))}]) #{to_sexp(body, epath(x, path))})"
-                 elsif match { form(type, ~children) }
-                   "(#{type} #{children.map { |c| to_sexp(c, epath(x, path)) }.join(" ")})"
-                 elsif x.is_a?(Array)
-                   "#(#{x.map { |c| to_sexp(c, epath(x, path)) }.join(" ")})"
-                 elsif x.is_a?(Symbol)
-                   "'#{x}"
-                 elsif x.is_a?(MakeEnvClass)
-                   "(make-env)"
-                 elsif x.is_a?(EnvInfo)
-                   "(EnvInfo #{to_sexp(x.bindings, [])})"
-                 else
-                   x.inspect
-                 end
-        pvs = possible_values(x)
-        if x.is_a?(HasMeta) && !x.is_a?(Ident) && pvs.any?
-          "#(#{to_sexp(pvs, [])} #{result})"
+        if ident?(x)
+          if x.possible_values.any?
+            "#{x.name}#{get_ref.(x)}"
+          else
+            x.name.to_s
+          end
+        elsif match { form(:lambda, args, body) }
+          "(lambda#{get_ref.(x)} (#{args.map { |a| to_sexp(a, epath(x, path), refs) }.join(" ")}) #{to_sexp(body, epath(x, path), refs)})"
+        elsif match { form(:let, var, val, body) }
+          "(let#{get_ref.(x)} ([#{to_sexp(var, epath(x, path), refs)} #{to_sexp(val, epath(x, path), refs)}]) #{to_sexp(body, epath(x, path), refs)})"
+        elsif match { form(type, ~children) }
+          "(#{type}#{get_ref.(x)} #{children.map { |c| to_sexp(c, epath(x, path), refs) }.join(" ")})"
+        elsif x.is_a?(Array)
+          "#(#{x.map { |c| to_sexp(c, epath(x, path), refs) }.join(" ")})"
+        elsif x.is_a?(Symbol)
+          "'#{x}"
+        elsif x.is_a?(MakeEnvClass)
+          "(make-env)"
+        elsif x.is_a?(EnvInfo)
+          "(EnvInfo #{to_sexp(x.bindings, [], refs)})"
         else
-          result
+          x.inspect
         end
       end
     end
@@ -411,7 +413,11 @@ class Destruct
           new_children = children.map { |c| flow_meta(c, let_bindings) }
           _or(*new_children).with_possible_values([false, nil] + new_children.flat_map { |c| possible_values(c) })
         elsif x.is_a?(Form)
-          Form.new(x.type, *x.children.map { |c| flow_meta(c, let_bindings) })
+          if x.type == :equal?
+            x.with_possible_values([true, false])
+          else
+            Form.new(x.type, *x.children.map { |c| flow_meta(c, let_bindings) })
+          end
         else
           x
         end
@@ -439,7 +445,10 @@ class Destruct
         elsif match { form(:not, form(:and, ~children)) } && children.size > 1
           fold_bool(_or(*children.map { |c| _not(c) }))
         elsif match { form(:if, id <= ident(_), id, alt) }
-          _or(id, fold_bool(alt))
+          puts "=> #{x}"
+          result = _or(id, fold_bool(alt))
+          puts "<= #{result}"
+          result
         elsif match { form(:or, ~clauses) } && clauses.all? { |c| and?(c) } &&
             clauses.map { |c| c.children[0] }.uniq.size == 1
           _and(fold_bool(clauses[0].children[0]), fold_bool(_or(*clauses.map { |c| _and(*c.children.drop(1)) })))
@@ -474,6 +483,11 @@ class Destruct
     def known_env?(x)
       pvs = possible_values(x)
       pvs.size == 1 && pvs[0].is_a?(EnvInfo)
+    end
+
+    def known_not_env?(x)
+      pvs = possible_values(x)
+      pvs.size > 0 && pvs.none? { |pv| pv.is_a?(EnvInfo) }
     end
 
     def remove_redundant_tests(x, path)
@@ -514,14 +528,9 @@ class Destruct
           new_children =
               (children.take(children.size - 1).reject { |c| known_truthy?(c) } +
                   children.drop(children.size - 1).reject { |c| c == true }).reverse.uniq.reverse
-          _and(*new_children.map { |c| remove_redundant_tests(c, path) })
-        elsif match { form(:get_field, obj, sym) } && known_env?(obj)
-          env_info = possible_values(obj)[0]
-          if !env_info.bindings.include?(sym)
-            :__unbound__
-          else
-            x
-          end
+          remove_redundant_tests(_and(*new_children.map { |c| remove_redundant_tests(c, path) }), path)
+        elsif match { form(:get_field, obj, sym) } && known_not_env?(obj)
+          :__unbound__
         else
           tx(x) { |c| remove_redundant_tests(c, path) }
         end
