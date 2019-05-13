@@ -122,7 +122,7 @@ class Destruct
         o.read
       end
       refs = refs.invert
-      pretty.lines.map { |line| line.gsub(/\s+$/,'') }.map do |line|
+      pretty.lines.map { |line| line.gsub(/\s+$/, '') }.map do |line|
         rs = line.scan(/:\d+/)
         "#{line.ljust(120,)} #{rs.map { |r| "#{r}: #{to_sexp(possible_values(ObjectSpace._id2ref(refs[r])), [], {}) }" }.join(', ') }"
       end.join("\n") + "\n"
@@ -405,13 +405,17 @@ class Destruct
           new_possible_values = (possible_values(new_cons) + possible_values(new_alt)).uniq
           _if(new_cond, new_cons, new_alt).with_possible_values(new_possible_values)
         elsif ident?(x) && let_bindings.include?(x)
-          x.with_possible_values(possible_values(let_bindings.find { |lb| lb == x}))
+          x.with_possible_values(possible_values(let_bindings.find { |lb| lb == x }))
         elsif match { form(:and, ~children) }
           new_children = children.map { |c| flow_meta(c, let_bindings) }
-          _and(*new_children).with_possible_values([false, nil, *possible_values(new_children.last)])
+          expr_values = possible_values(new_children.last)
+          expr_values = expr_values.any? ? [*expr_values, false, nil] : expr_values
+          _and(*new_children).with_possible_values(expr_values)
         elsif match { form(:or, ~children) }
           new_children = children.map { |c| flow_meta(c, let_bindings) }
-          _or(*new_children).with_possible_values([false, nil] + new_children.flat_map { |c| possible_values(c) })
+          expr_values = new_children.flat_map { |c| possible_values(c) }
+          expr_values = expr_values.any? ? [*expr_values, false, nil] : expr_values
+          _or(*new_children).with_possible_values(expr_values)
         elsif x.is_a?(Form)
           if x.type == :equal?
             x.with_possible_values([true, false])
@@ -445,13 +449,14 @@ class Destruct
         elsif match { form(:not, form(:and, ~children)) } && children.size > 1
           fold_bool(_or(*children.map { |c| _not(c) }))
         elsif match { form(:if, id <= ident(_), id, alt) }
-          puts "=> #{x}"
-          result = _or(id, fold_bool(alt))
-          puts "<= #{result}"
-          result
+          trace_rule(x, "id ? id : alt => id || alt") do
+            _or(id, fold_bool(alt))
+          end
         elsif match { form(:or, ~clauses) } && clauses.all? { |c| and?(c) } &&
             clauses.map { |c| c.children[0] }.uniq.size == 1
-          _and(fold_bool(clauses[0].children[0]), fold_bool(_or(*clauses.map { |c| _and(*c.children.drop(1)) })))
+          trace_rule(x, "factor common head clauses from ORed ANDs") do
+            _and(fold_bool(clauses[0].children[0]), fold_bool(_or(*clauses.map { |c| _and(*c.children.drop(1)) })))
+          end
         else
           tx(x, :fold_bool)
         end
@@ -496,46 +501,91 @@ class Destruct
       result = destruct(x) do
         if match { form(:if, cond, cons, alt) }
           if known_falsey?(cons) && !contains_complex_forms?(alt)
-            _and(_not(remove_redundant_tests(cond, path)), remove_redundant_tests(alt, path))
+            trace_rule(x, "if => AND when known_falsey?(cons)") do
+              _and(_not(remove_redundant_tests(cond, path)), remove_redundant_tests(alt, path))
+            end
           elsif cons == true && known_falsey?(alt)
-            remove_redundant_tests(cond, path)
+            trace_rule(x, "rrt2") do
+              remove_redundant_tests(cond, path)
+            end
           elsif alt == true && known_falsey?(cons)
-            remove_redundant_tests(_not(cond), path)
+            trace_rule(x, "rrt3") do
+              remove_redundant_tests(_not(cond), path)
+            end
           elsif known_truthy?(cond)
-            remove_redundant_tests(cons, path)
+            trace_rule(x, "rrt4") do
+              remove_redundant_tests(cons, path)
+            end
           elsif known_falsey?(cond)
-            remove_redundant_tests(alt, path)
+            trace_rule(x, "rrt5") do
+              remove_redundant_tests(alt, path)
+            end
           elsif ident?(cond) && cons == cond && known_falsey?(alt)
-            cond
+            trace_rule(x, "rrt6") do
+              cond
+            end
           elsif ident?(cond) && alt == cond && known_falsey?(cons)
-            cond
+            trace_rule(x, "rrt7") do
+              cond
+            end
           else
             tx(x) { |c| remove_redundant_tests(c, path) }
           end
         elsif match { form(:not, c) } && known_truthy?(c)
-          false
+          trace_rule(x, "rrt8") do
+            false
+          end
         elsif match { form(:equal?, lhs, rhs) } && known_env?(lhs) && rhs == true
-          false
+          trace_rule(x, "rrt9") do
+            false
+          end
         elsif match { form(:equal?, lhs, rhs) } && known_true?(lhs) && rhs == true
-          true
+          trace_rule(x, "rrt10") do
+            true
+          end
         elsif match { form(:and) }
-          true
+          trace_rule(x, "rrt11") do
+            true
+          end
         elsif match { form(:and, v) }
-          remove_redundant_tests(v, path)
+          trace_rule(x, "rrt12") do
+            remove_redundant_tests(v, path)
+          end
         elsif match { form(:and, ~children) } && has_redundant_and_children?(children)
-          # If the last is an env, it's truthy but we can't eliminate it because it
-          # becomes the value of the && expression
-          new_children =
-              (children.take(children.size - 1).reject { |c| known_truthy?(c) } +
-                  children.drop(children.size - 1).reject { |c| c == true }).reverse.uniq.reverse
-          remove_redundant_tests(_and(*new_children.map { |c| remove_redundant_tests(c, path) }), path)
+          trace_rule(x, "rrt remove redundant AND children") do
+            # If the last is an env, it's truthy but we can't eliminate it because it
+            # becomes the value of the && expression
+            new_children =
+                (children.take(children.size - 1).reject { |c| known_truthy?(c) } +
+                    children.drop(children.size - 1).reject { |c| c == true }).reverse.uniq.reverse
+            remove_redundant_tests(_and(*new_children.map { |c| remove_redundant_tests(c, path) }), path)
+          end
         elsif match { form(:get_field, obj, sym) } && known_not_env?(obj)
-          :__unbound__
+          trace_rule(x, "rrt known_not_env?(obj).get_field => :__unbound__") do
+            :__unbound__
+          end
         else
           tx(x) { |c| remove_redundant_tests(c, path) }
         end
       end
       # puts "<= #{result}"
+      result
+    end
+
+    def trace_rule(x, name)
+      @trace_rule_depth ||= 0
+      indent = " " * @trace_rule_depth * 2
+      puts (indent + name).ljust(120, "-")
+      puts Compiler.pretty_sexp(x)
+      begin
+        @trace_rule_depth += 1
+        result = yield
+      ensure
+        @trace_rule_depth -= 1
+      end
+      puts indent + "---"
+      puts Compiler.pretty_sexp(result)
+      puts indent.ljust(120, "-")
       result
     end
 
