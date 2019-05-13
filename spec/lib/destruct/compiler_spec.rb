@@ -39,6 +39,7 @@ class Destruct
       Destruct.debug_compile = true
       Destruct.optimize = true
       Destruct.print_passes = true
+      Destruct.print_np_transformations = true
       # Boot1::Destruct.show_code = true
       # Boot1::Destruct.show_transformations = true
 

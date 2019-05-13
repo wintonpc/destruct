@@ -573,19 +573,21 @@ class Destruct
     end
 
     def trace_rule(x, name)
+      if !Destruct.print_np_transformations
+        return yield
+      end
+
       @trace_rule_depth ||= 0
-      indent = " " * @trace_rule_depth * 2
-      puts (indent + name).ljust(120, "-")
-      puts Compiler.pretty_sexp(x)
+      indent = ""
       begin
         @trace_rule_depth += 1
         result = yield
       ensure
         @trace_rule_depth -= 1
       end
-      puts indent + "---"
-      puts Compiler.pretty_sexp(result)
-      puts indent.ljust(120, "-")
+      puts (name + " ").ljust(120, "-")
+      puts "=> " + Compiler.pretty_sexp(x)
+      puts "<= " + Compiler.pretty_sexp(result)
       result
     end
 
