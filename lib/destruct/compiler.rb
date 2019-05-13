@@ -213,6 +213,7 @@ class Destruct
               c = fold_bool(c).tap(&print_pass("fold_bool"))
             end
           end
+          c = flow_meta(c, []).tap(&print_pass("flow_meta"))
           c = emit_ruby(c)
           emit c
         end
@@ -402,20 +403,19 @@ class Destruct
           new_cond = flow_meta(cond, let_bindings)
           new_cons = flow_meta(cons, new_cons_bindings)
           new_alt = flow_meta(alt, new_alt_bindings)
-          new_possible_values = (possible_values(new_cons) + possible_values(new_alt)).uniq
+          new_possible_values = merge_possible_values(possible_values(new_cons), possible_values(new_alt))
           _if(new_cond, new_cons, new_alt).with_possible_values(new_possible_values)
         elsif ident?(x) && let_bindings.include?(x)
           x.with_possible_values(possible_values(let_bindings.find { |lb| lb == x }))
         elsif match { form(:and, ~children) }
           new_children = children.map { |c| flow_meta(c, let_bindings) }
-          expr_values = possible_values(new_children.last)
-          expr_values = expr_values.any? ? [*expr_values, false, nil] : expr_values
-          _and(*new_children).with_possible_values(expr_values)
+          pvs = possible_values(new_children.last)
+          pvs = pvs.any? ? [*pvs, false, nil] : pvs
+          _and(*new_children).with_possible_values(pvs)
         elsif match { form(:or, ~children) }
           new_children = children.map { |c| flow_meta(c, let_bindings) }
-          expr_values = new_children.flat_map { |c| possible_values(c) }
-          expr_values = expr_values.any? ? [*expr_values, false, nil] : expr_values
-          _or(*new_children).with_possible_values(expr_values)
+          pvs = merge_possible_values([false, nil], new_children.flat_map { |c| possible_values(c) })
+          _or(*new_children).with_possible_values(pvs)
         elsif x.is_a?(Form)
           recurse = proc { Form.new(x.type, *x.children.map { |c| flow_meta(c, let_bindings) }) }
           if x.type == :equal?
@@ -426,6 +426,14 @@ class Destruct
         else
           x
         end
+      end
+    end
+
+    def merge_possible_values(pvs1, pvs2)
+      if pvs1.none? || pvs2.empty?
+        []
+      else
+        (pvs1 + pvs2).uniq
       end
     end
 
@@ -449,10 +457,10 @@ class Destruct
           fold_bool(_and(*children.map { |c| _not(c) }))
         elsif match { form(:not, form(:and, ~children)) } && children.size > 1
           fold_bool(_or(*children.map { |c| _not(c) }))
-        elsif match { form(:if, id <= ident(_), id, alt) }
-          trace_rule(x, "id ? id : alt => id || alt") do
-            _or(id, fold_bool(alt))
-          end
+        # elsif match { form(:if, id <= ident(_), id, alt) }
+        #   trace_rule(x, "id ? id : alt => id || alt") do
+        #     _or(id, fold_bool(alt))
+        #   end
         elsif match { form(:or, ~clauses) } && clauses.all? { |c| and?(c) } &&
             clauses.map { |c| c.children[0] }.uniq.size == 1
           trace_rule(x, "factor common head clauses from ORed ANDs") do
@@ -575,6 +583,11 @@ class Destruct
         elsif match { form(:get_field, obj, sym) } && known_not_env?(obj)
           trace_rule(x, "rrt known_not_env?(obj).get_field => :__unbound__") do
             :__unbound__
+          end
+        elsif match { form(:let, id <= ident(_), form(:and, ~clauses, bound <= form(:bind, ~bc)),
+                           form(:and, id, form(:bind, id, sym, val))) }
+          trace_rule(x, "continue binding from let val to let body") do
+            remove_redundant_tests(_and(*clauses, bind_form(bound, sym, val)), path)
           end
         else
           tx(x) { |c| remove_redundant_tests(c, path) }
@@ -755,7 +768,8 @@ class Destruct
         elsif match { form(:is_type, recv, klass) }
           "#{emit_ruby(recv)}.is_a?(#{emit_ruby(klass)})"
         elsif match { form(:bind, env, sym, val) }
-          "#{emit_ruby(env)}.bind(#{emit_ruby(sym)}, #{emit_ruby(val)})"
+          dot = known_truthy?(env) ? "." : "&."
+          "#{emit_ruby(env)}#{dot}bind(#{emit_ruby(sym)}, #{emit_ruby(val)})"
         elsif match { Form[] }
           raise "emit3: unexpected: #{x}"
         elsif x.is_a?(MakeEnvClass)
@@ -771,7 +785,7 @@ class Destruct
     end
 
     def maybe_parenthesize(x)
-      if x.is_a?(Form) && %i(and or).include?(x.type)
+      if x.is_a?(Form) && %i(and or if).include?(x.type)
         "(#{emit_ruby(x)})"
       else
         emit_ruby(x)
@@ -832,7 +846,9 @@ class Destruct
       binding = ident("binding")
       reordered_pat = pat.each_with_index.sort_by do |(p, i)|
         priority =
-            if p.is_a?(Var)
+            if p.is_a?(Or)
+              2
+            elsif p.is_a?(Var)
               1
             else
               0
