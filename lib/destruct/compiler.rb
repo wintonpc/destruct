@@ -360,13 +360,12 @@ class Destruct
 
     def flow_meta(x, let_bindings)
       destruct(x) do
-        if match { form(:bind, env, sym, val) } && (env.is_a?(MakeEnvClass) || env.is_a?(Ident))
+        if match { form(:bind, env, sym, val) }
           new_env = flow_meta(env, let_bindings)
           new_val = flow_meta(val, let_bindings)
           new_env_bindings = (env_bindings(new_env) + [sym]).uniq
-          new_possible_values = new_env.possible_values.reject { |pv| pv.is_a?(EnvInfo) } + [EnvInfo.new(new_env_bindings)]
-          result = bind_form(new_env, sym, new_val).with_possible_values(new_possible_values)
-          result
+          new_possible_values = possible_values(new_env).reject { |pv| pv.is_a?(EnvInfo) } + [EnvInfo.new(new_env_bindings)]
+          bind_form(new_env, sym, new_val).with_possible_values(new_possible_values)
         elsif match { form(:let, var, val, body) }
           new_val = flow_meta(val, let_bindings)
           new_var = var.with_possible_values(possible_values(new_val))
@@ -457,10 +456,10 @@ class Destruct
           fold_bool(_and(*children.map { |c| _not(c) }))
         elsif match { form(:not, form(:and, ~children)) } && children.size > 1
           fold_bool(_or(*children.map { |c| _not(c) }))
-        # elsif match { form(:if, id <= ident(_), id, alt) }
-        #   trace_rule(x, "id ? id : alt => id || alt") do
-        #     _or(id, fold_bool(alt))
-        #   end
+        elsif match { form(:if, id <= ident(_), id, alt) } && !contains_complex_forms?(alt)
+          trace_rule(x, "id ? id : alt => id || alt") do
+            _or(id, fold_bool(alt))
+          end
         elsif match { form(:or, ~clauses) } && clauses.all? { |c| and?(c) } &&
             clauses.map { |c| c.children[0] }.uniq.size == 1
           trace_rule(x, "factor common head clauses from ORed ANDs") do
@@ -768,8 +767,8 @@ class Destruct
         elsif match { form(:is_type, recv, klass) }
           "#{emit_ruby(recv)}.is_a?(#{emit_ruby(klass)})"
         elsif match { form(:bind, env, sym, val) }
-          dot = known_truthy?(env) ? "." : "&."
-          "#{emit_ruby(env)}#{dot}bind(#{emit_ruby(sym)}, #{emit_ruby(val)})"
+          # dot = known_truthy?(env) ? "." : "&."
+          "#{emit_ruby(env)}.bind(#{emit_ruby(sym)}, #{emit_ruby(val)})"
         elsif match { Form[] }
           raise "emit3: unexpected: #{x}"
         elsif x.is_a?(MakeEnvClass)

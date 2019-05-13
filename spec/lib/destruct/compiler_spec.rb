@@ -94,10 +94,10 @@ class Destruct
     end
     it 'compiles ORs (tricky)' do
       Destruct.show_code = true
-      Destruct.debug_compile = true
+      # Destruct.debug_compile = true
       Destruct.optimize = true
       Destruct.print_passes = true
-      Destruct.print_np_transformations = true
+      # Destruct.print_np_transformations = true
 
       # given_pattern Or.new([1, Var.new(:a)], [2, Var.new(:b)])
       # expect_success_on [1, 5], a: 5
