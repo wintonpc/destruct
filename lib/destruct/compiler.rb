@@ -415,6 +415,9 @@ class Destruct
           new_children = children.map { |c| flow_meta(c, let_bindings) }
           pvs = merge_possible_values([false, nil], new_children.flat_map { |c| possible_values(c) })
           _or(*new_children).with_possible_values(pvs)
+        elsif match { form(:get_field, recv, :dup) }
+          new_recv = flow_meta(recv, let_bindings)
+          _get_field(new_recv, :dup).with_possible_values(possible_values(new_recv))
         elsif x.is_a?(Form)
           recurse = proc { Form.new(x.type, *x.children.map { |c| flow_meta(c, let_bindings) }) }
           if x.type == :equal?
@@ -568,20 +571,16 @@ class Destruct
                     children.drop(children.size - 1).reject { |c| c == true }).reverse.uniq.reverse
             remove_redundant_tests(_and(*new_children.map { |c| remove_redundant_tests(c, path) }), path)
           end
-        elsif match { form(:get_field, obj, sym) } && known_not_env?(obj)
+        elsif match { form(:get_field, obj, sym) } && known_not_env?(obj) && sym != :dup
           trace_rule(x, "rrt known_not_env?(obj).get_field => :__unbound__") do
             :__unbound__
           end
-        elsif match { form(:get_field, obj, sym) } && known_env?(obj)
+        elsif match { form(:get_field, obj, sym) } && known_env?(obj) && sym != :dup
           env_info = possible_values(obj)[0]
           if !env_info.bindings.include?(sym)
             :__unbound__
           else
             x
-          end
-        elsif match { form(:get_field, obj, sym) } && known_not_env?(obj)
-          trace_rule(x, "rrt known_not_env?(obj).get_field => :__unbound__") do
-            :__unbound__
           end
         elsif match { form(:let, id <= ident(_), form(:and, ~clauses, bound <= form(:bind, ~bc)),
                            form(:and, id, form(:bind, id, sym, val))) }
@@ -890,8 +889,8 @@ class Destruct
       else
         pat, *pats = pats
         new_env = ident("env")
-        # or_env = might_bind?(pat) ? _get_field(env, :dup) : env
-        _let(new_env, _apply(matcher(pat), x, env, binding),
+        or_env = might_bind?(pat) ? _get_field(env, :dup) : env
+        _let(new_env, _apply(matcher(pat), x, or_env, binding),
              _if(new_env,
                  new_env,
                  or_matcher_helper(pats, x, env, binding)))

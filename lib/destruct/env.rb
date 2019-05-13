@@ -58,16 +58,15 @@ class Destruct
     end
 
     def bind(var, val)
-      e = dup
-      e.send(:"#{var}=", val)
-      e
+      send(:"#{var}=", val)
+      self
     end
 
-    # def dup
-    #   duped = super
-    #   duped.extras = duped.extras.dup
-    #   duped
-    # end
+    def dup
+      duped = super
+      duped.extras = duped.extras.dup
+      duped
+    end
 
     def to_s
       kv_strs = []

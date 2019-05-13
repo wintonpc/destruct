@@ -103,10 +103,10 @@ class Destruct
       # expect_success_on [1, 5], a: 5
       # expect_success_on [2, 5], b: 5
 
-      given_pattern [Var.new(:z), Or.new([1, Var.new(:a)], [2, Var.new(:b), Var.new(:c)])]
-      expect_success_on [9, [1, 5]], a: 5, z: 9
-      expect_failure_on [9, [2, 5]]
-      expect_success_on [9, [2, 5, 6]], b: 5, c: 6, z: 9
+      given_pattern [Var.new(:z), Or.new([1, Var.new(:a)], [2, Var.new(:b), Var.new(:c)]), Var.new(:y)]
+      expect_success_on [9, [1, 5], 8], a: 5, z: 9, y: 8
+      expect_failure_on [9, [2, 5], 8]
+      expect_success_on [9, [2, 5, 6], 8], b: 5, c: 6, z: 9, y: 8
 
       # given_pattern [Var.new(:z), Or.new([1, Var.new(:a)])]
       # expect_success_on [9, [1, 5]], a: 5, z: 9
