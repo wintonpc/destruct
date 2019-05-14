@@ -117,18 +117,18 @@ class Destruct
       refs = {}
       pretty = Open3.popen3("scheme -q") do |i, o, e, t|
         refs
-        i.write "(pretty-line-length 140) (pretty-print '#{to_sexp(x, [], refs)})"
+        i.write "(pretty-line-length 140) (pretty-print '#{to_sexp(x, refs)})"
         i.close
         o.read
       end
       refs = refs.invert
       pretty.lines.map { |line| line.gsub(/\s+$/, '') }.map do |line|
         rs = line.scan(/:\d+/)
-        "#{line.ljust(120,)} #{rs.map { |r| "#{r}: #{to_sexp(possible_values(ObjectSpace._id2ref(refs[r])), [], {}) }" }.join(', ') }"
+        "#{line.ljust(120,)} #{rs.map { |r| "#{r}: #{to_sexp(possible_values(ObjectSpace._id2ref(refs[r])), {}) }" }.join(', ') }"
       end.join("\n") + "\n"
     end
 
-    def self.to_sexp(x, path, refs)
+    def self.to_sexp(x, refs)
       get_ref = proc { |x| possible_values(x).any? ? refs.fetch(x.object_id) { refs[x.object_id] = ":#{refs.size}" } : "" }
       destruct(x) do
         if ident?(x)
@@ -138,31 +138,23 @@ class Destruct
             x.name.to_s
           end
         elsif match { form(:lambda, args, body) }
-          "(lambda#{get_ref.(x)} (#{args.map { |a| to_sexp(a, epath(x, path), refs) }.join(" ")}) #{to_sexp(body, epath(x, path), refs)})"
+          "(lambda#{get_ref.(x)} (#{args.map { |a| to_sexp(a, refs) }.join(" ")}) #{to_sexp(body, refs)})"
         elsif match { form(:let, var, val, body) }
-          "(let#{get_ref.(x)} ([#{to_sexp(var, epath(x, path), refs)} #{to_sexp(val, epath(x, path), refs)}]) #{to_sexp(body, epath(x, path), refs)})"
+          "(let#{get_ref.(x)} ([#{to_sexp(var, refs)} #{to_sexp(val, refs)}]) #{to_sexp(body, refs)})"
         elsif match { form(type, ~children) }
-          "(#{type}#{get_ref.(x)} #{children.map { |c| to_sexp(c, epath(x, path), refs) }.join(" ")})"
+          "(#{type}#{get_ref.(x)} #{children.map { |c| to_sexp(c, refs) }.join(" ")})"
         elsif x.is_a?(Array)
-          "#(#{x.map { |c| to_sexp(c, epath(x, path), refs) }.join(" ")})"
+          "#(#{x.map { |c| to_sexp(c, refs) }.join(" ")})"
         elsif x.is_a?(Symbol)
           "'#{x}"
         elsif x.is_a?(MakeEnvClass)
           "(make-env)"
         elsif x.is_a?(EnvInfo)
-          "(EnvInfo #{to_sexp(x.bindings, [], refs)})"
+          "(EnvInfo #{to_sexp(x.bindings, refs)})"
         else
           x.inspect
         end
       end
-    end
-
-    def self.epath(x, ls)
-      ls.dup.unshift(x)
-    end
-
-    def epath(x, ls)
-      ls.dup.unshift(x)
     end
 
     class CompilerPatternRules
@@ -209,7 +201,7 @@ class Destruct
             c = inline(c).tap(&print_pass("inline"))
             c = fixed_point(c) do |c|
               c = flow_meta(c, []).tap(&print_pass("flow_meta"))
-              c = remove_redundant_tests(c, []).then(&method(:inline)).tap(&print_pass("remove_redundant_tests"))
+              c = remove_redundant_tests(c).then(&method(:inline)).tap(&print_pass("remove_redundant_tests"))
               c = fold_bool(c).tap(&print_pass("fold_bool"))
             end
           end
@@ -506,30 +498,29 @@ class Destruct
       pvs.size > 0 && pvs.none? { |pv| pv.is_a?(EnvInfo) }
     end
 
-    def remove_redundant_tests(x, path)
+    def remove_redundant_tests(x)
       # puts "=> #{x}"
-      path = epath(x, path)
       result = destruct(x) do
         if match { form(:if, cond, cons, alt) }
           if known_falsey?(cons) && !contains_complex_forms?(alt)
             trace_rule(x, "if => AND when known_falsey?(cons)") do
-              _and(_not(remove_redundant_tests(cond, path)), remove_redundant_tests(alt, path))
+              _and(_not(remove_redundant_tests(cond)), remove_redundant_tests(alt))
             end
           elsif cons == true && known_falsey?(alt)
             trace_rule(x, "rrt2") do
-              remove_redundant_tests(cond, path)
+              remove_redundant_tests(cond)
             end
           elsif alt == true && known_falsey?(cons)
             trace_rule(x, "rrt3") do
-              remove_redundant_tests(_not(cond), path)
+              remove_redundant_tests(_not(cond))
             end
           elsif known_truthy?(cond)
             trace_rule(x, "rrt4") do
-              remove_redundant_tests(cons, path)
+              remove_redundant_tests(cons)
             end
           elsif known_falsey?(cond)
             trace_rule(x, "rrt5") do
-              remove_redundant_tests(alt, path)
+              remove_redundant_tests(alt)
             end
           elsif ident?(cond) && cons == cond && known_falsey?(alt)
             trace_rule(x, "rrt6") do
@@ -540,7 +531,7 @@ class Destruct
               cond
             end
           else
-            tx(x) { |c| remove_redundant_tests(c, path) }
+            tx(x) { |c| remove_redundant_tests(c) }
           end
         elsif match { form(:not, c) } && known_truthy?(c)
           trace_rule(x, "rrt8") do
@@ -560,7 +551,7 @@ class Destruct
           end
         elsif match { form(:and, v) }
           trace_rule(x, "rrt12") do
-            remove_redundant_tests(v, path)
+            remove_redundant_tests(v)
           end
         elsif match { form(:and, ~children) } && has_redundant_and_children?(children)
           trace_rule(x, "rrt remove redundant AND children") do
@@ -569,7 +560,7 @@ class Destruct
             new_children =
                 (children.take(children.size - 1).reject { |c| known_truthy?(c) } +
                     children.drop(children.size - 1).reject { |c| c == true }).reverse.uniq.reverse
-            remove_redundant_tests(_and(*new_children.map { |c| remove_redundant_tests(c, path) }), path)
+            remove_redundant_tests(_and(*new_children.map { |c| remove_redundant_tests(c) }))
           end
         elsif match { form(:get_field, obj, sym) } && known_not_env?(obj) && sym != :dup
           trace_rule(x, "rrt known_not_env?(obj).get_field => :__unbound__") do
@@ -585,10 +576,10 @@ class Destruct
         elsif match { form(:let, id <= ident(_), form(:and, ~clauses, bound <= form(:bind, ~bc)),
                            form(:and, id, form(:bind, id, sym, val))) }
           trace_rule(x, "continue binding from let val to let body") do
-            remove_redundant_tests(_and(*clauses, bind_form(bound, sym, val)), path)
+            remove_redundant_tests(_and(*clauses, bind_form(bound, sym, val)))
           end
         else
-          tx(x) { |c| remove_redundant_tests(c, path) }
+          tx(x) { |c| remove_redundant_tests(c) }
         end
       end
       # puts "<= #{result}"
