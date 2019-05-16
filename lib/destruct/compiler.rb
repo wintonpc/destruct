@@ -746,6 +746,8 @@ class Destruct
           array_matcher(pat)
         elsif pat.is_a?(Or)
           or_matcher(pat)
+        elsif pat.is_a?(Let)
+          let_matcher(pat)
         elsif pat == Any
           any_matcher(pat)
         else
@@ -797,6 +799,16 @@ class Destruct
       binding = ident("binding")
       _lambda([x, env, binding],
               or_matcher_helper(pat.patterns, x, env, binding))
+    end
+
+    def let_matcher(pat)
+      x = ident("x")
+      env = ident("env")
+      binding = ident("binding")
+      new_env = ident("env")
+      _lambda([x, env, binding],
+              _let(new_env, bind(env, pat.name, x),
+                   _apply(matcher(pat.pattern), x, new_env, binding)))
     end
 
     def any_matcher(_pat)

@@ -164,6 +164,12 @@ class Destruct
       expect_failure_on [1, 2, 3]
     end
     it 'compiles lets' do
+      Destruct.show_code = true
+      # Destruct.debug_compile = true
+      Destruct.optimize = true
+      Destruct.print_passes = true
+      # Destruct.print_np_transformations = true
+      
       given_pattern(Let.new(:a, [Var.new(:b), Var.new(:c)]))
       expect_success_on [1, 2], a: [1, 2], b: 1, c: 2
       expect_failure_on [1, 2, 3]
