@@ -169,7 +169,7 @@ class Destruct
       Destruct.optimize = true
       Destruct.print_passes = true
       # Destruct.print_np_transformations = true
-      
+
       given_pattern(Let.new(:a, [Var.new(:b), Var.new(:c)]))
       expect_success_on [1, 2], a: [1, 2], b: 1, c: 2
       expect_failure_on [1, 2, 3]
@@ -226,6 +226,12 @@ class Destruct
       expect_failure_on [2, 3]
     end
     it 'compiles regexes' do
+      Destruct.show_code = true
+      # Destruct.debug_compile = true
+      Destruct.optimize = true
+      # Destruct.print_passes = true
+      # Destruct.print_np_transformations = true
+      #
       given_pattern [Var.new(:a), /hello (?<name>\w+)/]
       expect_success_on [1, "hello alice"], a: 1, name: "alice"
 
@@ -238,6 +244,10 @@ class Destruct
       given_pattern [/hello (?<name>\w+)/, /hello (?<name>\w+)/]
       expect_failure_on ["hello alice", "hello bob"]
       expect_failure_on [1, 1]
+
+      given_pattern /hello (?<name1>\w+)|goodbye (?<name2>\w+)/
+      expect_success_on "hello alice", name1: "alice", name2: :__unbound__
+      expect_success_on "goodbye alice", name1: :__unbound__, name2: "alice"
     end
     it 'compiles arrays' do
       given_pattern [1, Var.new(:foo)]

@@ -245,7 +245,7 @@ class Destruct
       destruct(x) do
         if match { form(:apply, form(:lambda, params, body), ~args) }
           params.size == args.size or raise "mismatched params/args: #{params} #{args}"
-          if params.none?
+          if params.empty?
             normalize(body)
           else
             var, *vars = params
@@ -377,7 +377,7 @@ class Destruct
             id = cond
             new_cons_bindings = update_bindings.(id) do |pvs|
               pvs = pvs.reject { |pv| pv == false || pv == nil }
-              pvs.none? ? [:truthy] : pvs
+              pvs.empty? ? [:truthy] : pvs
             end
             new_alt_bindings = update_bindings.(id) { [false, nil] }
           elsif not?(cond) && ident?(cond.children[0])
@@ -385,7 +385,7 @@ class Destruct
             new_cons_bindings = update_bindings.(id) { [false, nil] }
             new_alt_bindings = update_bindings.(id) do |pvs|
               pvs = pvs.reject { |pv| pv == false || pv == nil }
-              pvs.none? ? [:truthy] : pvs
+              pvs.empty? ? [:truthy] : pvs
             end
           else
             new_cons_bindings = let_bindings
@@ -396,6 +396,15 @@ class Destruct
           new_alt = flow_meta(alt, new_alt_bindings)
           new_possible_values = merge_possible_values(possible_values(new_cons), possible_values(new_alt))
           _if(new_cond, new_cons, new_alt).with_possible_values(new_possible_values)
+        elsif match { form(:not, v) }
+          new_v = flow_meta(v, let_bindings)
+          if known_truthy?(v)
+            _not(new_v).with_possible_values([false])
+          elsif known_falsey?(v)
+            _not(new_v).with_possible_values([true])
+          else
+            _not(new_v).with_possible_values([false, true])
+          end
         elsif ident?(x) && let_bindings.include?(x)
           x.with_possible_values(possible_values(let_bindings.find { |lb| lb == x }))
         elsif match { form(:and, ~children) }
@@ -424,7 +433,7 @@ class Destruct
     end
 
     def merge_possible_values(pvs1, pvs2)
-      if pvs1.none? || pvs2.empty?
+      if pvs1.empty? || pvs2.empty?
         []
       else
         (pvs1 + pvs2).uniq
@@ -687,6 +696,8 @@ class Destruct
           "#{emit_ruby(arr)}[#{emit_ruby(index)}]"
         elsif match { form(:is_type, recv, klass) }
           "#{emit_ruby(recv)}.is_a?(#{emit_ruby(klass)})"
+        elsif match { form(:regexp_match, pat, v) }
+          "#{emit_ruby(pat)}.match(#{emit_ruby(v)})"
         elsif match { form(:bind, env, sym, val) }
           # dot = known_truthy?(env) ? "." : "&."
           "#{emit_ruby(env)}.bind(#{emit_ruby(sym)}, #{emit_ruby(val)})"
@@ -750,6 +761,8 @@ class Destruct
           let_matcher(pat)
         elsif pat == Any
           any_matcher(pat)
+        elsif pat.is_a?(Regexp)
+          regexp_matcher(pat)
         else
           value_matcher(pat)
         end
@@ -762,7 +775,9 @@ class Destruct
       binding = ident("binding")
       reordered_pat = pat.each_with_index.sort_by do |(p, i)|
         priority =
-            if p.is_a?(Or)
+            if p.is_a?(Regexp)
+              3
+            elsif p.is_a?(Or)
               2
             elsif p.is_a?(Var)
               1
@@ -779,7 +794,7 @@ class Destruct
     end
 
     def array_matcher_helper(pat_with_indexes, x, env, binding)
-      if pat_with_indexes.none?
+      if pat_with_indexes.empty?
         env
       else
         (pat, index), *pat_rest = pat_with_indexes
@@ -818,8 +833,40 @@ class Destruct
       _lambda([x, env, binding], env)
     end
 
+    def regexp_matcher(pat)
+      x = ident("x")
+      env = ident("env")
+      binding = ident("binding")
+      m = ident("m")
+      _lambda([x, env, binding],
+              _if(_not(_or(_is_type(x, String), _is_type(x, Symbol))),
+                  nil,
+                  _let(m, regexp_match(pat, x),
+                       _if(_not(m),
+                           nil,
+                           bind_regexp_match(env, m, find_var_names_non_uniq(pat).uniq)))))
+    end
+
+    def regexp_match(pat, x)
+      Form.new(:regexp_match, pat, x)
+    end
+
+    def bind_regexp_match(env, m, syms)
+      if syms.empty?
+        env
+      else
+        sym, *syms = syms
+        v = ident("v")
+        new_env = ident("env")
+        _let(v, _array_get(m, sym),
+             _let(new_env, _if(v, bind(env, sym, v), env),
+                  bind_regexp_match(new_env, m, syms)))
+
+      end
+    end
+
     def or_matcher_helper(pats, x, env, binding)
-      if pats.none?
+      if pats.empty?
         nil
       else
         pat, *pats = pats
