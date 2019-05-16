@@ -62,6 +62,28 @@ class Destruct
       self
     end
 
+    def self.merge(env1, env2)
+      if !env1 || !env2
+        nil
+      elsif env1 == true
+        env2
+      elsif env2 == true
+        env1
+      else
+        env2.env_each do |k, v2|
+          v1 = env1[k]
+          if v1 == :__unbound__
+            env1[k] = v2
+            env1
+          elsif v1 == v2
+            env1
+          else
+            nil
+          end
+        end
+      end
+    end
+
     def dup
       duped = super
       duped.extras = duped.extras.dup

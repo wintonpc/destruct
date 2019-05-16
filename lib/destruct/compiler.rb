@@ -137,6 +137,8 @@ class Destruct
           else
             x.name.to_s
           end
+        # elsif match { form(:splat, name) }
+        #   ",@name#{get_ref.(x)}"
         elsif match { form(:lambda, args, body) }
           "(lambda#{get_ref.(x)} (#{args.map { |a| to_sexp(a, refs) }.join(" ")}) #{to_sexp(body, refs)})"
         elsif match { form(:let, var, val, body) }
@@ -281,11 +283,14 @@ class Destruct
     def inlineable?(var, val, body)
       literal_val?(val) ||
           ident?(val) ||
-          (ident_count(var, body) <= 1 && (can_be_condition?(val) || !appears_in_if_condition(var, body)))
+          (!(val.is_a?(Form) && val.type == :let) &&
+              ident_count(var, body) <= 1 &&
+              (can_be_condition?(val) || !appears_in_if_condition(var, body)))
     end
 
     def can_be_condition?(x)
-      !x.is_a?(Form) || (%i[and or ident equal? not_equal? not array_get is_type get_field].include?(x.type) && x.children.all? { |c| can_be_condition?(c) })
+      !x.is_a?(Form) || (%i[and or ident equal? not_equal? not array_get is_type get_field].include?(x.type) &&
+          x.children.all? { |c| can_be_condition?(c) })
     end
 
     def ident_count(var, x)
@@ -355,9 +360,22 @@ class Destruct
         if match { form(:bind, env, sym, val) }
           new_env = flow_meta(env, let_bindings)
           new_val = flow_meta(val, let_bindings)
-          new_env_bindings = (env_bindings(new_env) + [sym]).uniq
-          new_possible_values = possible_values(new_env).reject { |pv| pv.is_a?(EnvInfo) } + [EnvInfo.new(new_env_bindings)]
+          new_possible_values = merge_possible_values(possible_values(new_env), [EnvInfo.new([sym])])
           bind_form(new_env, sym, new_val).with_possible_values(new_possible_values)
+        elsif match { form(:env_merge, e1, e2) }
+          pvs1 = possible_values(let_bindings.find { |lb| lb == e1 })
+          pvs2 = possible_values(let_bindings.find { |lb| lb == e2 })
+          if pvs1 == [true]
+            flow_meta(e2, let_bindings)
+          elsif pvs2 == [true]
+            flow_meta(e1, let_bindings)
+          else
+            x.with_possible_values(merge_possible_values(pvs1, pvs2))
+          end
+        elsif match { form(:dynamic_match, _, _, _) }
+          x.with_possible_values([nil, true, EnvInfo.new([:__any__])])
+        elsif match { form(:raise, _)}
+          x.with_possible_values([:__bottom__])
         elsif match { form(:let, var, val, body) }
           new_val = flow_meta(val, let_bindings)
           new_var = var.with_possible_values(possible_values(new_val))
@@ -436,7 +454,26 @@ class Destruct
       if pvs1.empty? || pvs2.empty?
         []
       else
-        (pvs1 + pvs2).uniq
+        eis, pvs = (pvs1 + pvs2)
+                       .uniq
+                       .reject { |pv| pv == :__bottom__ }
+                       .partition { |pv| pv.is_a?(EnvInfo) }
+        (pvs + [eis.reduce(nil, &method(:merge_env_infos))].compact)
+      end
+    end
+
+    def merge_env_infos(ei1, ei2)
+      if ei1.nil?
+        ei2
+      elsif ei2.nil?
+        ei1
+      else
+        bindings = (ei1.bindings + ei2.bindings).uniq
+        if bindings.include?(:__any__)
+          EnvInfo.new([:__any__])
+        else
+          EnvInfo.new(bindings)
+        end
       end
     end
 
@@ -568,7 +605,7 @@ class Destruct
             # becomes the value of the && expression
             new_children =
                 (children.take(children.size - 1).reject { |c| known_truthy?(c) } +
-                    children.drop(children.size - 1).reject { |c| c == true }).reverse.uniq.reverse
+                    children.drop(children.size - 1).reject { |c| known_true?(c) }).reverse.uniq.reverse
             remove_redundant_tests(_and(*new_children.map { |c| remove_redundant_tests(c) }))
           end
         elsif match { form(:get_field, obj, sym) } && known_not_env?(obj)
@@ -577,7 +614,7 @@ class Destruct
           end
         elsif match { form(:get_field, obj, sym) } && known_env?(obj)
           env_info = possible_values(obj)[0]
-          if !env_info.bindings.include?(sym)
+          if !env_info.bindings.include?(sym) && !env_info.bindings.include?(:__any__)
             :__unbound__
           else
             x
@@ -586,6 +623,16 @@ class Destruct
                            form(:and, id, form(:bind, id, sym, val))) }
           trace_rule(x, "continue binding from let val to let body") do
             remove_redundant_tests(_and(*clauses, bind_form(bound, sym, val)))
+          end
+        elsif match { form(:env_merge, env1, env2) }
+          if !env1 || !env2
+            nil
+          elsif env1 == true
+            env2
+          elsif env2 == true
+            env1
+          else
+            tx(x) { |c| remove_redundant_tests(c) }
           end
         else
           tx(x) { |c| remove_redundant_tests(c) }
@@ -615,7 +662,7 @@ class Destruct
     end
 
     def has_redundant_and_children?(children)
-      children.take(children.size - 1).any? { |c| known_truthy?(c) } || children.last == true || contains_duplicates?(children)
+      children.take(children.size - 1).any? { |c| known_truthy?(c) } || known_true?(children.last) || contains_duplicates?(children)
     end
 
     def contains_duplicates?(xs)
@@ -640,18 +687,6 @@ class Destruct
 
     def is_a(klass)
       Boot1::Destruct::Obj.new(klass)
-    end
-
-    def denest_let(x)
-      destruct(x) do
-        if match { form(:let, var, val, body) }
-          t = ident
-          _begin(_set!(t, val),
-                 _let(var, t, body))
-        else
-          tx(x, :let_to_set)
-        end
-      end
     end
 
     def _set!(var, val)
@@ -681,11 +716,11 @@ class Destruct
         elsif match { form(:begin, ~children) }
           children.map { |x| emit_ruby(x) }.join
         elsif match { form(:and, ~children) }
-          children.map { |c| maybe_parenthesize(c) }.join(" && ")
+          children.map { |c| maybe_parenthesize(c, for_binop: true) }.join(" && ")
         elsif match { form(:or, ~children) }
-          children.map { |c| maybe_parenthesize(c) }.join(" || ")
+          children.map { |c| maybe_parenthesize(c, for_binop: true) }.join(" || ")
         elsif match { form(:not, x) }
-          "!(#{maybe_parenthesize(x.children.first)})"
+          "!#{maybe_parenthesize(x.children.first)}"
         elsif match { form(:set_field, recv, meth, val) }
           "#{emit_ruby(recv)}.#{meth} = #{emit_ruby(val)}\n"
         elsif match { form(:get_field, recv, meth) }
@@ -701,6 +736,12 @@ class Destruct
         elsif match { form(:bind, env, sym, val) }
           # dot = known_truthy?(env) ? "." : "&."
           "#{emit_ruby(env)}.bind(#{emit_ruby(sym)}, #{emit_ruby(val)})"
+        elsif match { form(:raise, msg) }
+          "raise #{emit_ruby(msg)}"
+        elsif match { form(:dynamic_match, v, code, b) }
+          "Destruct.match(#{emit_ruby(b)}.eval(#{emit_ruby(code)}), #{emit_ruby(v)}, #{emit_ruby(b)})"
+        elsif match { form(:env_merge, env1, env2) }
+          "Env.merge(#{emit_ruby(env1)}, #{emit_ruby(env2)})"
         elsif match { Form[] }
           raise "emit3: unexpected: #{x}"
         elsif x.is_a?(MakeEnvClass)
@@ -715,11 +756,13 @@ class Destruct
       x.is_a?(Form) && (fs.include?(x.type) || x.children.any? { |c| contains_forms?(fs, c) })
     end
 
-    def maybe_parenthesize(x)
-      if x.is_a?(Form) && %i(and or if).include?(x.type)
-        "(#{emit_ruby(x)})"
-      else
+    def maybe_parenthesize(x, for_binop: false)
+      if x.is_a?(Ident) || !x.is_a?(Form) ||
+          (x.is_a?(Form) && (%i[not is_type dup].include?(x.type) ||
+              (for_binop && %i[equal? not_equal? bind].include?(x.type))))
         emit_ruby(x)
+      else
+        "(#{emit_ruby(x)})"
       end
     end
 
@@ -763,6 +806,8 @@ class Destruct
           any_matcher(pat)
         elsif pat.is_a?(Regexp)
           regexp_matcher(pat)
+        elsif pat.is_a?(Unquote)
+          unquote_matcher(pat)
         else
           value_matcher(pat)
         end
@@ -865,6 +910,32 @@ class Destruct
       end
     end
 
+    def unquote_matcher(pat)
+      x = ident("x")
+      env = ident("env")
+      binding = ident("binding")
+      temp_env = ident("env")
+      _lambda([x, env, binding],
+              _if(_not(binding),
+                  _raise("binding must be provided"),
+                  _let(temp_env, _dynamic_match(x, pat.code_expr, binding),
+                       _if(_not(temp_env),
+                           nil,
+                           _env_merge(env, temp_env)))))
+    end
+
+    def _dynamic_match(x, code, binding)
+      Form.new(:dynamic_match, x, code, binding)
+    end
+
+    def _env_merge(env1, env2)
+      Form.new(:env_merge, env1, env2)
+    end
+
+    def _raise(msg)
+      Form.new(:raise, msg)
+    end
+
     def or_matcher_helper(pats, x, env, binding)
       if pats.empty?
         nil
@@ -934,14 +1005,6 @@ class Destruct
 
     def _array_get(arr, index)
       Form.new(:array_get, arr, index)
-    end
-
-    def _noop
-      _begin
-    end
-
-    def _begin(*xs)
-      Form.new(:begin, *xs)
     end
 
     def value_matcher(pat)

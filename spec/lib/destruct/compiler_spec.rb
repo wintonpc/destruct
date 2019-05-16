@@ -38,8 +38,8 @@ class Destruct
       Destruct.show_code = true
       Destruct.debug_compile = true
       Destruct.optimize = true
-      Destruct.print_passes = true
-      Destruct.print_np_transformations = false
+      # Destruct.print_passes = true
+      # Destruct.print_np_transformations = false
 
       given_pattern Var.new(:foo)
       expect_success_on 1, foo: 1
@@ -82,7 +82,7 @@ class Destruct
       Destruct.show_code = true
       # Destruct.debug_compile = true
       Destruct.optimize = true
-      Destruct.print_passes = true
+      # Destruct.print_passes = true
       # Destruct.print_np_transformations = true
 
       # given_pattern Or.new([1, Var.new(:a)], [2, Var.new(:b)])
@@ -151,12 +151,14 @@ class Destruct
       expect_failure_on({a: 1}) # neither are missing values
     end
     it 'compiles patterns containing non-literal objects' do
+      Destruct.show_code = true
       obj = Object.new
       given_pattern([obj])
       expect_success_on([obj])
       expect_failure_on([Object.new])
     end
     it 'compiles wildcards' do
+      Destruct.show_code = true
       given_pattern([Any, Any])
       expect_success_on [1, 2]
       expect_success_on [1, 1]
@@ -167,7 +169,7 @@ class Destruct
       Destruct.show_code = true
       # Destruct.debug_compile = true
       Destruct.optimize = true
-      Destruct.print_passes = true
+      # Destruct.print_passes = true
       # Destruct.print_np_transformations = true
 
       given_pattern(Let.new(:a, [Var.new(:b), Var.new(:c)]))
@@ -175,6 +177,11 @@ class Destruct
       expect_failure_on [1, 2, 3]
     end
     it 'compiles unquoted values' do
+      Destruct.show_code = true
+      # Destruct.debug_compile = true
+      Destruct.print_passes = true
+      Destruct.optimize = true
+
       given_pattern [1, Unquote.new("outer")]
       given_binding binding
       outer = 5
@@ -187,6 +194,12 @@ class Destruct
       expect_success_on [1, 6]
     end
     it 'compiles unquoted patterns' do
+      Destruct.show_code = true
+      # Destruct.debug_compile = true
+      Destruct.optimize = true
+      Destruct.print_passes = true
+      # Destruct.print_np_transformations = true
+
       given_pattern [Var.new(:a), Unquote.new("outer")]
       given_binding binding
       outer = Var.new(:b)
@@ -197,12 +210,14 @@ class Destruct
       expect_success_on [1, 1], a: 1
     end
     it 'compiles unquoted compiled patterns' do
+      Destruct.show_code = true
       given_pattern [Var.new(:a), Unquote.new("outer")]
       given_binding binding
       outer = Compiler.compile(Var.new(:b))
       expect_success_on [1, 2], a: 1, b: 2
     end
     it 'caches compiled unquoted patterns' do
+      Destruct.show_code = true
       given_pattern [Var.new(:a), Unquote.new("outer")]
       given_binding binding
       outer = nil
@@ -220,8 +235,13 @@ class Destruct
       expect(compiled_pats.count { |p| p == Var.new(var_name) }).to eql 1
     end
     it 'stops when unquote fails' do
+      Destruct.show_code = true
+      Destruct.optimize = true
+      Destruct.print_passes = true
+      # Destruct.print_np_transformations = true
       outer = 1
-      given_pattern [Unquote.new("outer"), Splat.new(:rest)]
+      # given_pattern [Unquote.new("outer"), Splat.new(:rest)]
+      given_pattern [Unquote.new("outer"), Var.new(:rest)]
       given_binding binding
       expect_failure_on [2, 3]
     end
@@ -231,7 +251,7 @@ class Destruct
       Destruct.optimize = true
       # Destruct.print_passes = true
       # Destruct.print_np_transformations = true
-      #
+
       given_pattern [Var.new(:a), /hello (?<name>\w+)/]
       expect_success_on [1, "hello alice"], a: 1, name: "alice"
 
@@ -250,6 +270,7 @@ class Destruct
       expect_success_on "goodbye alice", name1: :__unbound__, name2: "alice"
     end
     it 'compiles arrays' do
+      Destruct.show_code = true
       given_pattern [1, Var.new(:foo)]
       expect_success_on [1, 2], foo: 2
       expect_failure_on [2, 2]
@@ -258,6 +279,7 @@ class Destruct
       expect_failure_on Object.new
     end
     it 'array edge cases' do
+      Destruct.show_code = true
       given pattern: [], expect_success_on: []
       given pattern: [1], expect_failure_on: [2]
       given pattern: [1], expect_failure_on: [1, 2]
@@ -268,6 +290,10 @@ class Destruct
       given pattern: [1, 2], expect_failure_on: [8, 9]
     end
     it 'compiles nested arrays' do
+      Destruct.show_code = true
+      # Destruct.optimize = false
+      Destruct.print_passes = true
+      # Destruct.print_np_transformations = true
       given_pattern [1, [2, [3, 4], 5], 6, 7]
       expect_success_on [1, [2, [3, 4], 5], 6, 7]
       expect_failure_on [1, [2, [3, 9], 5], 6, 7]

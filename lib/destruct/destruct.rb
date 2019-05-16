@@ -27,6 +27,8 @@ class Destruct
     end
   end
 
+  Destruct.optimize = true
+
   def self.match(pat, x, binding=nil)
     if pat.is_a?(Proc)
       pat = RuleSets::StandardPattern.transform(binding: binding, &pat)
