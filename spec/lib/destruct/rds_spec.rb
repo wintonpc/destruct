@@ -1,10 +1,14 @@
 require "rspec"
 require "destruct/expr_cache"
 require "destruct_ext"
+require "unparser"
 
 def define_syntax(name, &transformer)
   define_method(name) do |&block|
-    transformer.(Destruct::ExprCache.get(block))
+    expr_in = Destruct::ExprCache.get(block)
+    expr_out = transformer.(expr_in)
+    code = Unparser.unparse(expr_out)
+    eval(code, block.binding)
   end
 end
 
@@ -14,9 +18,9 @@ end
 
 describe "rds" do
   it "works" do
-    result = foo do
-      x + y
-    end
+    x = 1
+    y = 2
+    result = foo { x + y }
     puts result
   end
 end
