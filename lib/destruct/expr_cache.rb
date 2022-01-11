@@ -42,35 +42,36 @@ class Destruct
 
       ast, region = get_ast(Region.new(*p.source_region))
       candidate_nodes = find_proc(ast, region)
-      # prefer lambdas and procs over blocks
-      candidate_nodes = candidate_nodes.sort_by do |n|
-        n.children[0].type == :send && (n.children[0].children[1] == :lambda ||
-            n.children[0].children[1] == :proc) ? 0 : 1
-      end.map { |n| n.children[2] }
-
-      if !try_to_use
-        @exprs_by_proc[cache_key] =
-            if candidate_nodes.size > 1
-              candidate_nodes.reject { |n| contains_block?(n) }.first # hack to deal with more than one per line
-            else
-              candidate_nodes.first
-            end
-      else
-        tried_candidates = candidate_nodes.map do |n|
-          begin
-            try_to_use.(n)
-          rescue InvalidPattern => e
-            e
-          end
-        end
-        first_good_idx = tried_candidates.find_index { |x| !x.is_a?(InvalidPattern) }
-        if first_good_idx
-          @exprs_by_proc[cache_key] = candidate_nodes[first_good_idx]
-          tried_candidates[first_good_idx]
-        else
-          raise InvalidPattern.new(tried_candidates.last.pattern, Unparser.unparse(candidate_nodes.last))
-        end
-      end
+      candidate_nodes.find { |n| n.location.begin.line == region.begin_line && n.location.begin.column == region.begin_col }.children[2]
+      # # prefer lambdas and procs over blocks
+      # candidate_nodes = candidate_nodes.sort_by do |n|
+      #   n.children[0].type == :send && (n.children[0].children[1] == :lambda ||
+      #       n.children[0].children[1] == :proc) ? 0 : 1
+      # end.map { |n| n.children[2] }
+      #
+      # if !try_to_use
+      #   @exprs_by_proc[cache_key] =
+      #       if candidate_nodes.size > 1
+      #         candidate_nodes.reject { |n| contains_block?(n) }.first # hack to deal with more than one per line
+      #       else
+      #         candidate_nodes.first
+      #       end
+      # else
+      #   tried_candidates = candidate_nodes.map do |n|
+      #     begin
+      #       try_to_use.(n)
+      #     rescue InvalidPattern => e
+      #       e
+      #     end
+      #   end
+      #   first_good_idx = tried_candidates.find_index { |x| !x.is_a?(InvalidPattern) }
+      #   if first_good_idx
+      #     @exprs_by_proc[cache_key] = candidate_nodes[first_good_idx]
+      #     tried_candidates[first_good_idx]
+      #   else
+      #     raise InvalidPattern.new(tried_candidates.last.pattern, Unparser.unparse(candidate_nodes.last))
+      #   end
+      # end
     end
 
     private
@@ -86,7 +87,9 @@ class Destruct
     end
 
     def get_ast(region)
-      if in_repl(region.path)
+      if region.path == "$eval_snippet"
+        [Parser::CurrentRuby.parse($eval_snippet), region]
+      elsif in_repl(region.path)
         start_offset = -1
         old_stderr = $stderr
         begin

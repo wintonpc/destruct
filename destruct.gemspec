@@ -15,6 +15,7 @@ Gem::Specification.new do |s|
   s.add_dependency('activesupport', ['> 4.0.0'])
   s.add_dependency('parser')
   s.add_dependency('unparser')
+  s.add_dependency('binding_of_caller')
 
   s.extensions << 'ext/destruct_ext/extconf.rb'
   s.add_development_dependency 'rake-compiler', '~> 0'
