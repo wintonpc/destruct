@@ -47,7 +47,15 @@ define_syntax :foo do |_, x|
 end
 
 define_syntax :bar do |args|
-  quasisyntax { unsyntax { args } + 1 }
+  quasisyntax { unsyntax(datum_to_syntax(args[0])) + 1 }
+end
+
+def datum_to_syntax(x)
+  if x.is_a?(Integer)
+    Parser::AST::Node.new(:int, [x])
+  else
+    x
+  end
 end
 
 describe "rds" do
@@ -55,7 +63,7 @@ describe "rds" do
     x = 1
     y = 2
     expect(foo { x + y }).to be 3
-    # expect(bar 5).to be 6
+    expect(bar(5)).to be 6
   end
   it "syntax" do
     expect(unp(syntax{ a + 1 })).to eql "a + 1"
